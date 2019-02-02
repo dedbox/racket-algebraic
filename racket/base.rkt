@@ -125,11 +125,38 @@
 ;;; ----------------------------------------------------------------------------
 
 (module+ test
-  (require rackunit)
+  (require (for-syntax algebraic/racket/macro)
+           rackunit)
 
   (test-case "Numbers"
     (define fib
       (function
         [(n #:if (< n 2)) 1]
         [n (+ (fib (- n 1)) (fib (- n 2)))]))
-    (check equal? (map fib '(0 1 2 3 4 5 6)) '(1 1 2 3 5 8 13))))
+    (check equal? (map fib '(0 1 2 3 4 5 6)) '(1 1 2 3 5 8 13)))
+
+  (test-case "MSP f-power"
+    (define f-power
+      (function*
+        [(0 _) 1]
+        [(n x) (* x (f-power (- n 1) x))]))
+    (define f-power2 (curryr f-power 2))
+    (check-equal? (map f-power2 '(0 1 2 3 4 5 6)) '(1 2 4 8 16 32 64)))
+
+  (test-case "MSP m-power"
+    (define-syntax m-power
+      (macro*
+        [(0 _) 1]
+        [(1 x) x]
+        [(n x) (* x (m-power #,(- (var n) 1) x))]))
+    (define-syntax m-power3 (μ y (m-power 3 y)))
+    (check = (m-power3 2) 8))
+
+  (test-case "MSP q-power"
+    (define-syntax q-power
+      (macro*
+        [(0 _) 1]
+        [(1 x) x]
+        [(n x) '#,(macro-expand #`(* x (q-power #,(- (var n) 1) x)))]))
+    (define-syntax q-power3 (μ y #,(macro-expand #'(q-power 3 y))))
+    (check-equal? (q-power3 2) '(#%app * '2 '(#%app * '2 '2)))))
