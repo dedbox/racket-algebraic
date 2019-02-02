@@ -9,6 +9,7 @@
                      syntax/stx)
          algebraic/racket/macro
          racket/base
+         racket/contract/base
          racket/format
          racket/function
          racket/match
@@ -16,8 +17,13 @@
          syntax/parse
          syntax/parse/define)
 
-(provide (all-from-out racket/base)
-         data constructor? instance? function? φ phi function function*)
+(provide
+ (all-from-out racket/base)
+ data φ phi function function*
+ (contract-out
+  [constructor? predicate/c]
+  [instance? predicate/c]
+  [function? predicate/c]))
 
 ;;; Abstract Syntax
 

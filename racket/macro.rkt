@@ -6,11 +6,15 @@
                      syntax/parse
                      syntax/stx)
          racket/base
+         racket/contract/base
          racket/syntax
          syntax/parse)
 
-(provide (all-from-out racket/base syntax/parse)
-         μ mu macro macro* var macro-expand)
+(provide
+ (all-from-out racket/base syntax/parse)
+ μ mu macro macro* var
+ (contract-out
+  [macro-expand (-> syntax? syntax?)]))
 
 (begin-for-syntax
   (define (parse stx)
