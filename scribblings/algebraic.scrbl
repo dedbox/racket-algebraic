@@ -81,7 +81,7 @@ argument with exactly one clause.
 @example[
   (define inc (φ a (S a)))
   (define dec (φ (S b) b))
-  (values (inc 0) (dec (S 0)))
+  (values (function? inc) (inc 0) (dec (S 0)))
 ]
 
 The @racket[function] form creates a function of exactly one argument with at
@@ -100,12 +100,12 @@ with at least one clause.
   (add (num 3) (num 2))
 ]
 
-In particular, @racket[function*] clauses can have no arguments, or a varying
-number of arguments.
+Functions created by @racket[function*] can have clauses with no arguments,
+and the number of arguments for each clause can vary.
 
 @example[
-  (define arg-count (function* [() 0] [(_) 1] [(_ _) 2]))
-  (values (arg-count) (arg-count 9) (arg-count 8 7))
+  (define num-args (function* [() 0] [(_) 1] [(_ _) 2]))
+  (values (num-args) (num-args 9) (num-args 8 7))
 ]
 
 @subsection{Macros}
@@ -145,18 +145,19 @@ least one clause.
 @;             [q (in-list '(#t #f))])
 @;   (land #t #t))
 
-Macros can be used for multi-stage programming. From Taha's gentle
-introduction:
+Macros are designed to simplify mundane meta-programming tasks. Consider the
+following run-time implementation of the ``power'' function from
+@cite{Taha2004}:
 
 @example[
   (define f-power
     (function*
       [(0 _) 1]
       [(n x) (* x (f-power (- n 1) x))]))
-  (map (curry f-power 2) '(0 1 2 3 4 5 6))
+  (map (curry f-power 3) '(0 1 2 3 4 5 6))
 ]
 
-With the @racket[var] form, we can pre-compute specialize instances of
+We can use @racket[unsyntax] and the @racket[var] form to unroll instances of
 the power function at expansion time.
 
 @example[#:escape UNSYNTAX
@@ -165,10 +166,11 @@ the power function at expansion time.
       [(0 _) 1]
       [(1 x) x]
       [(n:nat x) (* x (m-power #,(- (var n) 1) x))]))
-  (m-power 3 2)
+  (define-syntax m-power3 (μ y (m-power 3 y)))
+  (map (φ x (m-power3 x)) '(0 1 2 3 4 5 6))
 ]
 
-With @racket[macro-expand], we can see what the macro will produce.
+With @racket[macro-expand], we can peek at the code produced by the macro.
 
 @example[#:escape UNSYNTAX
   (define-syntax q-power
@@ -179,9 +181,11 @@ With @racket[macro-expand], we can see what the macro will produce.
   (q-power 3 2)
 ]
 
+   @; [(n:nat x) #'#,(macro-expand #`(* x (q-power #,(- (var n) 1) x)))]))
+
 @; ------------------------------------------------------------------------------
 
-@section{Reference}
+@section{API Reference}
 
 @subsection[#:tag "ref-constructors"]{Constructors}
 
@@ -365,6 +369,12 @@ With @racket[macro-expand], we can see what the macro will produce.
 
 }
 
+@defproc[(function? [v any/c]) boolean?]{
+
+  Returns @racket[#t] if @var[v] is a @tech{function}.
+
+}
+
 @subsection[#:tag "ref-macros"]{Macros}
 
 @defmodule[algebraic/racket/macro]
@@ -506,3 +516,14 @@ The bindings documented in this section are provided by the
   expanded.
 
 }
+
+@; ------------------------------------------------------------------------------
+
+@bibliography[
+  @bib-entry[
+    #:key "Taha2004"
+    #:title "A gentle introduction to multi-stage programming"
+    #:author "Taha, Walid"
+    #:location @list{In @emph{Domain-Specific Program Generation} (pp 30-50). Springer, Berlin, Heidelberg, 2004}
+  ]
+]
