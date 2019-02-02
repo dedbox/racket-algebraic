@@ -1,4 +1,3 @@
-# algebraic
 **Algebraic structure for untyped Racket**
 [![Racket Package](https://img.shields.io/badge/raco%20pkg-algebraic-red.svg)](https://pkgd.racket-lang.org/pkgn/package/algebraic)
 [![Documentation](https://img.shields.io/badge/read-docs-blue.svg)](http://docs.racket-lang.org/algebraic/)
