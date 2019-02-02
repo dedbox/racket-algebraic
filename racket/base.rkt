@@ -55,28 +55,30 @@
 (struct fun (matcher ps-stx ts-stx)
   #:property prop:procedure (λ (f . args) (apply (fun-matcher f) args))
   #:methods gen:custom-write
-  [(define (write-proc f port mode) (print-fun f port mode))])
+  [(define (write-proc f port mode)
+     (define (f-clause ps ts)
+       `[,(car ps) ,@ts])
+     (define (f*-clause ps ts)
+       `[,ps ,@ts])
+     (define (lone-clause? pss)
+       (null? (cdr pss)))
+     (define (lone-patt? ps)
+       (and (not (null? ps)) (null? (cdr ps))))
+     (case mode
+       [(#t #f) (write-string "#<function>" port)]
+       [else
+        (let* ([pss (syntax->list (fun-ps-stx f))]
+               [tss (syntax->list (fun-ts-stx f))])
+          (print
+           (cond
+             [(and (lone-clause? pss) (lone-patt? (car pss)))
+              `(φ ,(car pss) ,@(car tss))]
+             [(andmap lone-patt? pss #`(function ,@(map f-clause pss tss)))]
+             [else `(function* ,@(map f*-clause pss tss))])))]))])
 
 (define constructor? con?)
 (define instance? ins?)
 (define function? fun?)
-
-;;; Printer
-
-(define ((print-obj short long get-ps get-ts) o port mode)
-  (define (clause ps ts)
-    `[,(if (and (not (null? ps)) (null? (cdr ps))) (car ps) ps) ,@ts])
-  (case mode
-    [(#t #f) (write-string (format "#<~a>" long) port)]
-    [else (let ([clauses (map clause
-                              (syntax->datum (get-ps o))
-                              (syntax->datum (get-ts o)))])
-            (print (if (null? (cdr clauses))
-                       `(,short ,@(car clauses))
-                       `(,long ,@clauses))
-                   port mode))]))
-
-(define print-fun (print-obj 'φ 'function fun-ps-stx fun-ts-stx))
 
 ;;; Data
 
