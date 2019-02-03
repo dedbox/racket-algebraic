@@ -210,9 +210,9 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 @subsection[#:tag "ref-functions"]{Functions}
 
 @deftogether[(
-@defform[(phi patt body ...+)]
+@defform[(φ patt body ...+)]
 @defform/subs[
-  (φ patt body ...+)
+  (phi patt body ...+)
   [(patt literal
             wildcard
             variable
@@ -384,9 +384,9 @@ The bindings documented in this section are provided by the
 @racketmodname[algebraic/racket/base].
 
 @deftogether[(
-@defform[(mu macro-patt body ...+)]
+@defform[(μ macro-patt body ...+)]
 @defform/subs[
-  (μ macro-patt directive ... body ...+)
+  (mu macro-patt directive ... body ...+)
   [(macro-patt literal
                wildcard
                variable
@@ -483,7 +483,7 @@ The bindings documented in this section are provided by the
       (values
        (m-fib 0) (m-fib 1) (m-fib 2)
        (m-fib 3) (m-fib 4) (m-fib 5) (m-fib 6))
-      (eval:error (let ([a 6]) (m-fib a)))
+      (eval:error (m-fib a))
     ]
 
   }

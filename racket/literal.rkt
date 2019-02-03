@@ -2,9 +2,11 @@
 
 (require syntax/parse)
 
-(provide racket-literal)
+(provide host-literal)
 
-(define-syntax-class racket-literal
+(define-syntax-class host-literal
+  #:description "literal"
+  #:attributes ()
   [pattern :boolean]
   [pattern :char]
   [pattern :number]

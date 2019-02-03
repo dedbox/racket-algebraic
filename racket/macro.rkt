@@ -14,52 +14,97 @@
          μ mu macro macro* var
          (contract-out [macro-expand (-> syntax? syntax?)]))
 
-(define-for-syntax parse
-  (syntax-parser
-    [ℓ:racket-literal #'ℓ]
-    [(~literal ...) #'(... ...)]
-    [x:id (let* ([name (symbol->string (syntax->datum #'x))]
-                 [first-char (string-ref name 0)])
-            (cond
-              [(char=? first-char #\_) #'_]
-              [(char-lower-case? first-char) this-syntax]
-              [else #'(~literal x)]))]
-    [(p ps ...) #`(#,@(stx-map parse #'(p ps ...)))]))
+(begin-for-syntax
+  (define (first-char id-stx)
+    (string-ref (symbol->string (syntax->datum id-stx)) 0))
 
-(define-for-syntax simplify
-  (syntax-parser
-    [(t) #'t]
-    [(t ts ...+) #'(begin t ts ...)]))
+  (define-syntax-class wildcard
+    #:description "wildcard macro pattern"
+    #:attributes (parse-pat)
+    (pattern x:id #:when (char=? (first-char #'x) #\_) #:attr parse-pat #'_))
 
-(define-simple-macro (macro* [(p ...) (~alt (~seq #:with with-p with-stx)
-                                            (~seq #:when condition))
-                                      ... t ...+] ...+)
-  #:with ((with-p* ...) ...) (stx-map (curry stx-map parse) #'((with-p ...) ...))
-  #:with ((p* ...) ...) (stx-map (curry stx-map parse) #'((p ...) ...))
+  (define-syntax-class variable
+    #:description "macro pattern variable"
+    #:attributes (parse-pat)
+    (pattern x:id #:when (char-lower-case? (first-char #'x)) #:attr parse-pat #'x))
+
+  (define-syntax-class id-literal
+    #:description "identifier macro pattern"
+    #:attributes (parse-pat)
+    (pattern x:id #:attr parse-pat #'(~literal x)))
+
+  (define-syntax-class sequence
+    #:description #f
+    #:attributes (parse-pat)
+    (pattern (p:macro-patt ...) #:attr parse-pat #'(p.parse-pat ...)))
+
+  (define-syntax-class macro-patt
+    #:description "macro pattern"
+    #:attributes (parse-pat)
+    (pattern ℓ:host-literal #:attr parse-pat #'ℓ)
+    (pattern w:wildcard #:attr parse-pat #'w.parse-pat)
+    (pattern x:variable #:attr parse-pat #'x.parse-pat)
+    (pattern x:id-literal #:attr parse-pat #'x.parse-pat)
+    (pattern ps:sequence #:attr parse-pat #'ps.parse-pat))
+
+  (define parse
+    (syntax-parser
+      [ℓ:host-literal #'ℓ]
+      [(~literal ...) #'(... ...)]
+      [x:id (let* ([name (symbol->string (syntax->datum #'x))]
+                   [first-char (string-ref name 0)])
+              (cond
+                [(char=? first-char #\_) #'_]
+                [(char-lower-case? first-char) this-syntax]
+                [else #'(~literal x)]))]
+      [(p ps ...) #`(#,@(stx-map parse #'(p ps ...)))]))
+
+  (define simplify
+    (syntax-parser
+      [(t) #'t]
+      [(t ts ...+) #'(begin t ts ...)])))
+
+(define-simple-macro (macro* [(p:macro-patt ...)
+                              (~alt (~seq #:with with-p:macro-patt with-stx:expr)
+                                    (~seq #:when condition:expr)) ...
+                              t:expr ...+] ...+)
   #:with (t* ...) (stx-map simplify #'((t ...) ...))
   (syntax-parser
-    [(_ p* ...) (~? (~@ #:with with-p* #`with-stx)) ...
-                (~? (~@ #:when condition)) ...
-                #`t*]
+    [(_ p.parse-pat ...) (~? (~@ #:with with-p.parse-pat #`with-stx)) ...
+                         (~? (~@ #:when condition)) ...
+                         #`t*]
     ...))
 
-(define-simple-macro (macro [p (~alt (~seq #:with with-p with-stx)
-                                     (~seq #:when condition)) ... t ...+] ...+)
-  (macro* [(p) (~? (~@ #:with with-p with-stx)) ...
-               (~? (~@ #:when condition)) ...
-               t ...] ...))
+(define-simple-macro (macro [p:macro-patt
+                             (~alt (~seq #:with with-p:macro-patt with-stx:expr)
+                                   (~seq #:when condition:expr)) ...
+                             t:expr ...+] ...+)
+  #:with (t* ...) (stx-map simplify #'((t ...) ...))
+  (syntax-parser
+    [(_ p.parse-pat) (~? (~@ #:with with-p.parse-pat #`with-stx)) ...
+                     (~? (~@ #:when condition)) ...
+                     #`t*]
+    ...))
 
-(define-simple-macro (mu p (~alt (~seq #:with with-p with-stx)
-                                 (~seq #:when condition)) ... t ...+)
-  (macro* [(p) (~? (~@ #:with with-p with-stx)) ...
-               (~? (~@ #:when condition)) ...
-               t ...]))
+(define-simple-macro (mu p:macro-patt
+                       (~alt (~seq #:with with-p:macro-patt with-stx:expr)
+                             (~seq #:when condition:expr)) ...
+                       t:expr ...+)
+  #:with t* (simplify #'(t ...))
+  (syntax-parser
+    [(_ p.parse-pat) (~? (~@ #:with with-p.parse-pat #`with-stx)) ...
+                     (~? (~@ #:when condition)) ...
+                     #`t*]))
 
-(define-simple-macro (μ p (~alt (~seq #:with with-p with-stx)
-                                (~seq #:when condition)) ... t ...+)
-  (macro* [(p) (~? (~@ #:with with-p with-stx)) ...
-               (~? (~@ #:when condition)) ...
-               t ...]))
+(define-simple-macro (μ p:macro-patt
+                       (~alt (~seq #:with with-p:macro-patt with-stx:expr)
+                             (~seq #:when condition:expr)) ...
+                       t ...+)
+  #:with t* (simplify #'(t ...))
+  (syntax-parser
+    [(_ p.parse-pat) (~? (~@ #:with with-p.parse-pat #`with-stx)) ...
+                     (~? (~@ #:when condition)) ...
+                     #`t*]))
 
 (define-simple-macro (var id)
   (syntax-local-eval #'id))

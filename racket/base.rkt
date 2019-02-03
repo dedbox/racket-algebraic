@@ -2,15 +2,14 @@
 
 (require (for-syntax algebraic/racket/literal
                      racket/base
-                     racket/function
                      racket/match
-                     racket/syntax
-                     syntax/stx)
+                     racket/syntax)
          racket/base
          racket/contract/base
          racket/format
          racket/function
          racket/match
+         racket/string
          syntax/parse/define)
 
 (provide
@@ -21,16 +20,7 @@
   [instance? predicate/c]
   [function? predicate/c]))
 
-;;; Abstract Syntax
-
-(begin-for-syntax
-  (struct scon (δ)
-    #:transparent
-    #:property prop:procedure
-    (λ (c stx)
-      (syntax-parse stx
-        [(_ v ...) #`(ins (con '#,(scon-δ c)) (list v ...))]
-        [_ #`(con '#,(scon-δ c))]))))
+;;; Constructors
 
 (struct con (δ)
   #:transparent
@@ -48,33 +38,8 @@
        [(#t #f) (write `(,(con-δ (ins-con i)) ,@(ins-vs i)) port)]
        [else (display `(,(con-δ (ins-con i)) ,@(map ~v (ins-vs i))) port)]))])
 
-(struct fun (matcher ps-stx ts-stx)
-  #:property prop:procedure (λ (f . args) (apply (fun-matcher f) args))
-  #:methods gen:custom-write
-  [(define (write-proc f port mode)
-     (define (f-clause ps ts)
-       `[,(car ps) ,@ts])
-     (define (f*-clause ps ts)
-       `[,ps ,@ts])
-     (define (lone-clause? pss)
-       (null? (cdr pss)))
-     (define (lone-patt? ps)
-       (and (not (null? ps)) (null? (cdr ps))))
-     (case mode
-       [(#t #f) (write-string "#<function>" port)]
-       [else
-        (let* ([pss (syntax->list (fun-ps-stx f))]
-               [tss (syntax->list (fun-ts-stx f))])
-          (print
-           (cond
-             [(and (lone-clause? pss) (lone-patt? (car pss)))
-              `(φ ,(car pss) ,@(car tss))]
-             [(andmap lone-patt? pss #`(function ,@(map f-clause pss tss)))]
-             [else `(function* ,@(map f*-clause pss tss))])))]))])
-
 (define constructor? con?)
 (define instance? ins?)
-(define function? fun?)
 
 ;;; Data
 
@@ -83,41 +48,97 @@
 
 ;;; Functions
 
-(define-match-expander match-if
-  (syntax-parser
-    [(_ p t) #'(and p (app (match-lambda [p t] [_ #f]) (not #f)))]))
-
 (begin-for-syntax
-  (define (pmatch stx)
-    (syntax-parse stx
-      [ℓ:racket-literal #'ℓ]
-      [x:id
-       (let* ([name (symbol->string (syntax->datum #'x))]
-              [first-char (string-ref name 0)])
-         (cond
-           [(char=? first-char #\_) #'_]
-           [(char-lower-case? first-char) #'x]
-           [(and (identifier-transformer-binding #'x)
-                 (scon? (syntax-local-eval #'x))) #'(con 'x)]
-           [(identifier-binding #'x) #'(app (λ (y) (eq? y x)) #t)]))]
-      [(p #:if t) #'(match-if p t)]
-      [(x:id ps ...)
-       #`(ins #,(pmatch #'x) (list #,@(stx-map pmatch #'(ps ...))))])))
+  (define (first-char id-stx)
+    (string-ref (symbol->string (syntax->datum id-stx)) 0))
 
-(define-simple-macro (function* [(p ...) t ...+] ...+)
-  #:with ((p* ...) ...) (stx-map (curry stx-map pmatch) #'((p ...) ...))
-  (fun (λ args (match args [(list p* ...) t ...] ...))
-       #'((p ...) ...)
-       #'((t ...) ...)))
+  (define-syntax-class wildcard
+    #:description "wildcard pattern"
+    #:attributes (match-pat)
+    (pattern x:id #:when (char=? (first-char #'x) #\_) #:attr match-pat #'_))
 
-(define-simple-macro (function [p t ...+] ...+)
-  (function* [(p) t ...] ...))
+  (define-syntax-class variable
+    #:description "pattern variable"
+    #:attributes (match-pat)
+    (pattern x:id #:when (char-lower-case? (first-char #'x)) #:attr match-pat #'x))
 
-(define-simple-macro (phi p t ...+)
-  (function* [(p) t ...]))
+  (struct scon (δ)
+    #:transparent
+    #:property prop:procedure
+    (λ (c stx)
+      (syntax-parse stx
+        [(_ v ...) #`(ins (con '#,(scon-δ c)) (list v ...))]
+        [_ #`(con '#,(scon-δ c))])))
 
-(define-simple-macro (φ p t ...+)
-  (function* [(p) t ...]))
+  (define-syntax-class con-id
+    #:description "constructor pattern"
+    #:attributes (match-pat)
+    (pattern δ:id #:when (and (identifier-transformer-binding #'δ)
+                              (scon? (syntax-local-eval #'δ)))
+             #:attr match-pat #'(con 'δ)))
+
+  (define-syntax-class reference
+    #:description "reference pattern"
+    #:attributes (match-pat)
+    (pattern a:id #:when (identifier-binding #'a)
+             #:attr match-pat #'(app (λ (b) (eq? b a)) #t)))
+
+  (define-syntax-class instance
+    #:description "instance pattern"
+    #:attributes (match-pat)
+    (pattern (δ:con-id p:patt ...)
+             #:attr match-pat #'(ins δ.match-pat (list p.match-pat ...))))
+
+  (define-syntax-class conditional
+    #:description "conditional pattern"
+    #:attributes (match-pat)
+    (pattern (p:patt #:if t:expr) #:attr match-pat #'(if-pat p t)))
+
+  (define-syntax-class patt
+    #:description "pattern"
+    #:opaque
+    #:attributes (match-pat)
+    (pattern ℓ:host-literal #:attr match-pat #'ℓ)
+    (pattern w:wildcard #:attr match-pat #'w.match-pat)
+    (pattern x:variable #:attr match-pat #'x.match-pat)
+    (pattern δ:con-id #:attr match-pat #'δ.match-pat)
+    (pattern v:reference #:attr match-pat #'v.match-pat)
+    (pattern c:conditional #:attr match-pat #'c.match-pat)
+    (pattern i:instance #:attr match-pat #'i.match-pat)))
+
+(define-match-expander if-pat
+  (syntax-parser
+    [(_ p:patt t:expr)
+     #'(and p.match-pat (app (match-lambda [p.match-pat t]) (not #f)))]))
+
+(struct fun (matcher)
+  #:reflection-name 'function
+  #:property prop:procedure (λ (f . args) (apply (fun-matcher f) args)))
+
+(define function? fun?)
+
+(define-simple-macro (function* [(p:patt ...) t:expr ...+] ...+)
+  (fun (λ args (match args
+                 [(list p.match-pat ...) t ...]
+                 ...
+                 [_ (error 'function* "no matching clause for (~a)"
+                           (string-join (map ~v args)))]))))
+
+(define-simple-macro (function [p:patt t:expr ...+] ...+)
+  (fun (λ (arg) (match arg
+                  [p.match-pat t ...]
+                  ...
+                  [_ (error 'function "no matching clause for ~v" arg)]))))
+
+(define-simple-macro (phi p:patt t:expr ...+)
+  (fun (λ (arg) (match arg
+                  [p.match-pat t ...]
+                  [_ (error 'phi "no matching clause for ~v" arg)]))))
+
+(define-simple-macro (φ p:patt t:expr ...+)
+  (fun (λ (arg) (match arg
+                  [p.match-pat t ...]
+                  [_ (error 'φ "no matching clause for ~v" arg)]))))
 
 ;;; ----------------------------------------------------------------------------
 
