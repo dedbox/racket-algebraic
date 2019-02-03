@@ -191,7 +191,7 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
 @defform[(data id ...+)]{
 
-  Declares each @var[id] as a fresh @tech{constructor}.
+  Binds each @var[id] to a fresh @tech{constructor}.
 
 }
 
@@ -423,7 +423,7 @@ The bindings documented in this section are provided by the
 
   @specsubform[id-literal]{
     
-    A @rtech{bound} identifier that is not a @var[wildcard] or @var[variable].
+    An identifier that is not a @var[wildcard] or @var[variable].
 
     Matches an identifier literal.
 

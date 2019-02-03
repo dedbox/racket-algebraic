@@ -5,16 +5,12 @@
                      racket/function
                      racket/match
                      racket/syntax
-                     syntax/parse/define
                      syntax/stx)
-         algebraic/racket/macro
          racket/base
          racket/contract/base
          racket/format
          racket/function
          racket/match
-         racket/string
-         syntax/parse
          syntax/parse/define)
 
 (provide
@@ -88,9 +84,8 @@
 ;;; Functions
 
 (define-match-expander match-if
-  (λ (stx)
-    (syntax-parse stx
-      [(_ p t) #'(and p (app (match-lambda [p t] [_ #f]) (not #f)))])))
+  (syntax-parser
+    [(_ p t) #'(and p (app (match-lambda [p t] [_ #f]) (not #f)))]))
 
 (begin-for-syntax
   (define (pmatch stx)
