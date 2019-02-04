@@ -26,7 +26,7 @@
 @(define-syntax-rule (example expr ...)
    @examples[#:eval algebraic-eval #:label #f expr ...])
 
-@; ------------------------------------------------------------------------------
+@; #############################################################################
 
 This package extends the @racketmodname[racket/base] language with first-class
 algebraic data constructors, functions, and macros with pattern-based
@@ -34,7 +34,11 @@ destructuring.
 
 @defmodulelang[algebraic/racket/base]
 
+@; =============================================================================
+
 @section{Overview}
+
+@; -----------------------------------------------------------------------------
 
 @subsection{Constructors}
 
@@ -68,6 +72,8 @@ a pair of constructors or a pair of instances are @racket[equal?] iff they are
 
 The arguments of an instance can be accessed with the destructuring patterns
 of an algebraic function or macro.
+
+@; -----------------------------------------------------------------------------
 
 @subsection{Functions}
 
@@ -107,6 +113,8 @@ and the number of arguments for each clause can vary.
   (define num-args (function* [() 0] [(_) 1] [(_ _) 2]))
   (values (num-args) (num-args 9) (num-args 8 7))
 ]
+
+@; -----------------------------------------------------------------------------
 
 @subsection{Macros}
 
@@ -183,9 +191,11 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
    @; [(n:nat x) #'#,(macro-expand #`(* x (q-power #,(- (var n) 1) x)))]))
 
-@; ------------------------------------------------------------------------------
+@; =============================================================================
 
 @section{API Reference}
+
+@; -----------------------------------------------------------------------------
 
 @subsection[#:tag "ref-constructors"]{Constructors}
 
@@ -207,6 +217,8 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
 }
 
+@; -----------------------------------------------------------------------------
+
 @subsection[#:tag "ref-functions"]{Functions}
 
 @deftogether[(
@@ -214,17 +226,26 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 @defform/subs[
   (phi patt body ...+)
   [(patt literal
-            wildcard
-            variable
-            reference
-            con-id
-            (con-id patt ...)
-            (patt #:if cond-expr))
+         wildcard
+         variable
+         reference
+         constructor-id
+         (constructor-id patt ...)
+         (patt #:if cond-expr)
+         regexp
+         (regexp patt ...+)
+         (patt . patt)
+         #,(tt "#(" (var patt) ")")
+         #,(tt "#&" (var patt))
+         #,(tt "#hash([" (var key) " . " (var patt) "] ...)")
+         (void)
+         (struct-id [field patt] ...))
    (literal boolean
             character
             number
             string
-            bytes)]
+            bytes
+            (#,(tt "quote") datum))]
 ])]{
 
   Creates a @tech{function} of one argument with one clause.
@@ -234,14 +255,13 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
   @specsubform[literal]{
 
     A Racket literal value: @racket[#t], @racket[#f], @var[character],
-    @var[number], @var[string], or @var[bytes].
+    @var[number], @var[string], @var[bytes], or @tt{(quote @var[datum])}.
 
     Matches an @racket[equal?] constant.
 
     Example:
     @example[
       ((φ "one" 1) "one")
-      (eval:error ((φ "one" 1) "two"))
     ]
 
   }
@@ -282,7 +302,7 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
   @specsubform[reference]{
 
     A @rtech{bound} identifier that is not a @var[wildcard], @var[variable],
-    or @var[con-id].
+    or @var[constructor-id].
 
     Matches the bound value.
 
@@ -294,9 +314,9 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
   }
 
-  @specsubform[con-id]{
+  @specsubform[constructor-id]{
 
-    Matches a @tech{constructor} named @var[con-id].
+    Matches a @tech{constructor} named @var[constructor-id].
 
     Example:
     @example[
@@ -305,10 +325,11 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
   }
 
-  @specsubform[(con-id patt ...)]{
+  @specsubform[(constructor-id patt ...)]{
 
-    Matches an @tech{instance} of the @tech{constructor} named @var[con-id],
-    where each argument in the instance matches the corresponding @var[patt].
+    Matches an @tech{instance} of the @tech{constructor} named
+    @var[constructor-id], where each argument in the instance matches the
+    corresponding @var[patt].
 
     Example:
     @example[
@@ -329,6 +350,121 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
     @example[
       ((φ (n #:if (> n 0)) '+++) 5)
       (eval:error ((φ (n #:if (> n 0)) '+++) -3))
+    ]
+
+  }
+
+  @specsubform[regexp]{
+
+    A @deftech{regexp} pattern.
+
+    Matches @var[regexp] (a @rtech{regexp value} or byte-@rtech{regexp-value})
+    to a portion of its argument (a string, byte string, path, or input port)
+    with @racket[regexp-match].
+
+    Example:
+    @example[
+      (values
+       ((φ #rx"x+y+" 1) "--xxyy++")
+       ((φ #rx"a+b+" 2) (open-input-string "--aabb++")))
+    ]
+
+  }
+
+  @specsubform[(regexp patt ...+)]{
+
+    A @deftech{capturing regexp} pattern.
+
+    Matches @var[regexp] against its argument, then matches @var[patt]s
+    against the results.
+
+    Example:
+    @example[
+      (values
+       ((φ (#rx"x+y+" xy) xy) "--xxyy++")
+       ((φ (#rx"(a+)(b+)" as bs) (list as bs)) "--aabb++"))
+    ]
+
+  }
+
+  @specsubform[(patt . patt)]{
+
+    A @deftech{pair} pattern.
+
+    Matches a @rtech{pair} value.
+
+    Example:
+    @example[
+      ((φ (a . b) (list a b)) '(1))
+    ]
+
+  }
+
+  @specsubform[#,(tt "#(" (var patt) " ...)")]{
+
+    A @deftech{vector} pattern.
+
+    Matches a @rtech{vector} value.
+
+    Example:
+    @example[
+      ((φ #(a b c) (+ a b c)) (vector 1 2 3))
+    ]
+  }
+
+  @specsubform[#,(tt "#&" (var patt))]{
+
+    A @deftech{box} pattern.
+
+    Matches a @rtech{box} value.
+
+    Example:
+    @example[
+      ((φ #&x x) (box 1))
+    ]
+
+  }
+
+  @specsubform[#,(tt "#hash([" (var key) " . " (var patt) "] ...)")]{
+
+    A @deftech{hash} pattern.
+
+    Matches against a @rtech{hash table}'s key-value pairs, where @var[key] is
+    a bare identifier or a @var[literal]. Any key-value pair of the hash table
+    may be omitted, and such pairs can occur in any order.
+
+    Example:
+    @example[
+      ((φ #hash([x . a] ["y" . b]) (list a b))
+       (hash "y" 1 #t 2 'x 3))
+    ]
+
+  }
+
+  @specsubform[(void)]{
+
+    A @deftech{void} pattern.
+
+    Matches a @seclink["void" #:doc '(lib
+    "scribblings/reference/reference.scrbl")]{void} value.
+  }
+
+  @specsubform[(struct-id [field patt] ...)]{
+
+    A @deftech{struct} pattern.
+
+    Matches an instance of a structure type named @var[struct-id], where the
+    field @var[field] in the instance matches the corresponding @var[patt].
+    Any field of @var[struct-id] may be omitted, and such fields can occur in
+    any order.
+
+    Example:
+    @example[
+      (struct tree (val left right))
+      ((φ (tree [val a]
+                [left (tree [right #f] [val b])])
+         (list a b))
+       (tree 0 (tree 1 #f #f) #f))
     ]
 
   }
@@ -374,6 +510,8 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
   Returns @racket[#t] if @var[v] is a @tech{function}.
 
 }
+
+@; -----------------------------------------------------------------------------
 
 @subsection[#:tag "ref-macros"]{Macros}
 
@@ -517,7 +655,7 @@ The bindings documented in this section are provided by the
 
 }
 
-@; ------------------------------------------------------------------------------
+@; =============================================================================
 
 @bibliography[
   @bib-entry[

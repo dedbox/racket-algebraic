@@ -3,7 +3,8 @@
 (require (for-syntax algebraic/racket/literal
                      racket/base
                      racket/match
-                     racket/syntax)
+                     racket/syntax
+                     syntax/stx)
          racket/base
          racket/contract/base
          racket/format
@@ -94,6 +95,72 @@
     #:attributes (match-pat)
     (pattern (p:patt #:if t:expr) #:attr match-pat #'(if-pat p t)))
 
+  (define-syntax-class regexp
+    #:description "regex pattern"
+    #:attributes (match-pat)
+    (pattern x:expr
+             #:when (regexp? (syntax->datum #'x))
+             #:attr match-pat
+             #'(app (λ (input) (regexp-match (syntax->datum #'x) input))
+                    (not #f)))
+    (pattern (x:expr p:patt ...+)
+             #:when (regexp? (syntax->datum #'x))
+             #:attr match-pat
+             #'(app (λ (input) (regexp-match (syntax->datum #'x) input))
+                    (or (? (λ (vs) (null? (cdr vs)))
+                           (list p.match-pat ...))
+                        (list _ p.match-pat ...)))))
+
+  (define-syntax-class pair
+    #:description "pair pattern"
+    #:attributes (match-pat)
+    (pattern (p1:patt . p2:patt)
+             #:attr match-pat #'(cons p1.match-pat p2.match-pat)))
+
+  (define-syntax-class vector
+    #:description "vector pattern"
+    #:attributes (match-pat)
+    (pattern x:expr #:when (vector? (syntax->datum #'x))
+             #:with (p:patt ...)
+             (map (λ (v) (datum->syntax this-syntax v this-syntax))
+                  (vector->list (syntax->datum #'x)))
+             #:attr match-pat #'(vector p.match-pat ...)))
+
+  (define-syntax-class box
+    #:description "box pattern"
+    #:attributes (match-pat)
+    (pattern x:expr #:when (box? (syntax->datum #'x))
+             #:with p:patt
+             (datum->syntax this-syntax (unbox (syntax->datum #'x)) this-syntax)
+             #:attr match-pat #'(box p.match-pat)))
+
+  (define-syntax-class key
+    #:description #f
+    #:attributes (match-pat)
+    (pattern k:id #:attr match-pat #''k)
+    (pattern match-pat))
+
+  (define-syntax-class hash
+    #:description "hash pattern"
+    #:attributes (match-pat)
+    (pattern x:expr #:when (hash? (syntax->datum #'x))
+             #:with (k:key ...) (hash-keys (syntax->datum #'x))
+             #:with (v:patt ...) (hash-values (syntax-e #'x))
+             #:attr match-pat
+             #'(hash-table (k.match-pat v.match-pat) ... (_ _) (... ...))))
+
+  (define-syntax-class void
+    #:description "void pattern"
+    #:attributes (match-pat)
+    #:literals (void)
+    (pattern (void) #:attr match-pat #'(? void?)))
+
+  (define-syntax-class struct
+    #:description "struct pattern"
+    #:attributes (match-pat)
+    (pattern (struct-id:id [f:id p:patt] ...)
+             #:attr match-pat #'(struct* struct-id ([f p.match-pat] ...))))
+
   (define-syntax-class patt
     #:description "pattern"
     #:opaque
@@ -104,7 +171,14 @@
     (pattern δ:con-id #:attr match-pat #'δ.match-pat)
     (pattern v:reference #:attr match-pat #'v.match-pat)
     (pattern c:conditional #:attr match-pat #'c.match-pat)
-    (pattern i:instance #:attr match-pat #'i.match-pat)))
+    (pattern i:instance #:attr match-pat #'i.match-pat)
+    (pattern r:regexp #:attr match-pat #'r.match-pat)
+    (pattern p:pair #:attr match-pat #'p.match-pat)
+    (pattern v:vector #:attr match-pat #'v.match-pat)
+    (pattern b:box #:attr match-pat #'b.match-pat)
+    (pattern h:hash #:attr match-pat #'h.match-pat)
+    (pattern v:void #:attr match-pat #'v.match-pat)
+    (pattern s:struct #:attr match-pat #'s.match-pat)))
 
 (define-match-expander if-pat
   (syntax-parser
