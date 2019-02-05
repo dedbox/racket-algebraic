@@ -196,9 +196,15 @@
 
 (define function? fun?)
 
-(define-simple-macro (function* [(p:patt ...) ifs:maybe-if ... t:expr ...+] ...+)
+(define-simple-macro (function* [(~or (p:patt ...)
+                                      (p:patt ...+ . rest-p:patt)
+                                      rest-p:patt)
+                                 ifs:maybe-if ... t:expr ...+] ...+)
   (fun (λ args (match args
-                 [(list p.match-pat ...) (~? (~@ #:when (and ifs.e ...))) t ...]
+                 [(~? (~@ (list-rest p.match-pat ... rest-p.match-pat))
+                      (~? (~@ (list p.match-pat ...))
+                          (~@ (list-rest rest-p.match-pat))))
+                  (~? (~@ #:when (and ifs.e ...))) t ...]
                  ...
                  [_ (error 'function* "no matching clause for (~a)"
                            (string-join (map ~v args)))]))))

@@ -502,21 +502,61 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
 }
 
-@defform[(function* [(patt ...) body ...+] ...+)]{
+@defform/subs[
+  (function* [formals body ...+] ...+)
+  [(formals (patt ...)
+            (patt ...+ . rest-patt)
+            rest-patt)]
+]{
 
   Creates a @tech{function} of any number of arguments with at least one
   clause. When multiple clauses are given, they are attempted in the order
-  specified.
+  specified. The @var[formals] determine the number of arguments.
 
-  Example:
-  @example[
-    (define fact
-      (function*
-        [(n) (fact n 1)]
-        [(0 a) a]
-        [(n a) (fact (- n 1) (* a n))]))
-    (map fact '(0 1 2 3 4 5 6))
-  ]
+  A @var[formals] has one of the following forms:
+
+  @specsubform[(patt ...)]{
+
+    The function accepts as many argument values as the number of @var[patt]s.
+    Each @var[patt] is associated with an argument value by position.
+
+    Example:
+    @example[
+      (define fact
+        (function*
+          [(n) (fact n 1)]
+          [(0 a) a]
+          [(n a) (fact (- n 1) (* a n))]))
+      (map fact '(0 1 2 3 4 5 6))
+    ]
+
+  }
+
+  @specsubform[(patt ...+ . rest-patt)]{
+
+    The function accepts at least as many arguments arguments as the number of
+    @var[patt]s. When the function is applied, the @var[patt]s are associated
+    with argument values by position, and all leftover arguments are placed
+    into a list that is associated to @var[rest-id].
+
+    Example:
+    @example[
+      ((function* [(x y . zs) (list x y zs)]) 1 2 3 4)
+    ]
+
+  }
+
+  @specsubform[rest-patt]{
+
+    The function accepts any number of arguments and places them into a list
+    that is associated with @var[rest-patt].
+
+    Example:
+    @example[
+      ((function* [xs (reverse xs)]) 1 2 3 4)
+    ]
+
+  }
 
 }
 
