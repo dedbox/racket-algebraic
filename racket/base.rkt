@@ -178,7 +178,12 @@
     (pattern b:box #:attr match-pat #'b.match-pat)
     (pattern h:hash #:attr match-pat #'h.match-pat)
     (pattern v:void #:attr match-pat #'v.match-pat)
-    (pattern s:struct #:attr match-pat #'s.match-pat)))
+    (pattern s:struct #:attr match-pat #'s.match-pat))
+
+  (define-splicing-syntax-class maybe-if
+    #:description #f
+    #:attributes (e)
+    (pattern (~seq #:if e:expr))))
 
 (define-match-expander if-pat
   (syntax-parser
@@ -191,27 +196,28 @@
 
 (define function? fun?)
 
-(define-simple-macro (function* [(p:patt ...) t:expr ...+] ...+)
+(define-simple-macro (function* [(p:patt ...) ifs:maybe-if ... t:expr ...+] ...+)
   (fun (λ args (match args
-                 [(list p.match-pat ...) t ...]
+                 [(list p.match-pat ...) (~? (~@ #:when (and ifs.e ...))) t ...]
                  ...
                  [_ (error 'function* "no matching clause for (~a)"
                            (string-join (map ~v args)))]))))
 
-(define-simple-macro (function [p:patt t:expr ...+] ...+)
+(define-simple-macro (function [p:patt ifs:maybe-if ... t:expr ...+] ...+)
   (fun (λ (arg) (match arg
-                  [p.match-pat t ...]
+                  [p.match-pat (~? (~@ #:when (and ifs.e ...))) t ...]
                   ...
                   [_ (error 'function "no matching clause for ~v" arg)]))))
 
-(define-simple-macro (phi p:patt t:expr ...+)
+(define-simple-macro (phi p:patt ifs:maybe-if ... t:expr ...+)
   (fun (λ (arg) (match arg
-                  [p.match-pat t ...]
+                  [p.match-pat (~? (~@ #:when (and ifs.e ...)))
+                               t ...]
                   [_ (error 'phi "no matching clause for ~v" arg)]))))
 
-(define-simple-macro (φ p:patt t:expr ...+)
+(define-simple-macro (φ p:patt ifs:maybe-if ... t:expr ...+)
   (fun (λ (arg) (match arg
-                  [p.match-pat t ...]
+                  [p.match-pat (~? (~@ #:when (and ifs.e ...))) t ...]
                   [_ (error 'φ "no matching clause for ~v" arg)]))))
 
 ;;; ----------------------------------------------------------------------------

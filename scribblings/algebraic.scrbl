@@ -222,7 +222,7 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 @subsection[#:tag "ref-functions"]{Functions}
 
 @deftogether[(
-@defform[(φ patt body ...+)]
+@defform[(φ patt maybe-if ... body ...+)]
 @defform/subs[
   (phi patt body ...+)
   [(patt literal
@@ -245,10 +245,25 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
             number
             string
             bytes
-            (#,(tt "quote") datum))]
+            (#,(tt "quote") datum))
+   (maybe-if (code:line)
+             #:if cond-expr)]
 ])]{
 
   Creates a @tech{function} of one argument with one clause.
+
+  Optional @racket[#:if] @var[cond-expr]s specify that the pattern should only
+  match if the @var[cond-expr]s produce true values. @var[cond-expr] is in the
+  scope of all of the variables bound in @var[patt].
+
+  Example:
+  @example[
+    (let ([f (function
+              [(S x y) #:if (not x) #:if (not y) 0]
+              [(S x y) #:if (not (and x y)) (or x y)]
+              [(S x y) #:if x #:if y (+ x y)])])
+      (map f (list (S 1 2) (S #f 2) (S 1 #f) (S #f #f))))
+  ]
 
   A @var[patt] has one of the following forms:
 
