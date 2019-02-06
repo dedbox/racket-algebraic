@@ -168,11 +168,12 @@
     #:description "quasiquoted pattern"
     #:attributes (match-pat)
     #:literals (unquote)
+    (pattern x:id #:attr match-pat #''x)
     (pattern (unquote p:patt) #:attr match-pat #'p.match-pat)
     (pattern () #:attr match-pat #'(list))
     (pattern (q1:quoted . q2:quoted)
              #:attr match-pat #'(cons q1.match-pat q2.match-pat))
-    (pattern match-pat))
+    (pattern _ #:attr match-pat this-syntax))
 
   (define-syntax-class quasi
     #:description "pattern quasiquote"
