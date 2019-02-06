@@ -604,7 +604,11 @@ The bindings documented in this section are provided by the
                wildcard
                variable
                id-literal
-               (macro-patt ...))
+               (macro-patt ...)
+               (macro-patt . macro-patt)
+               (macro-patt ooo . macro-patt))
+   (ooo ...
+        ...+)
    (directive (code:line #:with macro-patt stx-expr)
               (code:line #:when condition-expr))]
 ])]{
@@ -657,6 +661,37 @@ The bindings documented in this section are provided by the
     @example[
       (define-syntax m (μ (a b) (b a)))
       (values (m (0 S)) (instance? (m (0 S))))
+    ]
+
+  }
+
+  @specsubform[(macro-patt . macro-patt)]{
+
+    Matches any term that can be decomposed into a list prefix and a suffix.
+
+    Example:
+    @example[
+      (define-syntax m (μ (x . y) (list x y)))
+      (m (1 . 2))
+    ]
+
+  }
+
+  @specsubform[(head-macro-patt ooo . tail-macro-pat)]{
+
+    Matches any term that can be decomposed into a list head matching some
+    number of repetitions of @var[head-macro-patt] followed by a list tail
+    matching @var[tail-macro-patt].
+
+    Example:
+    @example[
+      (define-syntax m
+        (macro* [(x ... (y ...) z ...+)
+                 (list* x ... y ... z ...)]))
+      (values
+       (m 1 2 (3 4) 5 6)
+       (m (3 4) 5 6))
+      (eval:error (m 1 2 (3 4)))
     ]
 
   }
