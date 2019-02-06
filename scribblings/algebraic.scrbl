@@ -240,12 +240,18 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
          #,(tt "#hash([" (var key) " . " (var patt) "] ...)")
          (#,(tt "void"))
          (struct-id [field patt] ...)
+         (#,(tt "quasiquote") quoted))
    (literal boolean
             character
             number
             string
             bytes
             (#,(tt "quote") datum))
+   (quoted literal
+           id
+           ()
+           (quoted . quoted)
+           (#,(tt "unquote") patt))
    (maybe-if (code:line)
              #:if cond-expr)]
 ])]{
@@ -480,6 +486,20 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
                 [left (tree [right #f] [val b])])
          (list a b))
        (tree 0 (tree 1 #f #f) #f))
+    ]
+
+  }
+
+  @specsubform[(#,(tt "quasiquote") quoted)]{
+
+    Introduces a @deftech{quasiquoted pattern}, in which identifiers match
+    symbols. Like the @racket[quasiquote] expression form, @racket[unquote]
+    escapes back to normal patterns.
+
+    Example:
+    @example[
+      ((φ `(x y . ,(S a b)) (+ a b))
+       (list* 'x 'y (S 1 2)))
     ]
 
   }

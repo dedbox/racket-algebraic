@@ -162,12 +162,29 @@
     (pattern (struct-id:id [f:id p:patt] ...)
              #:attr match-pat #'(struct* struct-id ([f p.match-pat] ...))))
 
+  (define-syntax-class quoted
+    #:description "quasiquoted pattern"
+    #:attributes (match-pat)
+    #:literals (unquote)
+    (pattern (unquote p:patt) #:attr match-pat #'p.match-pat)
+    (pattern () #:attr match-pat #'(list))
+    (pattern (q1:quoted . q2:quoted)
+             #:attr match-pat #'(cons q1.match-pat q2.match-pat))
+    (pattern match-pat))
+
+  (define-syntax-class quasi
+    #:description "pattern quasiquote"
+    #:attributes (match-pat)
+    #:literals (quasiquote)
+    (pattern (quasiquote datum:quoted) #:attr match-pat #'datum.match-pat))
+
   (define-syntax-class patt
     #:description "function pattern"
     #:attributes (match-pat)
     (pattern ℓ:host-literal #:attr match-pat this-syntax)
     (pattern w:wildcard #:attr match-pat #'w.match-pat)
     (pattern x:variable #:attr match-pat #'x.match-pat)
+    (pattern q:quasi #:attr match-pat #'q.match-pat)
     (pattern v:void #:attr match-pat #'v.match-pat)
     (pattern δ:con-id #:attr match-pat #'δ.match-pat)
     (pattern v:reference #:attr match-pat #'v.match-pat)
