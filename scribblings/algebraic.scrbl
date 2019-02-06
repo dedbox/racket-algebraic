@@ -506,7 +506,7 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
 }
 
-@defform[(function [patt body ...+] ...+)]{
+@defform[(function [patt maybe-if ... body ...+] ...+)]{
 
   Creates a @tech{function} of one argument with at least one clause. When
   multiple clauses are given, they are attempted in the order specified.
@@ -522,16 +522,17 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
 }
 
+@deftogether[(
+@defform[(φ* formals maybe-if ... body ...+)]
 @defform/subs[
-  (function* [formals body ...+] ...+)
+  (phi* formals maybe-if ... body ...+)
   [(formals (patt ...)
             (patt ...+ . rest-patt)
             rest-patt)]
-]{
+])]{
 
-  Creates a @tech{function} of any number of arguments with at least one
-  clause. When multiple clauses are given, they are attempted in the order
-  specified. The @var[formals] determine the number of arguments.
+  Creates a @tech{function} of any number of arguments with one clause. The
+  @var[formals] determine the number of arguments.
 
   A @var[formals] has one of the following forms:
 
@@ -577,6 +578,14 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
     ]
 
   }
+
+}
+
+@defform[(function* [formals maybe-if ... body ...+] ...+)]{
+
+  Creates a @tech{function} of any number of arguments with at least one
+  clause. When multiple clauses are given, they are attempted in the order
+  specified.
 
 }
 
@@ -738,14 +747,25 @@ The bindings documented in this section are provided by the
 
 }
 
-@defform[(macro [macro-patt body ...+] ...+)]{
+@defform[(macro [macro-patt directive ... body ...+] ...+)]{
 
   Creates a @tech{macro} with one argument and at least one clause. When
   multiple clauses are given, they are attempted in the order specified.
 
 }
 
-@defform[(macro* [(macro-patt ...) body ...+] ...+)]{
+@deftogether[(
+@defform[(μ* (macro-patt ...) directive ... body ...+)]
+@defform[(mu* (macro-patt ...) directive ... body ...+)]
+)]{
+
+  Creates a @tech{macro} with any number of arguments and one clause.
+
+}
+
+
+
+@defform[(macro* [(macro-patt ...) directive ... body ...+] ...+)]{
 
   Creates a @tech{macro} with any number of arguments and at least one clause.
   When multiple clauses are given, they are attempted in the order specified.

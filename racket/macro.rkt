@@ -11,7 +11,7 @@
          syntax/parse/define)
 
 (provide (all-from-out racket/base syntax/parse)
-         μ mu macro macro* var
+         μ mu macro μ* mu* macro* var
          (contract-out [macro-expand (-> syntax? syntax?)]))
 
 (begin-for-syntax
@@ -66,6 +66,26 @@
                          (~? (~@ #:when condition)) ...
                          #`t*]
     ...))
+
+(define-simple-macro (mu* (p:macro-patt ...)
+                          (~alt (~seq #:with with-p:macro-patt with-stx:expr)
+                                (~seq #:when condition:expr)) ...
+                          t:expr ...+)
+  #:with t* (simplify #'(t ...))
+  (syntax-parser
+    [(_ p.parse-pat ...) (~? (~@ #:with with-p.parse-pat #`with-stx)) ...
+                         (~? (~@ #:when condition)) ...
+                         #`t*]))
+
+(define-simple-macro (μ* (p:macro-patt ...)
+                          (~alt (~seq #:with with-p:macro-patt with-stx:expr)
+                                (~seq #:when condition:expr)) ...
+                          t:expr ...+)
+  #:with t* (simplify #'(t ...))
+  (syntax-parser
+    [(_ p.parse-pat ...) (~? (~@ #:with with-p.parse-pat #`with-stx)) ...
+                         (~? (~@ #:when condition)) ...
+                         #`t*]))
 
 (define-simple-macro (macro [p:macro-patt
                              (~alt (~seq #:with with-p:macro-patt with-stx:expr)

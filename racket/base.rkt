@@ -15,7 +15,7 @@
 
 (provide
  (all-from-out racket/base)
- data φ phi function function*
+ data φ phi function φ* phi* function*
  (contract-out
   [constructor? predicate/c]
   [instance? predicate/c]
@@ -89,7 +89,9 @@
     #:description "instance pattern"
     #:attributes (match-pat)
     (pattern (δ:con-id p:patt ...)
-             #:attr match-pat #'(ins δ.match-pat (list p.match-pat ...))))
+             #:attr match-pat #'(ins δ.match-pat (list p.match-pat ...)))
+    (pattern (δ:con-id . p:patt)
+             #:attr match-pat #'(ins δ.match-pat p.match-pat)))
 
   (define-syntax-class conditional
     #:description "conditional pattern"
@@ -225,6 +227,16 @@
                  ...
                  [_ (error 'function* "no matching clause for (~a)"
                            (string-join (map ~v args)))]))))
+
+(define-simple-macro (phi* p:patt ifs:maybe-if ... t:expr ...+)
+  (fun (λ (arg) (match arg
+                  [p.match-pat (~? (~@ #:when (and ifs.e ...))) t ...]
+                  [_ (error 'phi* "no matching clause for ~v" arg)]))))
+
+(define-simple-macro (φ* p:patt ifs:maybe-if ... t:expr ...+)
+  (fun (λ (arg) (match arg
+                  [p.match-pat (~? (~@ #:when (and ifs.e ...))) t ...]
+                  [_ (error 'φ* "no matching clause for ~v" arg)]))))
 
 (define-simple-macro (function [p:patt ifs:maybe-if ... t:expr ...+] ...+)
   (fun (λ (arg) (match arg
