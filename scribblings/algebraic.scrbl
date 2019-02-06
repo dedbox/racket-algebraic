@@ -110,7 +110,11 @@ Functions created by @racket[function*] can have clauses with no arguments,
 and the number of arguments for each clause can vary.
 
 @example[
-  (define num-args (function* [() 0] [(_) 1] [(_ _) 2]))
+  (define num-args
+    (function*
+      [() 0]
+      [(_) 1]
+      [many (length many)]))
   (values (num-args) (num-args 9) (num-args 8 7))
 ]
 
@@ -145,13 +149,9 @@ least one clause.
   (define-syntax and2 (macro* [(a b) ((function [#f #f] [_ b]) a)]))
   (define-syntax or2 (macro* [(a b) ((function [#f b] [x x]) a)]))
   (values
-   (list (and2 #t #t) (and2 #t #f) (and2 #f #t) (and2 #f #f))
-   (list (or2 #t #t) (or2 #t #f) (or2 #f #t) (or2 #f #f)))
+   (for*/list ([a '(#t #f)] [b '(#t #f)]) (and2 a b))
+   (for*/list ([a '(#t #f)] [b '(#t #f)]) (or2 a b)))
 ]
-
-@; (for*/list ([p (in-list '(#t #f))]
-@;             [q (in-list '(#t #f))])
-@;   (land #t #t))
 
 Macros are designed to simplify mundane meta-programming tasks. Consider the
 following run-time implementation of the ``power'' function from
