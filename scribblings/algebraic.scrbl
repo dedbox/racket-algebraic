@@ -238,8 +238,8 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
          #,(tt "#(" (var patt) ")")
          #,(tt "#&" (var patt))
          #,(tt "#hash([" (var key) " . " (var patt) "] ...)")
-         (void)
-         (struct-id [field patt] ...))
+         (#,(tt "void"))
+         (struct-id [field patt] ...)
    (literal boolean
             character
             number
@@ -456,7 +456,7 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
   }
 
-  @specsubform[(void)]{
+  @specsubform[(#,(tt "void"))]{
 
     A @deftech{void} pattern.
 

@@ -74,8 +74,9 @@
   (define-syntax-class con-id
     #:description "constructor pattern"
     #:attributes (match-pat)
-    (pattern δ:id #:when (and (identifier-transformer-binding #'δ)
-                              (scon? (syntax-local-eval #'δ)))
+    (pattern δ:id
+             #:when (and (identifier-transformer-binding #'δ)
+                         (scon? (syntax-local-eval #'δ)))
              #:attr match-pat #'(con 'δ)))
 
   (define-syntax-class reference
@@ -96,7 +97,7 @@
     (pattern (p:patt #:if t:expr) #:attr match-pat #'(if-pat p t)))
 
   (define-syntax-class regexp
-    #:description "regex pattern"
+    #:description "regexp pattern"
     #:attributes (match-pat)
     (pattern x:expr
              #:when (regexp? (syntax->datum #'x))
@@ -162,12 +163,12 @@
              #:attr match-pat #'(struct* struct-id ([f p.match-pat] ...))))
 
   (define-syntax-class patt
-    #:description "pattern"
-    #:opaque
+    #:description "function pattern"
     #:attributes (match-pat)
-    (pattern ℓ:host-literal #:attr match-pat #'ℓ)
+    (pattern ℓ:host-literal #:attr match-pat this-syntax)
     (pattern w:wildcard #:attr match-pat #'w.match-pat)
     (pattern x:variable #:attr match-pat #'x.match-pat)
+    (pattern v:void #:attr match-pat #'v.match-pat)
     (pattern δ:con-id #:attr match-pat #'δ.match-pat)
     (pattern v:reference #:attr match-pat #'v.match-pat)
     (pattern c:conditional #:attr match-pat #'c.match-pat)
@@ -177,7 +178,6 @@
     (pattern v:vector #:attr match-pat #'v.match-pat)
     (pattern b:box #:attr match-pat #'b.match-pat)
     (pattern h:hash #:attr match-pat #'h.match-pat)
-    (pattern v:void #:attr match-pat #'v.match-pat)
     (pattern s:struct #:attr match-pat #'s.match-pat))
 
   (define-splicing-syntax-class maybe-if
