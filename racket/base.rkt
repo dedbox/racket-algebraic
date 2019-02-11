@@ -1,7 +1,8 @@
 #lang racket/base
 
-(require (for-syntax algebraic/racket/literal
-                     racket/base
+(require (for-syntax algebraic/racket/base/syntax
+                     (except-in racket/base
+                                hash void vector regexp quasiquote struct box)
                      racket/match
                      racket/syntax
                      syntax/stx)
@@ -11,6 +12,7 @@
          racket/function
          racket/match
          racket/string
+         racket/syntax
          syntax/parse/define)
 
 (provide
@@ -44,171 +46,171 @@
 
 ;;; Data
 
-(define-simple-macro (data δ:id ...+)
-  (begin (begin (define-for-syntax δ (scon 'δ)) (define δ (con 'δ))) ...))
+(define-syntax-parser data
+  [(_ δ:id ...+)
+   #:when (andmap (λ (d) (not (char-lower-case? (first-char d))))
+                  (syntax-e #'(δ ...)))
+   #'(begin (begin (define-for-syntax δ (scon 'δ)) (define δ (con 'δ))) ...)])
 
 ;;; Functions
 
 (begin-for-syntax
-  (define (first-char id-stx)
-    (string-ref (symbol->string (syntax->datum id-stx)) 0))
+  (define-syntax-class fun-wildcard
+    #:description "wildcard"
+    #:attributes (compiled)
+    (pattern :wildcard #:attr compiled #'_))
 
-  (define-syntax-class wildcard
-    #:description "wildcard pattern"
-    #:attributes (match-pat)
-    (pattern x:id #:when (char=? (first-char #'x) #\_) #:attr match-pat #'_))
+  (define-syntax-class fun-variable
+    #:description "variable"
+    #:attributes (compiled)
+    (pattern compiled:variable))
 
-  (define-syntax-class variable
-    #:description "pattern variable"
-    #:attributes (match-pat)
-    (pattern x:id #:when (char-lower-case? (first-char #'x)) #:attr match-pat #'x))
-
-  (struct scon (δ)
-    #:transparent
-    #:property prop:procedure
-    (λ (c stx)
-      (syntax-parse stx
-        [(_ v ...) #`(ins (con '#,(scon-δ c)) (list v ...))]
-        [_ #`(con '#,(scon-δ c))])))
-
-  (define-syntax-class con-id
-    #:description "constructor pattern"
-    #:attributes (match-pat)
-    (pattern δ:id
-             #:when (and (identifier-transformer-binding #'δ)
-                         (scon? (syntax-local-eval #'δ)))
-             #:attr match-pat #'(con 'δ)))
-
-  (define-syntax-class reference
+  (define-syntax-class fun-reference
     #:description "reference pattern"
-    #:attributes (match-pat)
-    (pattern a:id #:when (identifier-binding #'a)
-             #:attr match-pat #'(app (λ (b) (eq? b a)) #t)))
+    #:attributes (compiled)
+    (pattern r:reference
+             #:attr compiled #'(app (λ (a) (eq? a r)) #t)))
 
-  (define-syntax-class instance
+  (define-syntax-class fun-constructor
+    #:description "constructor pattern"
+    #:attributes (compiled)
+    (pattern δ:constructor #:attr compiled #'(con 'δ)))
+
+  (define-syntax-class fun-instance
     #:description "instance pattern"
-    #:attributes (match-pat)
-    (pattern (δ:con-id p:patt ...)
-             #:attr match-pat #'(ins δ.match-pat (list p.match-pat ...)))
-    (pattern (δ:con-id . p:patt)
-             #:attr match-pat #'(ins δ.match-pat p.match-pat)))
+    #:attributes (compiled)
+    (pattern i:instance
+             #:with (δ:fun-constructor ps:fun-patt ...) this-syntax
+             #:attr compiled #'(ins δ.compiled (list ps.compiled ...)))
+    (pattern i:instance
+             #:with (δ:fun-constructor ps:fun-patt ... . p:fun-patt) this-syntax
+             #:attr compiled #'(ins δ.compiled (list* ps.compiled ... p.compiled))))
 
-  (define-syntax-class conditional
-    #:description "conditional pattern"
-    #:attributes (match-pat)
-    (pattern (p:patt #:if t:expr) #:attr match-pat #'(if-pat p t)))
-
-  (define-syntax-class regexp
-    #:description "regexp pattern"
-    #:attributes (match-pat)
-    (pattern x:expr
-             #:when (regexp? (syntax->datum #'x))
-             #:attr match-pat
-             #'(app (λ (input) (regexp-match (syntax->datum #'x) input))
-                    (not #f)))
-    (pattern (x:expr p:patt ...+)
-             #:when (regexp? (syntax->datum #'x))
-             #:attr match-pat
-             #'(app (λ (input) (regexp-match (syntax->datum #'x) input))
-                    (or (? (λ (vs) (null? (cdr vs)))
-                           (list p.match-pat ...))
-                        (list _ p.match-pat ...)))))
-
-  (define-syntax-class pair
-    #:description "pair pattern"
-    #:attributes (match-pat)
-    (pattern (p1:patt . p2:patt)
-             #:attr match-pat #'(cons p1.match-pat p2.match-pat)))
-
-  (define-syntax-class vector
-    #:description "vector pattern"
-    #:attributes (match-pat)
-    (pattern x:expr #:when (vector? (syntax->datum #'x))
-             #:with (p:patt ...)
-             (map (λ (v) (datum->syntax this-syntax v this-syntax))
-                  (vector->list (syntax->datum #'x)))
-             #:attr match-pat #'(vector p.match-pat ...)))
-
-  (define-syntax-class box
-    #:description "box pattern"
-    #:attributes (match-pat)
-    (pattern x:expr #:when (box? (syntax->datum #'x))
-             #:with p:patt
-             (datum->syntax this-syntax (unbox (syntax->datum #'x)) this-syntax)
-             #:attr match-pat #'(box p.match-pat)))
-
-  (define-syntax-class key
-    #:description #f
-    #:attributes (match-pat)
-    (pattern k:id #:attr match-pat #''k)
-    (pattern match-pat))
-
-  (define-syntax-class hash
-    #:description "hash pattern"
-    #:attributes (match-pat)
-    (pattern x:expr #:when (hash? (syntax->datum #'x))
-             #:with (k:key ...) (hash-keys (syntax->datum #'x))
-             #:with (v:patt ...) (hash-values (syntax-e #'x))
-             #:attr match-pat
-             #'(hash-table (k.match-pat v.match-pat) ... (_ _) (... ...))))
-
-  (define-syntax-class void
+  (define-syntax-class fun-void
     #:description "void pattern"
-    #:attributes (match-pat)
+    #:attributes (compiled)
     #:literals (void)
-    (pattern (void) #:attr match-pat #'(? void?)))
+    (pattern (void) #:attr compiled #'(? void?)))
 
-  (define-syntax-class struct
+  (define-syntax-class fun-conditional
+    #:description "conditional pattern"
+    #:attributes (compiled)
+    (pattern :conditional
+             #:with (p:fun-patt #:if t:expr) this-syntax
+             #:attr compiled
+             #'(and p.compiled (app (match-lambda [p.compiled t]) (not #f)))))
+
+  (define-syntax-class fun-regexp
+    #:description "regexp pattern"
+    #:attributes (compiled)
+    (pattern r:regexp
+             #:with (x:expr p:fun-patt ...+) this-syntax
+             #:attr compiled
+             #'(app (λ (v)
+                      (and ((or/c string? bytes? path? input-port?) v)
+                           (regexp-match (syntax->datum #'x) v)))
+                    (or (? (λ (vs) (and (pair? vs) (null? (cdr vs))))
+                           (list p.compiled ...))
+                        (list _ p.compiled ...))))
+    (pattern r:regexp
+             #:attr compiled
+             #'(app (λ (v)
+                      (and ((or/c string? bytes? path? input-port?) v)
+                           (regexp-match (syntax->datum #'r) v)))
+                    (not #f))))
+
+  (define-syntax-class fun-pair
+    #:description "pair pattern"
+    #:attributes (compiled)
+    (pattern :pair
+             #:with () this-syntax
+             #:attr compiled #'(list))
+    (pattern p:pair
+             #:with fcar:fun-patt #'p.car
+             #:with fcdr:fun-patt #'p.cdr
+             #:attr compiled #'(cons fcar.compiled fcdr.compiled)))
+
+  (define-syntax-class fun-vector
+    #:description "vector pattern"
+    #:attributes (compiled)
+    (pattern v:vector
+             #:with (fp:fun-patt ...) #'(v.p ...)
+             #:attr compiled #'(vector fp.compiled ...)))
+
+  (define-syntax-class fun-box
+    #:description "box pattern"
+    #:attributes (compiled)
+    (pattern b:box
+             #:with p:fun-patt #'b.p
+             #:attr compiled #'(box p.compiled)))
+
+  (define-syntax-class fun-hash-key
+    #:description "hash pattern key"
+    #:attributes (compiled)
+    #:commit
+    (pattern k:id #:attr compiled #''k)
+    (pattern compiled))
+
+  (define-syntax-class fun-hash
+    #:description "hash pattern"
+    #:attributes (compiled)
+    (pattern h:hash
+             #:with (k:fun-hash-key ...) #'(h.k ...)
+             #:with (v:fun-patt ...) #'(h.v ...)
+             #:attr compiled #'(hash-table (k.compiled v.compiled) ... (_ _) (... ...))))
+
+  (define-syntax-class fun-struct
     #:description "struct pattern"
-    #:attributes (match-pat)
-    (pattern (struct-id:id [f:id p:patt] ...)
-             #:attr match-pat #'(struct* struct-id ([f p.match-pat] ...))))
+    #:attributes (compiled)
+    (pattern :struct
+             #:with (sid:struct-id ([field:id p:fun-patt] ...)) this-syntax
+             #:attr compiled #'(struct* sid ([field p.compiled] ...)))
+    (pattern :struct
+             #:with (sid:struct-id p:fun-patt ...) this-syntax
+             #:attr compiled #'(sid p.compiled ...)))
 
-  (define-syntax-class quoted
-    #:description "quasiquoted pattern"
-    #:attributes (match-pat)
+  (define-syntax-class fun-quasiquoted
+    #:attributes (compiled)
     #:literals (unquote)
-    (pattern x:id #:attr match-pat #''x)
-    (pattern (unquote p:patt) #:attr match-pat #'p.match-pat)
-    (pattern () #:attr match-pat #'(list))
-    (pattern (q1:quoted . q2:quoted)
-             #:attr match-pat #'(cons q1.match-pat q2.match-pat))
-    (pattern _ #:attr match-pat this-syntax))
+    (pattern x:id #:attr compiled #''x)
+    (pattern (unquote p:fun-patt) #:attr compiled #'p.compiled)
+    (pattern () #:attr compiled #'(list))
+    (pattern (q1:fun-quasiquoted . q2:fun-quasiquoted)
+             #:attr compiled #'(cons q1.compiled q2.compiled))
+    (pattern _ #:attr compiled this-syntax))
 
-  (define-syntax-class quasi
+  (define-syntax-class fun-quasiquote
     #:description "pattern quasiquote"
-    #:attributes (match-pat)
+    #:attributes (compiled)
     #:literals (quasiquote)
-    (pattern (quasiquote datum:quoted) #:attr match-pat #'datum.match-pat))
+    (pattern (quasiquote datum:fun-quasiquoted)
+             #:attr compiled #'datum.compiled))
 
-  (define-syntax-class patt
+  (define-syntax-class fun-patt
     #:description "function pattern"
-    #:attributes (match-pat)
-    (pattern ℓ:host-literal #:attr match-pat this-syntax)
-    (pattern w:wildcard #:attr match-pat #'w.match-pat)
-    (pattern x:variable #:attr match-pat #'x.match-pat)
-    (pattern q:quasi #:attr match-pat #'q.match-pat)
-    (pattern v:void #:attr match-pat #'v.match-pat)
-    (pattern δ:con-id #:attr match-pat #'δ.match-pat)
-    (pattern v:reference #:attr match-pat #'v.match-pat)
-    (pattern c:conditional #:attr match-pat #'c.match-pat)
-    (pattern i:instance #:attr match-pat #'i.match-pat)
-    (pattern r:regexp #:attr match-pat #'r.match-pat)
-    (pattern p:pair #:attr match-pat #'p.match-pat)
-    (pattern v:vector #:attr match-pat #'v.match-pat)
-    (pattern b:box #:attr match-pat #'b.match-pat)
-    (pattern h:hash #:attr match-pat #'h.match-pat)
-    (pattern s:struct #:attr match-pat #'s.match-pat))
+    #:attributes (compiled)
+    #:commit
+    (pattern compiled:literal-value)
+    (pattern (~or p:fun-wildcard
+                  p:fun-variable
+                  p:fun-void
+                  p:fun-constructor
+                  p:fun-reference
+                  p:fun-conditional
+                  p:fun-instance
+                  p:fun-regexp
+                  p:fun-struct
+                  p:fun-vector
+                  p:fun-box
+                  p:fun-hash
+                  p:fun-quasiquote
+                  p:fun-pair)
+             #:attr compiled #'p.compiled))
 
   (define-splicing-syntax-class maybe-if
     #:description #f
     #:attributes (e)
     (pattern (~seq #:if e:expr))))
-
-(define-match-expander if-pat
-  (syntax-parser
-    [(_ p:patt t:expr)
-     #'(and p.match-pat (app (match-lambda [p.match-pat t]) (not #f)))]))
 
 (struct fun (matcher)
   #:reflection-name 'function
@@ -216,81 +218,433 @@
 
 (define function? fun?)
 
-(define-simple-macro (function* [(~or (p:patt ...)
-                                      (p:patt ...+ . rest-p:patt)
-                                      rest-p:patt)
+;;; ----------------------------------------------------------------------------
+;;; lifted from racket/match internals
+
+(struct exn:algebraic:match exn:fail (value srclocs)
+  #:property prop:exn:srclocs (λ (ex) (exn:algebraic:match-srclocs ex))
+  #:transparent)
+
+(define-simple-macro (match:error val form-name)
+  #:with srclocs #`(list (srcloc #,(syntax-source this-syntax)
+                                 #,(syntax-line this-syntax)
+                                 #,(syntax-column this-syntax)
+                                 #,(syntax-position this-syntax)
+                                 #,(syntax-span this-syntax)))
+  (raise (exn:algebraic:match
+          (format "~a: no matching clause for ~e" form-name val)
+          (current-continuation-marks)
+          val
+          srclocs)))
+
+;;; ----------------------------------------------------------------------------
+
+(define-simple-macro (function* [(~or (p:fun-patt ...)
+                                      (p:fun-patt ...+ . rest-p:fun-patt)
+                                      rest-p:fun-patt)
                                  ifs:maybe-if ... t:expr ...+] ...+)
   (fun (λ args (match args
-                 [(~? (~@ (list-rest p.match-pat ... rest-p.match-pat))
-                      (~? (~@ (list p.match-pat ...))
-                          (~@ (list-rest rest-p.match-pat))))
+                 [(~? (~@ (list-rest p.compiled ... rest-p.compiled))
+                      (~? (~@ (list p.compiled ...))
+                          (~@ (list-rest rest-p.compiled))))
                   (~? (~@ #:when (and ifs.e ...))) t ...]
                  ...
-                 [_ (error 'function* "no matching clause for (~a)"
-                           (string-join (map ~v args)))]))))
+                 [_ (match:error args 'function*)]))))
 
-(define-simple-macro (phi* p:patt ifs:maybe-if ... t:expr ...+)
+(define-simple-macro (phi* p:fun-patt ifs:maybe-if ... t:expr ...+)
   (fun (λ (arg) (match arg
-                  [p.match-pat (~? (~@ #:when (and ifs.e ...))) t ...]
-                  [_ (error 'phi* "no matching clause for ~v" arg)]))))
+                  [p.compiled (~? (~@ #:when (and ifs.e ...))) t ...]
+                  [_ (match:error arg 'phi*)]))))
 
-(define-simple-macro (φ* p:patt ifs:maybe-if ... t:expr ...+)
+(define-simple-macro (φ* p:fun-patt ifs:maybe-if ... t:expr ...+)
   (fun (λ (arg) (match arg
-                  [p.match-pat (~? (~@ #:when (and ifs.e ...))) t ...]
-                  [_ (error 'φ* "no matching clause for ~v" arg)]))))
+                  [p.compiled (~? (~@ #:when (and ifs.e ...))) t ...]
+                  [_ (match:error arg 'φ*)]))))
 
-(define-simple-macro (function [p:patt ifs:maybe-if ... t:expr ...+] ...+)
+(define-simple-macro (function [p:fun-patt ifs:maybe-if ... t:expr ...+] ...+)
   (fun (λ (arg) (match arg
-                  [p.match-pat (~? (~@ #:when (and ifs.e ...))) t ...]
+                  [p.compiled (~? (~@ #:when (and ifs.e ...))) t ...]
                   ...
-                  [_ (error 'function "no matching clause for ~v" arg)]))))
+                  [_ (match:error arg  'function)]))))
 
-(define-simple-macro (phi p:patt ifs:maybe-if ... t:expr ...+)
+(define-simple-macro (phi p:fun-patt ifs:maybe-if ... t:expr ...+)
   (fun (λ (arg) (match arg
-                  [p.match-pat (~? (~@ #:when (and ifs.e ...)))
-                               t ...]
-                  [_ (error 'phi "no matching clause for ~v" arg)]))))
+                  [p.compiled (~? (~@ #:when (and ifs.e ...)))
+                              t ...]
+                  [_ (match:error arg  'phi)]))))
 
-(define-simple-macro (φ p:patt ifs:maybe-if ... t:expr ...+)
+(define-simple-macro (φ p:fun-patt ifs:maybe-if ... t:expr ...+)
   (fun (λ (arg) (match arg
-                  [p.match-pat (~? (~@ #:when (and ifs.e ...))) t ...]
-                  [_ (error 'φ "no matching clause for ~v" arg)]))))
+                  [p.compiled (~? (~@ #:when (and ifs.e ...))) t ...]
+                  [_ (match:error arg 'φ)]))))
 
 ;;; ----------------------------------------------------------------------------
 
 (module+ test
-  (require (for-syntax algebraic/racket/macro)
-           rackunit)
+  (require rackunit)
 
-  (test-case "Numbers"
-    (define fib
-      (function
-        [(n #:if (< n 2)) 1]
-        [n (+ (fib (- n 1)) (fib (- n 2)))]))
-    (check equal? (map fib '(0 1 2 3 4 5 6)) '(1 1 2 3 5 8 13)))
+  (define iterations 20)
+  (define max-size 3)
 
-  (test-case "MSP f-power"
-    (define f-power
-      (function*
-        [(0 _) 1]
-        [(n x) (* x (f-power (- n 1) x))]))
-    (define f-power2 (curryr f-power 2))
-    (check-equal? (map f-power2 '(0 1 2 3 4 5 6)) '(1 2 4 8 16 32 64)))
+  (define OK (string->unreadable-symbol "OK"))
+  (define FAIL (string->unreadable-symbol "FAIL"))
 
-  (test-case "MSP m-power"
-    (define-syntax m-power
-      (macro*
-        [(0 _) 1]
-        [(1 x) x]
-        [(n x) (* x (m-power #,(- (var n) 1) x))]))
-    (define-syntax m-power3 (μ y (m-power 3 y)))
-    (check = (m-power3 2) 8))
+  (define-simple-check (check-OK f arg)
+    (let ([ret (with-handlers ([exn:algebraic:match? (λ _ FAIL)]
+                               [exn:fail? (λ _ (fail-check "Exception raised"))])
+                 (f arg))])
+      (or (eq? ret OK)
+          (with-check-info (['argument arg] ['expected OK] ['actual ret])
+            (fail-check "Match failed")))))
 
-  (test-case "MSP q-power"
-    (define-syntax q-power
-      (macro*
-        [(0 _) 1]
-        [(1 x) x]
-        [(n x) '#,(macro-expand #`(* x (q-power #,(- (var n) 1) x)))]))
-    (define-syntax q-power3 (μ y #,(macro-expand #'(q-power 3 y))))
-    (check-equal? (q-power3 2) '(#%app * '2 '(#%app * '2 '2)))))
+  (define-simple-check (check-not-OK f arg)
+    (let/ec succeed
+      (with-handlers ([exn:algebraic:match? (λ _ (succeed #t))]
+                      [exn:fail? (λ _ (fail-check "Wrong exception raised"))])
+        (f arg))
+      (fail-check "No exception raised")))
+
+  (define (restrict rand pred)
+    (let ([v (rand)])
+      (if (pred v) v (restrict rand pred))))
+
+  (define (random-boolean)
+    (eq? (random 2) 1))
+
+  (define (random-integer)
+    (random #x-10000 #x10000))
+
+  (define (random-positive-integer)
+    (random 1 #x10000))
+
+  (define (random-rational)
+    (/ (random-integer) (random-positive-integer)))
+
+  (define (random-real)
+    (sqrt (random #x10000)))
+
+  (define (random-complex)
+    (make-rectangular (random-integer) (random-integer)))
+
+  (define (random-byte)
+    (random 256))
+
+  (define (random-bytes)
+    (apply bytes (random-list random-byte)))
+
+  (define (random-char)
+    (integer->char
+     (restrict (λ () (random 0 #x110000))
+               (λ (n) (or (< n #xD800) (> n #xDFFF))))))
+
+  (define (random-lowercase-char)
+    (integer->char (random (char->integer #\a) (char->integer #\z))))
+
+  (define (random-string)
+    (apply string (random-list random-char)))
+
+  (define (random-nonempty-string)
+    (apply string (cons (random-char) (random-list random-char))))
+
+  (define (random-symbol)
+    (string->symbol (random-nonempty-string)))
+
+  (define (random-nonempty-symbol)
+    (string->symbol (random-nonempty-string)))
+
+  (define (random-size)
+    (random max-size))
+
+  (define (random-list rand)
+    (build-list (random-size) (λ _ (rand))))
+
+  (define (random-choice . rands)
+    ((list-ref rands (random (length rands)))))
+
+  (define (random-quote [depth 0])
+    (if (= depth 0)
+        `,(random-quote 1)
+        (random-list
+         (λ () (random-choice random-symbol
+                              (λ () (random-literal-value depth)))))))
+
+  (define (random-unquoted-literal-value)
+    (random-choice random-char
+                   random-integer
+                   random-rational
+                   random-real
+                   random-complex
+                   random-bytes
+                   random-string))
+
+  (define (random-literal-value [depth 0])
+    (random-choice random-unquoted-literal-value
+                   (λ () (random-quote depth))))
+
+  (define (random-wildcard)
+    (string->symbol (format "_~a" (random-symbol))))
+
+  (define (random-variable)
+    (string->symbol (format "~a~a" (random-lowercase-char) (random-symbol))))
+
+  (define (random-reference)
+    (let ([refs
+           (filter (λ (s)
+                     (let ([c0 (string-ref (symbol->string s) 0)])
+                       (and (not (char=? c0 #\?))
+                            (not (char=? c0 #\_))
+                            (not (char-lower-case? c0))
+                            (namespace-variable-value s #t (λ _ #f)))))
+                   (namespace-mapped-symbols (module->namespace 'racket/base)))])
+      (list-ref refs (random (length refs)))))
+
+  (define (random-constructor)
+    (string->symbol
+     (restrict random-string
+               (λ (s)
+                 (and (> (string-length s) 0)
+                      (not (char-lower-case? (string-ref s 0))))))))
+
+  (define (random-pair rand)
+    (cons (rand) (rand)))
+
+  (define (random-vector rand)
+    (list->vector (random-list rand)))
+
+  (define (random-box rand)
+    (box (rand)))
+
+  (define (random-hash-key)
+    (random-choice random-symbol random-literal-value))
+
+  (define (random-hash k-rand v-rand)
+    (let* ([n (random-size)])
+      (make-hash (map cons
+                      (build-list n (λ _ (k-rand)))
+                      (build-list n (λ _ (v-rand)))))))
+
+  (define (maybe-quote v)
+    (if ((or/c symbol? list?) v) #`(quote #,v) #`#,v))
+
+  (define (random-quasiquote)
+    #``#,(let recur ([depth (random-size)])
+           (if (= depth 0)
+               #`#,(random-literal-value)
+               #`#,(random-choice
+                    (λ () `,(random-symbol))
+                    random-literal-value
+                    (λ () #`,#,(maybe-quote (random-literal-value)))
+                    (λ () (random-list (λ () (recur (- depth 1)))))))))
+
+  (define-namespace-anchor ns)
+
+  (parameterize ([current-namespace (namespace-anchor->namespace ns)])
+    (test-case "φ literal"
+      (test-case "φ boolean"
+        (check-OK (φ #t OK) #t)
+        (check-OK (φ #f OK) #f)
+        (check-not-OK (φ #t FAIL) #f)
+        (check-not-OK (φ #f FAIL) #t))
+
+      (test-case "φ char"
+        (for ([_ iterations])
+          (define c (random-char))
+          (define f (eval-syntax #`(φ #,c OK)))
+          (check-OK f c)
+          (check-not-OK f FAIL)))
+
+      (test-case "φ number"
+        (test-case "φ integer"
+          (for ([_ iterations])
+            (define n (random-integer))
+            (define f (eval-syntax #`(φ #,n OK)))
+            (check-OK f n)
+            (check-not-OK f FAIL)))
+
+        (test-case "φ rational"
+          (for ([_ iterations])
+            (define n (random-rational))
+            (define f (eval-syntax #`(φ #,n OK)))
+            (check-OK f n)
+            (check-not-OK f FAIL)))
+
+        (test-case "φ real"
+          (for ([_ iterations])
+            (define n (random-real))
+            (define f (eval-syntax #`(φ #,n OK)))
+            (check-OK f n)
+            (check-not-OK f FAIL)))
+
+        (test-case "φ complex"
+          (for ([_ iterations])
+            (define n (random-complex))
+            (define f (eval-syntax #`(φ #,n OK)))
+            (check-OK f n)
+            (check-not-OK f FAIL))))
+
+      (test-case "φ string"
+        (for ([_ iterations])
+          (define s (random-string))
+          (define f (eval-syntax #`(φ #,s OK)))
+          (check-OK f s)
+          (check-not-OK f FAIL)))
+
+      (test-case "φ bytes"
+        (for ([_ iterations])
+          (define b (random-bytes))
+          (define f (eval-syntax #`(φ #,b OK)))
+          (check-OK f b)
+          (check-not-OK f FAIL))))
+
+    (test-case "φ symbol"
+      (for ([_ iterations])
+        (define s (random-symbol))
+        (define f (eval-syntax #`(φ '#,s OK)))
+        (check-OK f s)
+        (check-not-OK f FAIL)))
+
+    (test-case "φ quote"
+      (for ([_ iterations])
+        (define q (random-quote))
+        (define f (eval-syntax #`(φ '#,q OK)))
+        (check-OK f q)
+        (check-not-OK f FAIL)))
+
+    (test-case "φ wildcard"
+      (for ([_ iterations])
+        (define w (random-wildcard))
+        (define f (eval-syntax #`(φ '#,w OK)))
+        (check-OK f w)))
+
+    (test-case "φ variable"
+      (for ([_ iterations])
+        (define x (random-variable))
+        (define f (eval-syntax #`(φ #,x #,x)))
+        (check-OK f OK)))
+
+    (test-case "φ reference"
+      (for ([_ iterations])
+        (define r (random-reference))
+        (define f (eval-syntax #`(φ #,r OK)))
+        (check-OK f (eval-syntax #`#,r))
+        (check-not-OK f FAIL)))
+
+    (test-case "φ conditional"
+      (for ([_ iterations])
+        (define f (eval-syntax #`(φ x #:if x OK)))
+        (check-OK f #t)
+        (check-not-OK f #f)))
+
+    (test-case "φ void"
+      (check-OK (φ (void) OK) (void))
+      (check-not-OK (φ (void) FAIL) FAIL))
+
+    (test-case "φ constructor"
+      (for ([_ iterations])
+        (define δ-name (random-constructor))
+        (eval-syntax #`(data #,δ-name))
+        (define-values (δ f) (eval-syntax #`(values #,δ-name (φ #,δ-name OK))))
+        (check-OK f δ)
+        (check-not-OK f FAIL)))
+
+    (test-case "φ instance"
+      (for ([_ iterations])
+        (define δ-name (random-constructor))
+        (define vs (random-list random-literal-value))
+        (eval-syntax #`(data #,δ-name))
+        (define δ (eval-syntax #`#,δ-name))
+        (define f (eval-syntax #`(φ (#,δ-name #,@(map maybe-quote vs))  OK)))
+        (check-OK f (apply δ vs))
+        (check-not-OK f FAIL)))
+
+    (test-case "φ regexp"
+      (for ([_ iterations])
+        (let* ([xs (make-string (+ 1 (random-size)) #\x)]
+               [ys (make-string (+ 1 (random-size)) #\y)]
+               [as (make-string (+ 1 (random-size)) #\a)]
+               [bs (make-string (+ 1 (random-size)) #\b)]
+               [str (string-append xs as bs ys)]
+               [rx-str (string-append "^" as bs "$")]
+               [rx (eval-syntax #`(regexp #,rx-str))]
+               [fs (list
+                    (eval-syntax #`(φ #rx"a+b+" OK))
+                    (eval-syntax #`(φ #rx"(a+)(b+)" OK))
+                    (eval-syntax
+                     #`(φ (#rx"a+b+" ab) (and (regexp-match #,rx ab) OK)))
+                    (eval-syntax
+                     #`(φ (#rx"(a+)(b+)" as bs)
+                         (and (regexp-match #,rx (string-append as bs)) OK))))]
+               [ffs (list (eval-syntax #`(φ #rx"x+y+" OK))
+                          (eval-syntax #`(φ (#rx"(a+)(b+)" _) OK)))])
+          (for ([f fs])
+            (check-OK f str)
+            (check-not-OK f FAIL))
+          (for ([f ffs])
+            (check-not-OK f str)))))
+
+    (test-case "φ pair"
+      (for ([_ iterations])
+        (define p (random-pair random-unquoted-literal-value))
+        (define f (eval-syntax #`(φ #,p OK)))
+        (check-OK f p)
+        (check-not-OK f FAIL))
+      (for ([_ iterations])
+        (define p (random-pair random-literal-value))
+        (define f (eval-syntax #`(φ (#,(maybe-quote (car p)) . #,(maybe-quote (cdr p))) OK)))
+        (check-OK f p)
+        (check-not-OK f FAIL)))
+
+    (test-case "φ vector"
+      (for ([_ iterations])
+        (define v (random-vector random-literal-value))
+        (define f (eval-syntax #`(φ #,v OK)))
+        (check-OK f v)
+        (check-not-OK f FAIL)))
+
+    (test-case "φ box"
+      (for ([_ iterations])
+        (define b (random-box random-literal-value))
+        (define f (eval-syntax #`(φ #,b OK)))
+        (check-OK f b)
+        (check-not-OK f FAIL)))
+
+    (test-case "φ hash"
+      (for ([_ iterations])
+        (define h (random-hash random-hash-key random-literal-value))
+        (define f (eval-syntax #`(φ #,h OK)))
+        (check-OK f h)
+        (check-not-OK f FAIL)))
+
+    (test-case "φ struct"
+      (for ([_ iterations])
+        (define name (random-nonempty-symbol))
+        (define fs (random-list random-variable))
+        (define vs (map (λ _ (random-literal-value)) fs))
+        (eval-syntax #`(struct #,name #,fs #:transparent))
+        (define f-stx #`(φ (#,name #,(map list fs (map maybe-quote vs))) OK))
+        (define s-stx #`(#,name #,@(map maybe-quote vs)))
+        (define f (eval-syntax f-stx))
+        (define s (eval-syntax s-stx))
+        (with-check-info (['struct-id name]
+                          ['fields fs]
+                          ['values vs]
+                          ['function (syntax->datum f-stx)]
+                          ['instance (syntax->datum s-stx)])
+          (check-OK f s)
+          (check-not-OK f FAIL)))
+      (for ([_ iterations])
+        (define name (random-nonempty-symbol))
+        (define fs (random-list random-variable))
+        (define vs (map (λ _ (maybe-quote (random-literal-value))) fs))
+        (eval-syntax #`(struct #,name #,fs))
+        (define f (eval-syntax #`(φ (#,name #,@(map maybe-quote vs)) OK)))
+        (define s (eval-syntax #`(#,name #,@(map maybe-quote vs))))
+        (check-OK f s)
+        (check-not-OK f FAIL)))
+
+    (test-case "φ quasiquoted"
+      (for ([_ iterations])
+        (define q (random-quasiquote))
+        (define f (eval-syntax #`(φ #,q OK)))
+        (check-OK f (eval-syntax q))
+        (check-not-OK f FAIL)))))

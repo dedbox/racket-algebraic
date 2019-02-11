@@ -189,8 +189,6 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
   (q-power 3 2)
 ]
 
-   @; [(n:nat x) #'#,(macro-expand #`(* x (q-power #,(- (var n) 1) x)))]))
-
 @; =============================================================================
 
 @section{API Reference}
@@ -482,9 +480,12 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
     Example:
     @example[
       (struct tree (val left right))
-      ((φ (tree [val a]
-                [left (tree [right #f] [val b])])
+      ((φ (tree ([val a]
+                 [left (tree ([right #f] [val b] [left #f]))]
+                 [right #f]))
          (list a b))
+       (tree 0 (tree 1 #f #f) #f))
+      ((φ (tree a (tree b #f #f) #f) (list a b))
        (tree 0 (tree 1 #f #f) #f))
     ]
 

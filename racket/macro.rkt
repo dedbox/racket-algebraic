@@ -1,7 +1,8 @@
 #lang racket/base
 
-(require (for-syntax algebraic/racket/literal
-                     racket/base
+(require (for-syntax algebraic/racket/base/syntax
+                     (except-in racket/base
+                                hash void vector regexp quasiquote struct box)
                      racket/function
                      syntax/stx)
          racket/base
@@ -45,7 +46,7 @@
     #:attributes (parse-pat)
     (pattern (~literal ...) #:attr parse-pat this-syntax)
     (pattern (~literal ...+) #:attr parse-pat this-syntax)
-    (pattern ℓ:host-literal #:attr parse-pat this-syntax)
+    (pattern ℓ:literal-value #:attr parse-pat this-syntax)
     (pattern w:wildcard #:attr parse-pat #'w.parse-pat)
     (pattern x:variable #:attr parse-pat #'x.parse-pat)
     (pattern x:id-literal #:attr parse-pat #'x.parse-pat)
