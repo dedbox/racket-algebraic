@@ -222,34 +222,39 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 @deftogether[(
 @defform[(φ patt maybe-if ... body ...+)]
 @defform/subs[
+  #:literals (quasiquote unquote quote void)
   (phi patt body ...+)
   [(patt literal
-         wildcard
-         variable
-         reference
+         wildcard-id
+         variable-id
+         reference-id
          constructor-id
          (constructor-id patt ...)
+         (constructor-id patt ... . patt)
          (patt #:if cond-expr)
          regexp
          (regexp patt ...+)
-         (patt . patt)
-         #,(tt "#(" (var patt) ")")
-         #,(tt "#&" (var patt))
-         #,(tt "#hash([" (var key) " . " (var patt) "] ...)")
-         (#,(tt "void"))
-         (struct-id [field patt] ...)
-         (#,(tt "quasiquote") quoted))
+         (regexp patt ... . patt)
+         (patt ...)
+         (patt ... . patt)
+         (struct-id ([field patt] ...))
+         (struct-id patt ...)
+         (quasiquote fqp)
+         (void)
+         #,(racketparenfont "#(" (var patt) ")")
+         #,(racketparenfont "#&" (var patt))
+         #,(racketparenfont "#hash([" (var key) " . " (var patt) "] ...)"))
    (literal boolean
             character
             number
             string
             bytes
-            (#,(tt "quote") datum))
-   (quoted literal
-           id
-           ()
-           (quoted . quoted)
-           (#,(tt "unquote") patt))
+            (quote datum))
+   (fqp literal
+        id
+        ()
+        (fqp . fqp)
+        (unquote patt))
    (maybe-if (code:line)
              #:if cond-expr)]
 ])]{
@@ -285,7 +290,7 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
   }
 
-  @specsubform[wildcard]{
+  @specsubform[wildcard-id]{
 
     An identifier whose name begins with an underscore ``@racketid[_]''.
 
@@ -299,7 +304,7 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
   }
 
-  @specsubform[variable]{
+  @specsubform[variable-id]{
 
     An identifier whose name begins with a
     @racketlink[char-lower-case?]{lowercase} character.
@@ -318,10 +323,10 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
   }
 
-  @specsubform[reference]{
+  @specsubform[reference-id]{
 
-    A @rtech{bound} identifier that is not a @var[wildcard], @var[variable],
-    or @var[constructor-id].
+    A @rtech{bound} identifier that is not a @var[wildcard-id],
+    @var[variable-id], or @var[constructor-id].
 
     Matches the bound value.
 
@@ -344,22 +349,25 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
   }
 
-  @specsubform[(constructor-id patt ...)]{
+  @defsubform*[
+    #:kind " "
+    #:link-target? #f
+    #:id [constructor-id (var constructor-id)]
+    [(constructor-id patt ...)
+     (constructor-id patt ... . patt)]
+  ]{
 
     Matches an @tech{instance} of the @tech{constructor} named
-    @var[constructor-id], where each argument in the instance matches the
-    corresponding @var[patt].
+    @var[constructor-id] with an argument list that matches the @var[patt]s.
 
     Example:
     @example[
-      ((φ (S x) x) (S 0))
+      ((φ (S x . xs) (list x xs)) (S 1 2 3))
     ]
 
   }
 
   @specsubform[(patt #:if cond-expr)]{
-
-    A @deftech{conditional} pattern.
 
     Matches @var[patt] if @var[cond-expr] produces a true value.
     @var[cond-expr] is in the scope of all of the variables bound in
@@ -373,9 +381,14 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
   }
 
-  @specsubform[regexp]{
-
-    A @deftech{regexp} pattern.
+  @defsubform*[
+    #:kind " "
+    #:link-target? #f
+    #:id [regexp (var regexp)]
+    [regexp
+     (regexp patt ...+)
+     (regexp patt ... . patt)]
+  ]{
 
     Matches @var[regexp] (a @rtech{regexp value} or byte-@rtech{regexp-value})
     to a portion of its argument (a string, byte string, path, or input port)
@@ -388,29 +401,37 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
        ((φ #rx"a+b+" 2) (open-input-string "--aabb++")))
     ]
 
-  }
-
-  @specsubform[(regexp patt ...+)]{
-
-    A @deftech{capturing regexp} pattern.
-
-    Matches @var[regexp] against its argument, then matches @var[patt]s
-    against the results.
+    If any @var[patt]s are given, they are matched against the results. If one
+    or more capturing groups is present, the initial ``whole-match'' element
+    of the result list is dropped before attempting to match @var[patt]s.
 
     Example:
     @example[
       (values
        ((φ (#rx"x+y+" xy) xy) "--xxyy++")
        ((φ (#rx"(a+)(b+)" as bs) (list as bs)) "--aabb++"))
+      (eval:error ((φ (#rx"(a+)(b+)" as bs cs) 'OK) "--aabb++"))
     ]
 
   }
 
-  @specsubform[(patt . patt)]{
+  @defsubform*[
+    #:kind " "
+    #:link-target? #f
+    #:id [patt (var patt)]
+    [(patt ...)
+     (patt ... . patt)]
+  ]{
 
-    A @deftech{pair} pattern.
+    Matches @var[patt]s against the elements of a list.
 
-    Matches a @rtech{pair} value.
+    Example:
+    @example[
+      ((φ (a b c) (+ a b c)) '(1 2 3))
+    ]
+
+    If the pattern contains a delimited @racketparenfont{.}, the final
+    @var[patt] is matched against the argument's tail.
 
     Example:
     @example[
@@ -419,63 +440,25 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
   }
 
-  @specsubform[#,(tt "#(" (var patt) " ...)")]{
+  @defsubform*[
+    #:kind " "
+    #:link-target? #f
+    #:id [struct-id (var struct-id)]
+    [(struct-id ([field patt] ...))
+     (struct-id patt ..)]
+  ]{
 
-    A @deftech{vector} pattern.
-
-    Matches a @rtech{vector} value.
-
-    Example:
-    @example[
-      ((φ #(a b c) (+ a b c)) (vector 1 2 3))
-    ]
-  }
-
-  @specsubform[#,(tt "#&" (var patt))]{
-
-    A @deftech{box} pattern.
-
-    Matches a @rtech{box} value.
+    Matches an instance of a structure type named @var[struct-id], where each
+    field in the instance matches the corresponding @var[patt].
 
     Example:
     @example[
-      ((φ #&x x) (box 1))
+      (struct F (a b c))
+      ((φ (F x y z) (+ x y z)) (F 1 2 3))
     ]
 
-  }
-
-  @specsubform[#,(tt "#hash([" (var key) " . " (var patt) "] ...)")]{
-
-    A @deftech{hash} pattern.
-
-    Matches against a @rtech{hash table}'s key-value pairs, where @var[key] is
-    a bare identifier or a @var[literal]. Any key-value pair of the hash table
-    may be omitted, and such pairs can occur in any order.
-
-    Example:
-    @example[
-      ((φ #hash([x . a] ["y" . b]) (list a b))
-       (hash "y" 1 #t 2 'x 3))
-    ]
-
-  }
-
-  @specsubform[(#,(tt "void"))]{
-
-    A @deftech{void} pattern.
-
-    Matches a @seclink["void" #:doc '(lib
-    "scribblings/reference/reference.scrbl")]{void} value.
-  }
-
-  @specsubform[(struct-id [field patt] ...)]{
-
-    A @deftech{struct} pattern.
-
-    Matches an instance of a structure type named @var[struct-id], where the
-    field @var[field] in the instance matches the corresponding @var[patt].
-    Any field of @var[struct-id] may be omitted, and such fields can occur in
-    any order.
+    If @var[field]s are present, any field of @var[struct-id] may be omitted,
+    and such fields can occur in any order.
 
     Example:
     @example[
@@ -491,16 +474,62 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
   }
 
-  @specsubform[(#,(tt "quasiquote") quoted)]{
+  @specsubform[
+    #:literals (quasiquote)
+    (quasiquote fqp)
+  ]{
 
     Introduces a @deftech{quasiquoted pattern}, in which identifiers match
-    symbols. Like the @racket[quasiquote] expression form, @racket[unquote]
-    escapes back to normal patterns.
+    symbols and @racket[unquote] escapes back to normal patterns.
 
     Example:
     @example[
       ((φ `(x y . ,(S a b)) (+ a b))
        (list* 'x 'y (S 1 2)))
+    ]
+
+  }
+
+  @specsubform[
+    #:literals (void)
+    (void)
+  ]{
+
+    Matches a @seclink["void" #:doc '(lib
+    "scribblings/reference/reference.scrbl")]{void} value.
+  }
+
+  @specsubform[#,(racketparenfont "#(" (var patt) " ...)")]{
+
+    Matches @var[patt]s against the elements of a @rtech{vector}.
+
+    Example:
+    @example[
+      ((φ #(a b c) (+ a b c)) (vector 1 2 3))
+    ]
+  }
+
+  @specsubform[#,(racketparenfont "#&" (var patt))]{
+
+    Matches @var[patt] against the element of a @rtech{box}.
+
+    Example:
+    @example[
+      ((φ #&x x) (box 1))
+    ]
+
+  }
+
+  @specsubform[#,(racketparenfont "#hash([" (var key) " . " (var patt) "] ...)")]{
+
+    Matches against a @rtech{hash table}'s key-value pairs, where @var[key] is
+    a bare identifier or a @var[literal]. Any key-value pair of the hash table
+    may be omitted, and such pairs can occur in any order.
+
+    Example:
+    @example[
+      ((φ #hash([x . a] ["y" . b]) (list a b))
+       (hash "y" 1 #t 2 'x 3))
     ]
 
   }
@@ -609,26 +638,33 @@ The bindings documented in this section are provided by the
 @deftogether[(
 @defform[(μ macro-patt body ...+)]
 @defform/subs[
+  #:literals (void quasiquote unquote)
   (mu macro-patt directive ... body ...+)
   [(macro-patt literal
-               wildcard
-               variable
+               wildcard-id
+               variable-id
                id-literal
+               (void)
+               (struct-id macro-patt ...)
+               (quasiquote mqp)
                (macro-patt ...)
-               (macro-patt . macro-patt)
+               (macro-patt ...+ . macro-patt)
                (macro-patt ooo . macro-patt))
+   (mqp (unquote macro-patt)
+        (mqp . mqp)
+        datum)
    (ooo ...
         ...+)
    (directive (code:line #:with macro-patt stx-expr)
-              (code:line #:when condition-expr))]
+              (code:line #:if condition-expr))]
 ])]{
 
   Creates a @tech{macro} of one argument with one clause.
 
-  A @var[macro-patt] is a @var[literal] or @var[wildcard] as defined for
+  A @var[macro-patt] is a @var[literal] or @var[wildcard-id] as defined for
   @racket[φ], or one of the following forms:
 
-  @specsubform[variable]{
+  @specsubform[variable-id]{
 
     An identifier whose name begins with a
     @racketlink[char-lower-case?]{lowercase} character.
@@ -650,7 +686,7 @@ The bindings documented in this section are provided by the
 
   @specsubform[id-literal]{
     
-    An identifier that is not a @var[wildcard] or @var[variable].
+    An identifier that is not a @var[wildcard-id] or @var[variable-id].
 
     Matches an identifier literal.
 
@@ -659,6 +695,53 @@ The bindings documented in this section are provided by the
       (define-syntax m (μ ++ "plus plus"))
       (m ++)
       (eval:error (m --))
+    ]
+
+  }
+
+  @specsubform[
+    #:literals (void)
+    (void)
+  ]{
+
+    Matches only the @racket[(void)] form.
+
+    Example:
+    @example[
+      (define-syntax m (μ (void) 1))
+      (m (void))
+      (eval:error (m (values (void))))
+    ]
+
+  }
+
+  @specsubform[(struct-id macro-patt ...)]{
+
+    Matches a sequence of terms, where the first element @var[struct-id] names
+    a structure type and subsequent elements match the corresponding
+    @var[macro-patt].
+
+    Example:
+    @example[
+      (struct F (a b c))
+      (define-syntax m (μ (F x y z) (+ x y z)))
+      (m (F 1 2 3))
+    ]
+  }
+
+  @specsubform[
+    #:literals (quasiquote)
+    (quasiquote mqp)
+  ]{
+
+    Introduces a @deftech{quasiquoted macro pattern}, in which identifiers
+    match symbols and @racket[unquote] escapes back to normal macro patterns.
+
+    Example:
+    @example[
+      (define-syntax m (μ `x 1))
+      (values (m `x) (m 'x))
+      (eval:error (m `y))
     ]
 
   }
@@ -675,14 +758,15 @@ The bindings documented in this section are provided by the
 
   }
 
-  @specsubform[(macro-patt . macro-patt)]{
+  @specsubform[(macro-patt ...+ . macro-patt)]{
 
-    Matches any term that can be decomposed into a list prefix and a suffix.
+    Matches a term with a list head and a tail separated by a delimited
+    @racketparenfont{.}.
 
     Example:
     @example[
-      (define-syntax m (μ (x . y) (list x y)))
-      (m (1 . 2))
+      (define-syntax m (μ (x y . z) (list x y z)))
+      (m (1 2 . 3))
     ]
 
   }
@@ -726,16 +810,15 @@ The bindings documented in this section are provided by the
 
   }
 
-  @specsubform[(code:line #:when condition-expr)]{
+  @specsubform[(code:line #:if condition-expr)]{
 
     Evaluates the @var[condition-expr] in the context of all previous
-    attribute bindings. If the value is @racket[#f], the matching process
-    backtracks.
+    attribute bindings. If the value is @racket[#f], the match fails.
 
     Example:
     @example[#:escape UNSYNTAX
       (define-syntax m-fib
-        (macro [n:nat #:when (< (var n) 2) 1]
+        (macro [n:nat #:if (< (var n) 2) 1]
                [n:nat (+ (m-fib #,(- (var n) 1))
                          (m-fib #,(- (var n) 2)))]))
       (values
@@ -763,8 +846,6 @@ The bindings documented in this section are provided by the
   Creates a @tech{macro} with any number of arguments and one clause.
 
 }
-
-
 
 @defform[(macro* [(macro-patt ...) directive ... body ...+] ...+)]{
 
