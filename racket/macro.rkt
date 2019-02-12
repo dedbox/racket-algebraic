@@ -85,7 +85,7 @@
   (define-syntax-class mac-quasiquoted
     #:attributes (compiled)
     #:literals (unquote)
-    ;; (pattern x:id #:attr compiled #'(~literal x))
+    (pattern x:id #:attr compiled #'(~literal x))
     (pattern (unquote p:mac-patt) #:attr compiled #'(unquote p.compiled))
     (pattern (q1:mac-quasiquoted . q2:mac-quasiquoted)
              #:attr compiled #'(q1.compiled . q2.compiled))
