@@ -66,7 +66,7 @@
     (pattern compiled:variable))
 
   (define-syntax-class fun-reference
-    #:description "reference pattern"
+    #:description "variable reference"
     #:attributes (compiled)
     (pattern r:reference
              #:attr compiled #'(app (λ (a) (eq? a r)) #t)))
@@ -79,11 +79,9 @@
   (define-syntax-class fun-instance
     #:description "instance pattern"
     #:attributes (compiled)
-    (pattern i:instance
-             #:with (δ:fun-constructor ps:fun-patt ...) this-syntax
+    (pattern (δ:fun-constructor ps:fun-patt ...)
              #:attr compiled #'(ins δ.compiled (list ps.compiled ...)))
-    (pattern i:instance
-             #:with (δ:fun-constructor ps:fun-patt ... . p:fun-patt) this-syntax
+    (pattern (δ:fun-constructor ps:fun-patt ... . p:fun-patt)
              #:attr compiled #'(ins δ.compiled (list* ps.compiled ... p.compiled))))
 
   (define-syntax-class fun-void
@@ -95,20 +93,18 @@
   (define-syntax-class fun-conditional
     #:description "conditional pattern"
     #:attributes (compiled)
-    (pattern :conditional
-             #:with (p:fun-patt #:if t:expr) this-syntax
+    (pattern (p:fun-patt #:if t:expr)
              #:attr compiled
              #'(and p.compiled (app (match-lambda [p.compiled t]) (not #f)))))
 
   (define-syntax-class fun-regexp
     #:description "regexp pattern"
     #:attributes (compiled)
-    (pattern r:regexp
-             #:with (x:expr p:fun-patt ...+) this-syntax
+    (pattern (r:regexp p:fun-patt ...+)
              #:attr compiled
              #'(app (λ (v)
                       (and ((or/c string? bytes? path? input-port?) v)
-                           (regexp-match (syntax->datum #'x) v)))
+                           (regexp-match (syntax->datum #'r) v)))
                     (or (? (λ (vs) (and (pair? vs) (null? (cdr vs))))
                            (list p.compiled ...))
                         (list _ p.compiled ...))))
@@ -122,52 +118,57 @@
   (define-syntax-class fun-pair
     #:description "pair pattern"
     #:attributes (compiled)
+    (pattern () #:attr compiled #'(list))
     (pattern :pair
-             #:with () this-syntax
-             #:attr compiled #'(list))
-    (pattern p:pair
-             #:with fcar:fun-patt #'p.car
-             #:with fcdr:fun-patt #'p.cdr
-             #:attr compiled #'(cons fcar.compiled fcdr.compiled)))
+             #:with pcar:fun-patt (attribute car)
+             #:with pcdr:fun-patt (attribute cdr)
+             #:attr compiled #'(cons pcar.compiled pcdr.compiled)))
 
   (define-syntax-class fun-vector
     #:description "vector pattern"
     #:attributes (compiled)
     (pattern v:vector
-             #:with (fp:fun-patt ...) #'(v.p ...)
-             #:attr compiled #'(vector fp.compiled ...)))
+             #:do [(define items (syntax-e #'(v.item ...)))]
+             #:with (p:fun-patt ...) (map maybe-quote/ids items)
+             #:attr compiled #'(vector p.compiled ...)))
 
   (define-syntax-class fun-box
     #:description "box pattern"
     #:attributes (compiled)
     (pattern b:box
-             #:with p:fun-patt #'b.p
+             #:with p:fun-patt (maybe-quote/ids #'b.item)
              #:attr compiled #'(box p.compiled)))
 
-  (define-syntax-class fun-hash-key
+  (define-syntax-class hash-key
     #:description "hash pattern key"
     #:attributes (compiled)
     #:commit
     (pattern k:id #:attr compiled #''k)
-    (pattern compiled))
+    (pattern compiled:literal-value))
 
   (define-syntax-class fun-hash
     #:description "hash pattern"
     #:attributes (compiled)
     (pattern h:hash
-             #:with (k:fun-hash-key ...) #'(h.k ...)
-             #:with (v:fun-patt ...) #'(h.v ...)
-             #:attr compiled #'(hash-table (k.compiled v.compiled) ... (_ _) (... ...))))
+             #:do [(define ks (syntax-e #'(h.k ...)))
+                   (define vs (syntax-e #'(h.v ...)))]
+             #:with (k:hash-key ...) (map maybe-quote/ids ks)
+             #:with (v:fun-patt ...) (map maybe-quote/ids vs)
+             #:attr compiled
+             #'(hash-table (k.compiled v.compiled) ... (_ _) (... ...))))
 
   (define-syntax-class fun-struct
     #:description "struct pattern"
     #:attributes (compiled)
-    (pattern :struct
-             #:with (sid:struct-id ([field:id p:fun-patt] ...)) this-syntax
-             #:attr compiled #'(struct* sid ([field p.compiled] ...)))
-    (pattern :struct
-             #:with (sid:struct-id p:fun-patt ...) this-syntax
-             #:attr compiled #'(sid p.compiled ...)))
+    (pattern (id:struct-id ([field:id p:fun-patt] ...))
+             #:attr compiled #'(struct* id ([field p.compiled] ...)))
+    (pattern (id:struct-id p:fun-patt ...)
+             #:attr compiled #'(id p.compiled ...))
+    ;; (pattern s:prefab-struct
+    ;;          #:do [(println this-syntax)]
+    ;;          #:with (p:fun-patt ...) #'(s.item ...)
+    ;;          #:attr compiled #'#s(s.key p.compiled ...))
+    )
 
   (define-syntax-class fun-quasiquoted
     #:attributes (compiled)
@@ -281,7 +282,9 @@
 ;;; ----------------------------------------------------------------------------
 
 (module+ test
-  (require rackunit)
+  (require (for-syntax algebraic/racket/macro)
+           rackunit
+           syntax/macro-testing)
 
   (define iterations 20)
   (define max-size 3)
@@ -303,6 +306,27 @@
                       [exn:fail? (λ _ (fail-check "Wrong exception raised"))])
         (f arg))
       (fail-check "No exception raised")))
+
+  (define-simple-check (check-OK** thunk)
+    (let ([ret (with-handlers ([exn:algebraic:match? (λ _ FAIL)]
+                               [exn:fail? (λ _ (fail-check "Exception raised"))])
+                 (thunk))])
+      (or (eq? ret OK)
+          (with-check-info (['expected OK] ['actual ret])
+            (fail-check "Match failed")))))
+
+  (define-simple-check (check-not-OK** thunk)
+    (let/ec succeed
+      (with-handlers ([exn:fail:syntax? (λ _ (succeed #t))]
+                      [exn:fail? (λ _ (fail-check "Wrong exception raised"))])
+        (thunk))
+      (fail-check "No exception raised")))
+
+  (define-syntax-rule (check-OK* m arg)
+    (check-OK** (λ () (m arg))))
+
+  (define-syntax-rule (check-not-OK* m arg)
+    (check-not-OK** (λ () (convert-compile-time-error (m arg)))))
 
   (define (restrict rand pred)
     (let ([v (rand)])
@@ -339,6 +363,9 @@
 
   (define (random-lowercase-char)
     (integer->char (random (char->integer #\a) (char->integer #\z))))
+
+  (define (random-non-lowercase-char)
+    (restrict random-char (λ (c) (not (char-lower-case? c)))))
 
   (define (random-string)
     (apply string (random-list random-char)))
@@ -436,65 +463,67 @@
                     (λ () #`,#,(maybe-quote (random-literal-value)))
                     (λ () (random-list (λ () (recur (- depth 1)))))))))
 
+  (define (random-identifier)
+    #`#,(string->symbol
+         (format "~a~a" (random-non-lowercase-char) (random-string))))
+
   (define-namespace-anchor ns)
 
   (parameterize ([current-namespace (namespace-anchor->namespace ns)])
-    (test-case "φ literal"
-      (test-case "φ boolean"
-        (check-OK (φ #t OK) #t)
-        (check-OK (φ #f OK) #f)
-        (check-not-OK (φ #t FAIL) #f)
-        (check-not-OK (φ #f FAIL) #t))
+    (test-case "φ boolean"
+      (check-OK (φ #t OK) #t)
+      (check-OK (φ #f OK) #f)
+      (check-not-OK (φ #t FAIL) #f)
+      (check-not-OK (φ #f FAIL) #t))
 
-      (test-case "φ char"
-        (for ([_ iterations])
-          (define c (random-char))
-          (define f (eval-syntax #`(φ #,c OK)))
-          (check-OK f c)
-          (check-not-OK f FAIL)))
+    (test-case "φ char"
+      (for ([_ iterations])
+        (define c (random-char))
+        (define f (eval-syntax #`(φ #,c OK)))
+        (check-OK f c)
+        (check-not-OK f FAIL)))
 
-      (test-case "φ number"
-        (test-case "φ integer"
-          (for ([_ iterations])
-            (define n (random-integer))
-            (define f (eval-syntax #`(φ #,n OK)))
-            (check-OK f n)
-            (check-not-OK f FAIL)))
+    (test-case "φ integer"
+      (for ([_ iterations])
+        (define n (random-integer))
+        (define f (eval-syntax #`(φ #,n OK)))
+        (check-OK f n)
+        (check-not-OK f FAIL)))
 
-        (test-case "φ rational"
-          (for ([_ iterations])
-            (define n (random-rational))
-            (define f (eval-syntax #`(φ #,n OK)))
-            (check-OK f n)
-            (check-not-OK f FAIL)))
+    (test-case "φ rational"
+      (for ([_ iterations])
+        (define n (random-rational))
+        (define f (eval-syntax #`(φ #,n OK)))
+        (check-OK f n)
+        (check-not-OK f FAIL)))
 
-        (test-case "φ real"
-          (for ([_ iterations])
-            (define n (random-real))
-            (define f (eval-syntax #`(φ #,n OK)))
-            (check-OK f n)
-            (check-not-OK f FAIL)))
+    (test-case "φ real"
+      (for ([_ iterations])
+        (define n (random-real))
+        (define f (eval-syntax #`(φ #,n OK)))
+        (check-OK f n)
+        (check-not-OK f FAIL)))
 
-        (test-case "φ complex"
-          (for ([_ iterations])
-            (define n (random-complex))
-            (define f (eval-syntax #`(φ #,n OK)))
-            (check-OK f n)
-            (check-not-OK f FAIL))))
+    (test-case "φ complex"
+      (for ([_ iterations])
+        (define n (random-complex))
+        (define f (eval-syntax #`(φ #,n OK)))
+        (check-OK f n)
+        (check-not-OK f FAIL)))
 
-      (test-case "φ string"
-        (for ([_ iterations])
-          (define s (random-string))
-          (define f (eval-syntax #`(φ #,s OK)))
-          (check-OK f s)
-          (check-not-OK f FAIL)))
+    (test-case "φ string"
+      (for ([_ iterations])
+        (define s (random-string))
+        (define f (eval-syntax #`(φ #,s OK)))
+        (check-OK f s)
+        (check-not-OK f FAIL)))
 
-      (test-case "φ bytes"
-        (for ([_ iterations])
-          (define b (random-bytes))
-          (define f (eval-syntax #`(φ #,b OK)))
-          (check-OK f b)
-          (check-not-OK f FAIL))))
+    (test-case "φ bytes"
+      (for ([_ iterations])
+        (define b (random-bytes))
+        (define f (eval-syntax #`(φ #,b OK)))
+        (check-OK f b)
+        (check-not-OK f FAIL)))
 
     (test-case "φ symbol"
       (for ([_ iterations])
@@ -537,6 +566,7 @@
 
     (test-case "φ void"
       (check-OK (φ (void) OK) (void))
+      (check-OK (φ (void) OK) (let ([v (void)]) v))
       (check-not-OK (φ (void) FAIL) FAIL))
 
     (test-case "φ constructor"
@@ -590,7 +620,9 @@
         (check-not-OK f FAIL))
       (for ([_ iterations])
         (define p (random-pair random-literal-value))
-        (define f (eval-syntax #`(φ (#,(maybe-quote (car p)) . #,(maybe-quote (cdr p))) OK)))
+        (define f
+          (eval-syntax
+           #`(φ (#,(maybe-quote (car p)) . #,(maybe-quote (cdr p))) OK)))
         (check-OK f p)
         (check-not-OK f FAIL)))
 
@@ -640,11 +672,182 @@
         (define f (eval-syntax #`(φ (#,name #,@(map maybe-quote vs)) OK)))
         (define s (eval-syntax #`(#,name #,@(map maybe-quote vs))))
         (check-OK f s)
-        (check-not-OK f FAIL)))
+        (check-not-OK f FAIL))
+      ;; (for ([_ iterations])
+      ;;   (define name (random-nonempty-symbol))
+      ;;   (define fs (random-list random-variable))
+      ;;   (define vs (map (λ _ (maybe-quote (random-literal-value))) fs))
+      ;;   (eval-syntax #`(struct #,name #,fs #:prefab))
+      ;;   (define s (eval-syntax #`(#,name #,@(map maybe-quote vs))))
+      ;;   (define f (eval-syntax #`(φ #,s OK)))
+      ;;   (check-OK f s)
+      ;;   (check-not-OK f FAIL))
+      )
 
-    (test-case "φ quasiquoted"
+    (test-case "φ quasiquote"
       (for ([_ iterations])
         (define q (random-quasiquote))
         (define f (eval-syntax #`(φ #,q OK)))
         (check-OK f (eval-syntax q))
-        (check-not-OK f FAIL)))))
+        (check-not-OK f FAIL)))
+
+    ;; -------------------------------------------------------------------------
+
+    (test-case "μ boolean"
+      (define-syntax mt (μ #t OK))
+      (define-syntax mf (μ #f OK))
+      (check-OK* mt #t)
+      (check-OK* mf #f)
+      (check-not-OK* mt #f)
+      (check-not-OK* mf #t))
+
+    (test-case "μ char"
+      (for ([_ iterations])
+        (define c (random-char))
+        (eval-syntax #`(define-syntax m (μ #,c OK)))
+        (eval-syntax #`(check-OK* m #,c))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ integer"
+      (for ([_ iterations])
+        (define n (random-integer))
+        (eval-syntax #`(define-syntax m (μ #,n OK)))
+        (eval-syntax #`(check-OK* m #,n))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ rational"
+      (for ([_ iterations])
+        (define n (random-rational))
+        (eval-syntax #`(define-syntax m (μ #,n OK)))
+        (eval-syntax #`(check-OK* m #,n))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ real"
+      (for ([_ iterations])
+        (define n (random-real))
+        (eval-syntax #`(define-syntax m (μ #,n OK)))
+        (eval-syntax #`(check-OK* m #,n))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ complex"
+      (for ([_ iterations])
+        (define n (random-complex))
+        (eval-syntax #`(define-syntax m (μ #,n OK)))
+        (eval-syntax #`(check-OK* m #,n))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ string"
+      (for ([_ iterations])
+        (define s (random-string))
+        (eval-syntax #`(define-syntax m (μ #,s OK)))
+        (eval-syntax #`(check-OK* m #,s))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ bytes"
+      (for ([_ iterations])
+        (define b (random-bytes))
+        (eval-syntax #`(define-syntax m (μ #,b OK)))
+        (eval-syntax #`(check-OK* m #,b))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ symbol"
+      (for ([_ iterations])
+        (define s (random-symbol))
+        (eval-syntax #`(define-syntax m (μ '#,s OK)))
+        (eval-syntax #`(check-OK* m '#,s))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ quote"
+      (for ([_ iterations])
+        (define q (random-quote))
+        (eval-syntax #`(define-syntax m (μ '#,q OK)))
+        (eval-syntax #`(check-OK* m '#,q))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ wildcard"
+      (for ([_ iterations])
+        (define w (random-wildcard))
+        (eval-syntax #`(define-syntax m (μ #,w OK)))
+        (eval-syntax #`(check-OK* m 0))))
+
+    (test-case "μ variable"
+      (for ([_ iterations])
+        (define x (random-variable))
+        (eval-syntax #`(define-syntax m (μ #,x #,x)))
+        (eval-syntax #`(check-OK* m OK))))
+
+    (test-case "μ identifier"
+      (for ([_ iterations])
+        (define x (random-identifier))
+        (eval-syntax #`(define-syntax m (μ #,x OK)))
+        (eval-syntax #`(check-OK* m #,x))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ void"
+      (eval-syntax #`(define-syntax m (μ (void) OK)))
+      (eval-syntax #`(check-OK* m (void)))
+      (eval-syntax #`(check-not-OK* m FAIL)))
+
+    (test-case "μ conditional"
+      (for ([_ iterations])
+        (eval-syntax #`(define-syntax m (μ x #:if (var x) OK)))
+        (eval-syntax #`(check-OK* m #t))
+        (eval-syntax #`(check-not-OK* m #f))))
+
+    (test-case "μ pair"
+      (for ([_ iterations])
+        (eval-syntax #`(define-syntax m1 (μ (_ _ _) OK)))
+        (eval-syntax #`(define-syntax m2 (μ (_ . _) OK)))
+        (eval-syntax #`(check-OK* m1 (1 2 3)))
+        (eval-syntax #`(check-OK* m1 (1 2 3 . ())))
+        (eval-syntax #`(check-OK* m2 (1 . 2)))
+        (eval-syntax #`(check-OK* m2 (1 2 3)))
+        (eval-syntax #`(check-OK* m2 (1 2 . 3)))
+        (eval-syntax #`(check-not-OK* m1 FAIL))
+        (eval-syntax #`(check-not-OK* m2 FAIL))))
+
+    (test-case "μ vector"
+      (for ([_ iterations])
+        (define v (random-vector random-literal-value))
+        (eval-syntax #`(define-syntax m (μ #,v OK)))
+        (eval-syntax #`(check-OK* m #,v))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ box"
+      (for ([_ iterations])
+        (define b (random-box random-literal-value))
+        (eval-syntax #`(define-syntax m (μ #,b OK)))
+        (eval-syntax #`(check-OK* m #,b))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ struct"
+      (for ([_ iterations])
+        (define name (random-nonempty-symbol))
+        (define fs (random-list random-variable))
+        (define vs (map (λ _ (random-literal-value)) fs))
+        (eval-syntax #`(struct #,name #,fs))
+        (eval-syntax #`(define-syntax m (μ (#,name #,@vs) OK)))
+        (eval-syntax #`(check-OK* m (#,name #,@vs)))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ quasiquote"
+      (for ([_ iterations])
+        (define q (random-quasiquote))
+        (eval-syntax #`(define-syntax m (μ #,q OK)))
+        (eval-syntax #`(check-OK* m #,q))
+        (eval-syntax #`(check-not-OK* m FAIL))))
+
+    (test-case "μ ellipses"
+      (for ([_ iterations])
+        (define vs (random-list random-literal-value))
+        (eval-syntax #`(define-syntax m (μ (x (... ...)) OK)))
+        (eval-syntax #`(check-OK* m ()))
+        (eval-syntax #`(check-OK* m #,vs))
+        (eval-syntax #`(check-not-OK* m FAIL)))
+      (for ([_ iterations])
+        (define vs (cons (random-literal-value)
+                         (random-list random-literal-value)))
+        (eval-syntax #`(define-syntax m (μ (x (... ...+)) OK)))
+        (eval-syntax #`(check-OK* m #,vs))
+        (eval-syntax #`(check-not-OK* m ()))
+        (eval-syntax #`(check-not-OK* m FAIL))))))

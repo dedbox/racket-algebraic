@@ -38,10 +38,6 @@
            #:when (and (not (eq? (syntax->datum #'x) '||))
                        (char-lower-case? (first-char #'x)))))
 
-(define-syntax-class void
-  #:literals (void)
-  (pattern (void)))
-
 (define-syntax-class constructor
   (pattern δ:id
            #:when (and (identifier-transformer-binding #'δ)
@@ -57,16 +53,8 @@
                             (not (char=? #\_ (first-char this-syntax)))))
                    (namespace-variable-value s #t (λ _ #f)))))
 
-(define-syntax-class conditional
-  (pattern (:patt #:if :expr)))
-
-(define-syntax-class instance
-  (pattern (:constructor :patt ...))
-  (pattern (:constructor . :patt)))
-
 (define-syntax-class regexp
-  (pattern x:expr #:when (regexp? (syntax->datum #'x)))
-  (pattern (x:expr p:patt ...+) #:when (regexp? (syntax->datum #'x))))
+  (pattern x:expr #:when (regexp? (syntax->datum #'x))))
 
 (define maybe-quote
   (syntax-parser
@@ -82,64 +70,36 @@
     [_ this-syntax]))
 
 (define-syntax-class pair
-  #:attributes (car cdr)
   (pattern :expr
-           #:when (null? (syntax-e this-syntax))
-           #:with car #'#f
-           #:with cdr #'#f)
-  (pattern :expr
-           #:when (pair? (syntax-e this-syntax))
-           #:with car:patt (car (syntax-e this-syntax))
-           #:with cdr:patt (cdr (syntax-e this-syntax))))
+           #:do [(define p (syntax-e this-syntax))]
+           #:when (pair? p)
+           #:with car (car p)
+           #:with cdr (cdr p)))
 
 (define-syntax-class vector
   (pattern :expr
-           #:when (vector? (syntax-e this-syntax))
-           #:with (p:patt ...) (map maybe-quote/ids
-                                    (vector->list (syntax-e this-syntax)))))
+           #:do [(define V (syntax-e this-syntax))]
+           #:when (vector? V)
+           #:with (item:expr ...) (vector->list V)))
 
 (define-syntax-class box
   (pattern :expr
-           #:when (box? (syntax-e this-syntax))
-           #:with p:patt (maybe-quote/ids (unbox (syntax-e this-syntax)))))
-
-(define-syntax-class hash-key
-  (pattern :id)
-  (pattern :literal-value))
+           #:do [(define B (syntax-e this-syntax))]
+           #:when (box? B)
+           #:with item (unbox B)))
 
 (define-syntax-class hash
   (pattern :expr
            #:do [(define H (syntax-e this-syntax))]
            #:when (hash? H)
-           #:with ([k:hash-key . v:patt] ...)
-           (let ([ks (hash-keys H)])
-                (map cons
-                     (map maybe-quote/ids ks)
-                     (map (λ (k) (maybe-quote/ids (hash-ref H k))) ks)))))
+           #:do [(define ks (hash-keys H))]
+           #:with (k ...) ks
+           #:with (v ...) (map (λ (k) (hash-ref H k)) ks)))
 
 (define-syntax-class struct-id
   (pattern :id
            #:when (identifier-binding
                    (format-id this-syntax "struct:~a" this-syntax))))
 
-(define-syntax-class struct
-  (pattern (:struct-id ([:id :patt] ...)))
-  (pattern (:struct-id :patt ...)))
-
-(define-syntax-class patt
-  #:description "function pattern"
-  #:commit
-  (pattern :literal-value)
-  (pattern :wildcard)
-  (pattern :variable)
-  (pattern :void)
-  (pattern :constructor)
-  (pattern :reference)
-  (pattern :conditional)
-  (pattern :instance)
-  (pattern :regexp)
-  (pattern :struct)
-  (pattern :vector)
-  (pattern :box)
-  (pattern :hash)
-  (pattern :pair))
+(define-syntax-class prefab-struct
+  (pattern #s(key:id item ...)))
