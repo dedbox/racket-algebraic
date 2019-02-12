@@ -54,6 +54,13 @@
 
 ;;; Functions
 
+(define ((maybe-regexp-match rx) v)
+  (and ((or/c string? bytes? path? input-port?) v)
+       (regexp-match rx v)))
+
+(define (singleton-list? vs)
+  (and (pair? vs) (null? (cdr vs))))
+
 (begin-for-syntax
   (define-syntax-class fun-wildcard
     #:description "wildcard"
@@ -102,18 +109,18 @@
     #:attributes (compiled)
     (pattern (r:regexp p:fun-patt ...+)
              #:attr compiled
-             #'(app (λ (v)
-                      (and ((or/c string? bytes? path? input-port?) v)
-                           (regexp-match (syntax->datum #'r) v)))
-                    (or (? (λ (vs) (and (pair? vs) (null? (cdr vs))))
-                           (list p.compiled ...))
+             #'(app (maybe-regexp-match (syntax->datum #'r))
+                    (or (? singleton-list? (list p.compiled ...))
                         (list _ p.compiled ...))))
+    (pattern (r:regexp p:fun-patt ... . rest-p:fun-patt)
+             #:attr compiled
+             #'(app (maybe-regexp-match (syntax->datum #'r))
+                    (or (? singleton-list?
+                           (list-rest p.compiled ... rest-p.compiled))
+                        (list-rest _ p.compiled ... rest-p.compiled))))
     (pattern r:regexp
              #:attr compiled
-             #'(app (λ (v)
-                      (and ((or/c string? bytes? path? input-port?) v)
-                           (regexp-match (syntax->datum #'r) v)))
-                    (not #f))))
+             #'(app (maybe-regexp-match (syntax->datum #'r)) (not #f))))
 
   (define-syntax-class fun-pair
     #:description "pair pattern"
@@ -602,8 +609,14 @@
                     (eval-syntax
                      #`(φ (#rx"a+b+" ab) (and (regexp-match #,rx ab) OK)))
                     (eval-syntax
-                     #`(φ (#rx"(a+)(b+)" as bs)
-                         (and (regexp-match #,rx (string-append as bs)) OK))))]
+                     #`(φ (#rx"(a+)(b+)" ass bss)
+                         (and (regexp-match #,rx (string-append ass bss)) OK)))
+                    (eval-syntax
+                     #`(φ (#rx"(a+)(b+)" . ab)
+                         (and (equal? ab (list #,as #,bs)) OK)))
+                    (eval-syntax
+                     #`(φ (#rx"(a+)(b+)" ass . bss)
+                         (and (equal? ass #,as) (equal? bss (list #,bs)) OK))))]
                [ffs (list (eval-syntax #`(φ #rx"x+y+" OK))
                           (eval-syntax #`(φ (#rx"(a+)(b+)" _) OK)))])
           (for ([f fs])
