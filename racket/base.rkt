@@ -36,6 +36,7 @@
        [else (display (con-δ c) port)]))])
 
 (struct ins (con vs)
+  #:transparent
   #:methods gen:custom-write
   [(define (write-proc i port mode)
      (case mode
