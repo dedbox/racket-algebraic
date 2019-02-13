@@ -660,7 +660,6 @@ The bindings documented in this section are provided by the
                wildcard-id
                variable-id
                id-literal
-               (void)
                (struct-id macro-patt ...)
                (quasiquote mqp)
                (macro-patt ...)
@@ -711,22 +710,6 @@ The bindings documented in this section are provided by the
       (define-syntax m (μ ++ "plus plus"))
       (m ++)
       (eval:error (m --))
-    ]
-
-  }
-
-  @specsubform[
-    #:literals (void)
-    (void)
-  ]{
-
-    Matches only the @racket[(void)] form.
-
-    Example:
-    @example[
-      (define-syntax m (μ (void) 1))
-      (m (void))
-      (eval:error (m (values (void))))
     ]
 
   }

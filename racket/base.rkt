@@ -809,11 +809,6 @@
         (eval-syntax #`(check-OK* m #,x))
         (eval-syntax #`(check-not-OK* m FAIL))))
 
-    (test-case "μ void"
-      (eval-syntax #`(define-syntax m (μ (void) OK)))
-      (eval-syntax #`(check-OK* m (void)))
-      (eval-syntax #`(check-not-OK* m FAIL)))
-
     (test-case "μ conditional"
       (for ([_ iterations])
         (eval-syntax #`(define-syntax m (μ x #:if (var x) OK)))

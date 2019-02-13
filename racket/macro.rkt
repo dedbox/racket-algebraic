@@ -32,12 +32,6 @@
     #:attributes (compiled)
     (pattern x:id #:attr compiled #'(~literal x)))
 
-  (define-syntax-class mac-void
-    #:description "void macro pattern"
-    #:attributes (compiled)
-    #:literals (void)
-    (pattern (void) #:attr compiled this-syntax))
-
   (define-syntax-class mac-pair
     #:description "macro pattern sequence"
     #:attributes (compiled)
@@ -108,7 +102,6 @@
     (pattern (~or p:mac-wildcard
                   p:mac-variable
                   p:mac-identifier
-                  p:mac-void
                   p:mac-struct
                   p:mac-quasiquote
                   p:mac-pair
