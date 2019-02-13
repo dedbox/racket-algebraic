@@ -16,6 +16,7 @@
          syntax/parse/define)
 
 (provide
+ (for-syntax literal-value fun-patt)
  (all-from-out racket/base)
  data φ phi function φ* phi* function*
  (contract-out

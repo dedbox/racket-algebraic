@@ -11,7 +11,8 @@
          syntax/parse
          syntax/parse/define)
 
-(provide (all-from-out racket/base syntax/parse)
+(provide (for-syntax mac-patt)
+         (all-from-out racket/base syntax/parse)
          μ mu macro μ* mu* macro* var
          (contract-out [macro-expand (-> syntax? syntax?)]))
 
