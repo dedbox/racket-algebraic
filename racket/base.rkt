@@ -80,6 +80,11 @@
     (pattern r:reference
              #:attr compiled #'(app (λ (a) (eq? a r)) #t)))
 
+  (define-syntax-class fun-symbol
+    #:description "symbol pattern"
+    #:attributes (compiled)
+    (pattern s:id #:attr compiled #''s))
+
   (define-syntax-class fun-constructor
     #:description "constructor pattern"
     #:attributes (compiled)
@@ -214,6 +219,7 @@
                   p:fun-box
                   p:fun-hash
                   p:fun-quasiquote
+                  p:fun-symbol
                   p:fun-pair)
              #:attr compiled #'p.compiled))
 
@@ -538,6 +544,11 @@
       (for ([_ iterations])
         (define s (random-symbol))
         (define f (eval-syntax #`(φ '#,s OK)))
+        (check-OK f s)
+        (check-not-OK f FAIL))
+      (for ([_ iterations])
+        (define s (random-symbol))
+        (define f (eval-syntax #`(φ #,s OK)))
         (check-OK f s)
         (check-not-OK f FAIL)))
 

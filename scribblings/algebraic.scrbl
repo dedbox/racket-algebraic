@@ -235,6 +235,7 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
          regexp
          (regexp patt ...+)
          (regexp patt ... . patt)
+         symbol
          (patt ...)
          (patt ... . patt)
          (struct-id ([field patt] ...))
@@ -411,6 +412,21 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
        ((φ (#rx"x+y+" xy) xy) "--xxyy++")
        ((φ (#rx"(a+)(b+)" as bs) (list as bs)) "--aabb++"))
       (eval:error ((φ (#rx"(a+)(b+)" as bs cs) 'OK) "--aabb++"))
+    ]
+
+  }
+
+  @specsubform[symbol]{
+
+    An unquoted datum literal that is not a @var[wildcard-id],
+    @var[variable-id], or @var[constructor-id].
+
+    Matches a symbol.
+
+    Example:
+    @example[
+      ((φ $ 1) '$)
+      (eval:error ((φ $ 1) $))
     ]
 
   }
