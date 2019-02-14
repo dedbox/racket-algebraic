@@ -3,6 +3,7 @@
 (require (for-syntax algebraic/racket/base/syntax
                      (except-in racket/base
                                 hash void vector regexp quasiquote struct box)
+                     racket/list
                      racket/match
                      racket/syntax
                      syntax/stx)
@@ -20,6 +21,7 @@
  (all-from-out racket/base)
  data φ phi function φ* phi* function*
  (contract-out
+  [sum? predicate/c]
   [constructor? predicate/c]
   [instance? predicate/c]
   [function? predicate/c]))
@@ -48,11 +50,30 @@
 
 ;;; Data
 
+(struct sum (Σ δs)
+  #:transparent
+  #:methods gen:custom-write
+  [(define (write-proc s port mode)
+     (case mode
+       [(#t #f) (write (sum-δs s) port)]
+       [else
+        (let ([δs (map con-δ (sum-δs s))])
+          (fprintf port "#<~a:~a>" (sum-Σ s) (string-join (map ~s δs))))]))])
+
 (define-syntax-parser data
-  [(_ δ:id ...+)
+  [(_ (~seq Σ:id (δ:id ...)) ...+)
    #:when (andmap (λ (d) (not (char-lower-case? (first-char d))))
-                  (syntax-e #'(δ ...)))
-   #'(begin (begin (define-for-syntax δ (scon 'δ)) (define δ (con 'δ))) ...)])
+                  (flatten (map syntax-e (syntax-e #'((δ ...) ...)))))
+   #:with (Σ? ...) (map (λ (Σ) (format-id Σ "~a?" Σ)) (syntax-e #'(Σ ...)))
+   #'(begin
+       (begin
+         (begin
+           (define-for-syntax δ (scon 'δ))
+           (define δ (con 'δ)))
+         ...
+         (define Σ (sum 'Σ (list δ ...)))
+         (define Σ? (function [δ #t] ... [(δ . _) #t] ... [_ #f])))
+       ...)])
 
 ;;; Functions
 
@@ -319,7 +340,8 @@
     (let/ec succeed
       (with-handlers ([exn:algebraic:match? (λ _ (succeed #t))]
                       [exn:fail? (λ _ (fail-check "Wrong exception raised"))])
-        (f arg))
+        (with-check-info (['argument arg])
+          (f arg)))
       (fail-check "No exception raised")))
 
   (define-simple-check (check-OK** thunk)
@@ -338,7 +360,9 @@
       (fail-check "No exception raised")))
 
   (define-syntax-rule (check-OK* m arg)
-    (check-OK** (λ () (m arg))))
+    (with-check-info
+      (['argument 'arg])
+      (check-OK** (λ () (m arg)))))
 
   (define-syntax-rule (check-not-OK* m arg)
     (check-not-OK** (λ () (convert-compile-time-error (m arg)))))
@@ -424,10 +448,10 @@
                    (λ () (random-quote depth))))
 
   (define (random-wildcard)
-    (string->symbol (format "_~a" (random-symbol))))
+    (string->symbol (~a "_" (random-symbol))))
 
   (define (random-variable)
-    (string->symbol (format "~a~a" (random-lowercase-char) (random-symbol))))
+    (string->symbol (~a (random-lowercase-char) (random-symbol))))
 
   (define (random-reference)
     (let ([refs
@@ -479,8 +503,7 @@
                     (λ () (random-list (λ () (recur (- depth 1)))))))))
 
   (define (random-identifier)
-    #`#,(string->symbol
-         (format "~a~a" (random-non-lowercase-char) (random-string))))
+    #`#,(string->symbol (~a (random-non-lowercase-char) (random-string))))
 
   (define-namespace-anchor ns)
 
@@ -592,7 +615,7 @@
     (test-case "φ constructor"
       (for ([_ iterations])
         (define δ-name (random-constructor))
-        (eval-syntax #`(data #,δ-name))
+        (eval-syntax #`(data D (#,δ-name)))
         (define-values (δ f) (eval-syntax #`(values #,δ-name (φ #,δ-name OK))))
         (check-OK f δ)
         (check-not-OK f FAIL)))
@@ -601,7 +624,7 @@
       (for ([_ iterations])
         (define δ-name (random-constructor))
         (define vs (random-list random-literal-value))
-        (eval-syntax #`(data #,δ-name))
+        (eval-syntax #`(data D (#,δ-name)))
         (define δ (eval-syntax #`#,δ-name))
         (define f (eval-syntax #`(φ (#,δ-name #,@(map maybe-quote vs))  OK)))
         (check-OK f (apply δ vs))

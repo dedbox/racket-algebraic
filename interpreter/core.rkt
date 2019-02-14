@@ -14,9 +14,9 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Abstract Syntax
 
-(data TApp TSeq TFun TMac TVar TCon TUni)
+(data Term (TApp TSeq TFun TMac TVar TCon TUni))
 
-(data PApp PSeq PWil PVar PCon PUni)
+(data Patt (PApp PSeq PWil PVar PCon PUni))
 
 (define-syntax define-uniform-seq-pred
   (μ* (name? δ)

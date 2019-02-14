@@ -47,7 +47,7 @@ Constructors can be matched against, collected into lists, and applied to
 arguments. Constructors are created with the @racket[data] form.
 
 @example[
-  (data S)
+  (data D (S))
   (values S (constructor? S))
 ]
 
@@ -197,10 +197,27 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
 @subsection[#:tag "ref-constructors"]{Constructors}
 
-@defform[(data id ...+)]{
+@defform[
+  (data sum-decl ...+)
+  #:grammar [(sum-decl (code:line sum-id (constructor-id ...)))]
+]{
 
-  Binds each @var[id] to a fresh @tech{constructor}.
+  Binds each @var[constructor-id] to a fresh @tech{constructor}, then binds
+  @var[sum-id] to a @deftech{sum} representing the union of constructors bound
+  to @var[constructor-id]s and all of their instances. Also binds
+  @racketidfont{@var[type-id]?} to a predicate that determines whether an
+  object belongs to the sum.
 
+  Example:
+  @example[
+    (data Either (Left Right))
+    (values Either Left (Either? (Right 1)))
+  ]
+
+}
+
+@defproc[(sum? [v any/c]) boolean?]{
+  Returns @racket[#t] if @var[v] is a @tech{sum}.
 }
 
 @defproc[(constructor? [v any/c]) boolean?]{
