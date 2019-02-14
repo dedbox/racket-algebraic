@@ -14,9 +14,9 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Abstract Syntax
 
-(data TApp TSeq TFun TMac TVar TCon TNul)
+(data TApp TSeq TFun TMac TVar TCon TUni)
 
-(data PApp PSeq PWil PVar PCon PNul)
+(data PApp PSeq PWil PVar PCon PUni)
 
 (define-syntax define-uniform-seq-pred
   (μ* (name? δ)
@@ -42,7 +42,7 @@
     [_ #f]))
 
 (define (value? t)
-  (or (eq? TNul t) ((or/c function? macro? data?) t)))
+  (or (eq? TUni t) ((or/c function? macro? data?) t)))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Concrete Syntax
@@ -56,7 +56,7 @@
       [`(μ ,p1 ,t2) (apply-values TMac (α-rename-clause (patt p1) (term t2)))]
       [`,x #:if (char-lower-case? (first-char x)) (TVar x)]
       [`,x #:if (char-upper-case? (first-char x)) (TCon x)]
-      [◊ TNul]))
+      [◊ TUni]))
   (define patt
     (function
       [(  p1 p2) (PApp (patt p1) (patt p2))]
@@ -64,7 +64,7 @@
       [`,x #:if (char-lower-case? (first-char x)) (PVar x)]
       [`,x #:if (char-upper-case? (first-char x)) (PCon x)]
       ['_ PWil]
-      [ ◊ PNul]))
+      [ ◊ PUni]))
   (term t))
 
 (define (first-char s)
@@ -90,7 +90,7 @@
     [(TMac p1 t2) (TMac p1 ((α-rename-term x y) t2))]
     [(TVar x1) (TVar (if (eq? x1 x) y x1))]
     [(TCon δ1) (TCon δ1)]
-    [TNul TNul]))
+    [TUni TUni]))
 
 (define (α-rename-patt x y)
   (function
@@ -99,7 +99,7 @@
     [(PVar x1) (PVar (if (eq? x1 x) y x1))]
     [(PCon δ1) (PCon δ1)]
     [PWil PWil]
-    [PNul PNul]))
+    [PUni PUni]))
 
 (define vars
   (function
@@ -108,7 +108,7 @@
     [(PVar x1) (seteq x1)]
     [(PCon _) (seteq)]
     [PWil (seteq)]
-    [PNul (seteq)]))
+    [PUni (seteq)]))
 
 (define (show t)
   (define term
@@ -119,7 +119,7 @@
       [(TFun p1 t2) `(φ ,(patt p1) ,(term t2))]
       [(TVar x1) x1]
       [(TCon δ1) δ1]
-      [TNul '◊]))
+      [TUni '◊]))
   (define patt
     (function
       [(PApp p1 p2) `(  ,(patt p1) ,(patt p2))]
@@ -127,7 +127,7 @@
       [(PVar x1) x1]
       [(PCon δ1) δ1]
       [PWil '_]
-      [PNul '◊]))
+      [PUni '◊]))
   (term t))
 
 ;;; ----------------------------------------------------------------------------
@@ -171,7 +171,7 @@
         [(TMac p1 t2) (TMac p1 (subst σ t2 (set-union mask (vars p1))))]
         [(TVar x1) (if (set-member? mask x1) t (hash-ref σ x1))]
         [(TCon _) t]
-        [TNul t])
+        [TUni t])
       t)]))
 
 (define ×
@@ -185,7 +185,7 @@
     [((PCon δ) (TCon δ)) (make-immutable-hasheq)]
     [((PVar x1) t2) (make-immutable-hasheq `([,x1 . ,t2]))]
     [(PWil _) (make-immutable-hasheq)]
-    [(PNul TNul) (make-immutable-hasheq)]
+    [(PUni TUni) (make-immutable-hasheq)]
     [(_ _) #f]))
 
 ;;; ----------------------------------------------------------------------------
@@ -202,13 +202,13 @@
       [(TMac p1 t2) (TMac (scrub p1) (scrub t2))]
       [(TVar x1) (TVar (string->symbol (symbol->string x1)))]
       [(TCon δ1) (TCon δ1)]
-      [TNul TNul]
+      [TUni TUni]
       [(PApp p1 p2) (PApp (scrub p1) (scrub p2))]
       [(PSeq p1 p2) (PSeq (scrub p1) (scrub p2))]
       [(PVar x1) (PVar (string->symbol (symbol->string x1)))]
       [(PCon δ1) (PCon δ1)]
       [PWil PWil]
-      [PNul PNul]))
+      [PUni PUni]))
 
   ;; Syntax
 
@@ -226,7 +226,7 @@
      [(μ x y) (TMac (PVar 'x) (TVar 'y))]
      [x (TVar 'x)]
      [X (TCon 'X)]
-     [◊ TNul]))
+     [◊ TUni]))
 
   (test-case "parse pattern"
     (check-parse-patterns
@@ -235,7 +235,7 @@
      [x (PVar 'x)]
      [X (PCon 'X)]
      [_ PWil]
-     [◊ PNul]))
+     [◊ PUni]))
 
   (define-syntax-rule (check-show-terms [ast sexp] ...)
     (begin (check equal? (show ast) 'sexp) ...))
@@ -251,7 +251,7 @@
      [(TMac (PVar 'x) (TVar 'y)) (μ x y)]
      [(TVar 'x) x]
      [(TCon 'X) X]
-     [TNul ◊]))
+     [TUni ◊]))
 
   (test-case "show pattern"
     (check-show-patterns
@@ -260,7 +260,7 @@
      [(PVar 'x) x]
      [(PCon 'X) X]
      [PWil _]
-     [PNul ◊]))
+     [PUni ◊]))
 
   (define-simple-check (check-step-term f-step t sexp)
     (equal? sexp (show (scrub (f-step (parse t))))))
