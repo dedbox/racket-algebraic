@@ -403,8 +403,10 @@
   (define (random-lowercase-char)
     (integer->char (random (char->integer #\a) (char->integer #\z))))
 
-  (define (random-non-lowercase-char)
-    (restrict random-char (λ (c) (not (char-lower-case? c)))))
+  (define (random-non-special-char)
+    (restrict random-char
+              (λ (c) (not (or (char-lower-case? c)
+                              (char=? #\_ c))))))
 
   (define (random-string)
     (apply string (random-list random-char)))
@@ -417,6 +419,12 @@
 
   (define (random-nonempty-symbol)
     (string->symbol (random-nonempty-string)))
+
+  (define (random-unquoted-symbol)
+    (restrict (λ () (string->symbol
+                     (apply string (cons (random-non-special-char)
+                                         (random-list random-char)))))
+              (λ (s) (not (namespace-variable-value s #t (λ _ #f))))))
 
   (define (random-size)
     (random max-size))
@@ -503,7 +511,7 @@
                     (λ () (random-list (λ () (recur (- depth 1)))))))))
 
   (define (random-identifier)
-    #`#,(string->symbol (~a (random-non-lowercase-char) (random-string))))
+    #`#,(string->symbol (~a (random-non-special-char) (random-string))))
 
   (define-namespace-anchor ns)
 
@@ -570,7 +578,7 @@
         (check-OK f s)
         (check-not-OK f FAIL))
       (for ([_ iterations])
-        (define s (random-symbol))
+        (define s (random-unquoted-symbol))
         (define f (eval-syntax #`(φ #,s OK)))
         (check-OK f s)
         (check-not-OK f FAIL)))
