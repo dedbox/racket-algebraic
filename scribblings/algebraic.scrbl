@@ -1,17 +1,22 @@
 #lang scribble/manual
 
-@title{Algebraic structures}
+@title{Algebraic structures for untyped Racket}
 @author{@author+email["Eric Griffis" "dedbox@gmail.com"]}
 
 @(require
   racket/sandbox
+  scribble/core
   scribble/examples
+  scribble/html-properties
   (for-label algebraic/racket/base
-             algebraic/racket/macro
-             racket/contract/base))
+             racket/contract/base
+             racket/match
+             syntax/parse))
 
 @(define (rtech . args)
    (apply tech #:doc '(lib "scribblings/reference/reference.scrbl") args))
+
+@; algebraic eval
 
 @(define algebraic-eval
    (call-with-trusted-sandbox-configuration
@@ -20,89 +25,212 @@
           ([sandbox-output 'string]
            [sandbox-error-output 'string])
         (make-base-eval #:lang 'algebraic/racket/base
-          '(require (for-syntax algebraic/racket/macro)
+          '(require (for-syntax syntax/parse)
                     racket/function))))))
 
 @(define-syntax-rule (example expr ...)
    @examples[#:eval algebraic-eval #:label #f expr ...])
 
+@; core eval
+
+@(define core-eval
+   (call-with-trusted-sandbox-configuration
+    (λ ()
+      (parameterize
+          ([sandbox-output 'string]
+           [sandbox-error-output 'string])
+        (make-base-eval #:lang 'algebraic/model/core)))))
+
+@(define-syntax-rule (core-example expr ...)
+   @examples[#:eval core-eval #:label #f expr ...])
+
+@; ext eval
+
+@(define ext-eval
+   (call-with-trusted-sandbox-configuration
+    (λ ()
+      (parameterize
+          ([sandbox-output 'string]
+           [sandbox-error-output 'string])
+        (make-base-eval #:lang 'algebraic/model/ext)))))
+
+@(define-syntax-rule (ext-example expr ...)
+   @examples[#:eval ext-eval #:label #f expr ...])
+
+@; hosted eval
+
+@(define hosted-eval
+   (call-with-trusted-sandbox-configuration
+    (λ ()
+      (parameterize
+          ([sandbox-output 'string]
+           [sandbox-error-output 'string])
+        (make-base-eval #:lang 'algebraic/model/hosted)))))
+
+@(define-syntax-rule (hosted-example expr ...)
+   @examples[#:eval hosted-eval #:label #f expr ...])
+
+@; ---
+
+@(define-syntax-rule (hash-lang mod)
+   (list
+    (seclink "hash-lang" #:doc '(lib "scribblings/guide/guide.scrbl") "#lang")
+    " "
+    (racketmodname mod)))
+
+@(define algebraic-mod @racketmodlink[algebraic/racket/base]{algebraic})
+
+@(define (subsection* #:tag [tag #f] . args)
+   (apply subsection #:tag tag #:style 'unnumbered args))
+
+@(define (subsubsection* #:tag [tag #f] . args)
+   (apply subsubsection #:tag tag #:style '(unnumbered toc-hidden) args))
+
+@; @(define (~cite . args) (list ~ (superscript (apply cite args))))
+
+@(define grammar-style
+   (make-style "grammar"
+               (list (make-css-addition "scribblings/css/grammar.css"))))
+
+@(define (grammar name . rules)
+   (tabular
+    #:sep (hspace 1)
+    #:style grammar-style
+    #:column-properties '(left center left right)
+    (let loop ([fst (emph name)]
+               [snd "⩴"]
+               [rules rules])
+      (if (null? rules)
+          null
+          (cons (list fst snd (caar rules) (list (hspace 4) (cadar rules)))
+                (loop "" "|" (cdr rules)))))))
+
+@(define ~ emph)
+
 @; #############################################################################
 
-This package extends the @racketmodname[racket/base] language with first-class
-algebraic data constructors, functions, and macros with pattern-based
-destructuring.
-
-@defmodulelang[algebraic/racket/base]
+This package provides @hash-lang[algebraic/racket/base] which extends
+@hash-lang[racket/base] with free-form, lexically scoped
+@seclink["sec:data"]{algebraic data structures} and complementary
+@seclink["sec:functions"]{function} and @seclink["sec:macros"]{macro}
+abstractions with a uniform and compact destructuring syntax.
 
 @; =============================================================================
 
 @section{Overview}
 
-@; -----------------------------------------------------------------------------
+@hash-lang[algebraic/racket/base] synthesizes and specializes the
+functionality of @racket[struct], @racket[match], and @racket[syntax-parse] to
+streamline the funtional programming experience in two key areas:
 
-@subsection{Constructors}
+@subsubsub*section{Consistent syntax}
 
-A @deftech{constructor} is a first-class value that identifies a data type.
-Constructors can be matched against, collected into lists, and applied to
-arguments. Constructors are created with the @racket[data] form.
+The destructuring syntax for algebraic @racket[data] and most other data is
+the same across all @tech{function}- and @tech{macro}-producing forms.
 
-@example[
-  (data D (S))
-  (values S (constructor? S))
-]
+@subsubsub*section{Convenient defaults}
 
-An @deftech{instance} is created when a constructor is applied to an argument
-list.
-
-@example[
-  (values (S 0) (instance? (S 0)))
-]
-
-Each constructor and instance is distinct from all the others. More precisely,
-a pair of constructors or a pair of instances are @racket[equal?] iff they are
-@racket[eq?].
-
-@example[
-  (let* ([x1 S] [x2 x1] [x3 (S)] [x4 (S)])
-    (values
-     (list (eq? x1 x2) (equal? x1 x2))
-     (list (eq? x1 x3) (equal? x1 x3))
-     (list (eq? x3 x4) (equal? x3 x4))))
-]
-
-The arguments of an instance can be accessed with the destructuring patterns
-of an algebraic function or macro.
+Algebraic data @tech{constructors} are like type tags. When applied to an
+argument list, they produce an @tech{instance}---an ordered sequence of
+unnamed fields with the @tech{constructor} at its head. They are easy to print
+and easy to parse, like @rtech{prefab} structs. The main difference is that
+algebraic @tech{constructors} are lexically scoped and have a natural
+ordering.
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Functions}
+@subsection*[#:tag "sec:data"]{Data}
+
+The @racket[data] form defines a variety of functions and syntax
+@rtech{transformers} for working with named @tech{products} and @tech{sums}.
+
+A @deftech{product} identifies a family of structures comprising an ordered
+set of @deftech{fields}, and a @deftech{sum} identifies an ordered set of
+@tech{products}.
+
+@example[
+  (data Peano (Succ Zero))
+]
+
+In this example, @racket[Peano] is a @tech{sum} comprising the @tech{products}
+@racket[Succ] and @racket[Zero].
+
+Each @tech{product} name is bound to a @deftech{constructor}, a function that
+creates @tech{instances} of the named @tech{product}. An @deftech{instance} is
+a concrete expression of the @tech{product} as a tagged tuple of run-time
+values or expansion-time syntax fragments.
+
+@example[
+  (values (Succ Zero) (instance? (Succ Zero)))
+]
+
+Equality is decided structurally for @tech{constructors} and their
+@tech{instances}.
+
+@example[
+  (values (equal? (Succ Zero) (Succ Zero))
+          (equal? (Succ Zero) (Succ (Succ Zero))))
+]
+
+The @racket[data] form also produces membership predicates for each name it
+defines.
+
+@example[
+  (values (Succ? Succ)
+          ((sum Peano?) Succ)
+          ((sum Peano?) (sum Peano)))
+]
+
+To prevent name clashes in types like @racket[Unit], @tech{sum} bindings are
+defined in their own @rtech{namespace}. The @racket[sum] form merely adds the
+appropriate @rtech{scope} to an identifier.
+
+@; -----------------------------------------------------------------------------
+
+@subsection*[#:tag "sec:functions"]{Functions}
 
 A @deftech{function} is a procedure that deconstructs or rejects a
 fully-evaluated argument or argument list. Functions are created with the
-@racket[phi] (or @racket[φ]), @racket[function], and @racket[function*] forms.
+single-argument @racket[φ] (or @racket[phi]) and @racket[function] forms, or
+the multi-argument variants @racket[φ*] (or @racket[phi*]) and
+@racket[function*].
 
-The @racket[phi] (or @racket[φ]) form creates a function of exactly one
-argument with exactly one clause.
+The @racket[φ] (@racket[phi]) form creates a function of exactly one argument
+with exactly one clause.
 
 @example[
-  (define inc (φ a (S a)))
-  (define dec (φ (S b) b))
-  (values (function? inc) (inc 0) (dec (S 0)))
+  (define inc (φ a (Succ a)))
+  (define dec (φ (Succ b) b))
+  (values (function? inc) (inc Zero) (dec (Succ (Succ Zero))))
 ]
 
-The @racket[function] form creates a function of exactly one argument with at
-least one clause.
+The @racket[φ*] (@racket[phi*]) form creates a function of any number of
+arguments with exactly one clause.
 
 @example[
-  (define num (function [0 0] [n (S (num (- n 1)))]))
+  (define cmp
+    (φ* (a b)
+      ((cond [(number? a) <] [(char? a) char<?]) a b)))
+  (values (cmp 1 2) (cmp #\y #\x))
+]
+
+The @racket[function] form creates a function of exactly one argument with one
+or more clauses.
+
+@example[
+  (define num
+    (function [0 Zero]
+              [n (Succ (num (- n 1)))]))
   (num 3)
 ]
 
-The @racket[function*] form creates a function of any number of arguments
-with at least one clause.
+The @racket[function*] form creates a function of any number of arguments with
+one or more clauses.
 
 @example[
-  (define add (function* [(a 0) a] [(a (S b)) (S (add a b))]))
+  (define add
+    (function* [(a Zero) a]
+               [(a (Succ b)) (Succ (add a b))]))
   (add (num 3) (num 2))
 ]
 
@@ -111,39 +239,46 @@ and the number of arguments for each clause can vary.
 
 @example[
   (define num-args
-    (function*
-      [() 0]
-      [(_) 1]
-      [many (length many)]))
-  (values (num-args) (num-args 9) (num-args 8 7))
+    (function* [() 0]
+               [(_ . rest) (+ 1 (apply num-args rest))]))
+  (values (num-args) (num-args -) (num-args - -))
 ]
 
 @; -----------------------------------------------------------------------------
 
-@subsection{Macros}
+@subsection*[#:tag "sec:macros"]{Macros}
 
-A @deftech{macro} is a syntax transformer that deconstructs or rejects an
-argument list at expansion time. Macros are created with the @racket[mu] (or
-@racket[μ]), @racket[macro], and @racket[macro*] forms.
+A @deftech{macro} is a syntax @rtech{transformer} that deconstructs or rejects
+an argument or argument list at expansion time. Macros are created with the
+single-argument @racket[μ] (or @racket[mu]) and @racket[macro] forms, or the
+multi-argument variants @racket[μ*] (or @racket[mu*]) and @racket[macro*].
 
-The @racket[mu] (or @racket[μ]) form creates a macro of exactly one argument
-with exactly one clause.
+The @racket[μ] (@racket[mu]) form creates a macro of exactly one argument with
+exactly one clause.
 
 @example[
   (define-syntax infix (μ (a op b) (op a b)))
   (infix (5 - 3))
 ]
 
-The @racket[macro] form creates a macro of exactly one argument with at least
-one clause.
+The @racket[μ*] (@racket[mu*]) form creates a macro of any number of arguments
+with exactly one clause.
+
+@example[
+  (define-syntax implies (μ* (p q) (or (not p) q)))
+  (for*/list ([p '(#t #f)] [q '(#t #f)]) (implies p q))
+]
+
+The @racket[macro] form creates a macro of exactly one argument with one or
+more clauses.
 
 @example[
   (define-syntax bin (macro [#f 0] [_ 1]))
   (values (bin #f) (bin (values #f)))
 ]
 
-The @racket[macro*] form creates a macro of any number of arguments with at
-least one clause.
+The @racket[macro*] form creates a macro of any number of arguments with one
+or more clauses.
 
 @example[
   (define-syntax and2 (macro* [(a b) ((function [#f #f] [_ b]) a)]))
@@ -153,8 +288,8 @@ least one clause.
    (for*/list ([a '(#t #f)] [b '(#t #f)]) (or2 a b)))
 ]
 
-Macros are designed to simplify mundane meta-programming tasks. Consider the
-following run-time implementation of the ``power'' function from
+Macros are designed to simplify mundane meta-programming tasks. The following
+example is a run-time implementation of the ``power'' function from
 @cite{Taha2004}:
 
 @example[
@@ -165,8 +300,8 @@ following run-time implementation of the ``power'' function from
   (map (curry f-power 3) '(0 1 2 3 4 5 6))
 ]
 
-We can use @racket[unsyntax] and the @racket[var] form to unroll instances of
-the power function at expansion time.
+With @racket[unsyntax] and the @racket[var] form, applications of the power
+function can be unrolled at expansion time.
 
 @example[#:escape UNSYNTAX
   (define-syntax m-power
@@ -178,49 +313,312 @@ the power function at expansion time.
   (map (φ x (m-power3 x)) '(0 1 2 3 4 5 6))
 ]
 
-With @racket[macro-expand], we can peek at the code produced by the macro.
+With @racket[quote] and @racket[local-expand], the generated code can be
+exposed.
 
 @example[#:escape UNSYNTAX
   (define-syntax q-power
     (macro*
       [(0 _) 1]
       [(1 x) x]
-      [(n:nat x) '#,(macro-expand #`(* x (q-power #,(- (var n) 1) x)))]))
+      [(n:nat x)
+       '#,(local-expand #`(* x (q-power #,(- (var n) 1) x))
+                        'expression null)]))
   (q-power 3 2)
 ]
 
 @; =============================================================================
 
-@section{API Reference}
+@section[#:tag "tut"]{Tutorial: Interpreters}
+
+A core use case for @algebraic-mod is fast and cheap interpreter development.
+With the right tooling, throw-away interpreters can be an easy way to explore
+and validate language design choices quickly.
+
+As it happens, Haskell is already pretty good at this. Algebraic data types
+and functional destructuring syntax make interpreters easy to read and write,
+and its type system keeps track of pervasive breaking changes for you.
+@algebraic-mod addresses the untyped half of this equation---algebraic data
+@emph{structures} (ADTs sans type constraints) with destructuring syntax.
+
+In this tutorial, we will build a tower of interpreters based on the models
+originally used to design @algebraic-mod itself:
+
+@itemlist[
+  #:style 'ordered
+
+  @item{A @emph{core} model based on the untyped lambda calculus,}
+
+  @item{An @emph{extended} syntax that compiles down to core constructs, and}
+
+  @item{A @emph{hosted} variant that borrows additional constructs from the
+    implementing platform.}
+
+]
 
 @; -----------------------------------------------------------------------------
 
-@subsection[#:tag "ref-constructors"]{Constructors}
+@subsection*{The Core Model}
+
+@defmodulelang[algebraic/model/core]
+
+The core is a pure untyped lambda calculus extended with macros, tagged
+tuples, and destructuring patterns. The result is compact and easy to
+implement as a small-step s-expression interpreter.
+
+Before diving into the details, some background might be useful.
+
+The core model started as a pure untyped λ-calculus. It took a while to get
+everything right. Each time something was added or removed, everything else
+had to be re-checked. Without automation, exploration at this level of detail
+may be easier off-screen. Thus we begin with a presumably viable model on
+paper and, with the benefit of hindsight, proceed directly to a robust
+solution. Realistically, a design will undergo several adjustments and
+tangential explorations over multiple iterations before it solidifies.
+
+@subsubsection*{Syntax}
+
+The core defines three syntactic categories: terms, values, and patterns.
+
+A @emph{term} is a concrete expression of the calculus.
+
+A @emph{value} is a term that reduces to a normal form according to the
+operational semantics. When a term eventually reduces to a particular value,
+we say the term @emph{evaluates} to that value. Non-value terms either diverge
+or get stuck. Some divergent terms are useful for e.g. looping, but all stuck
+terms indicate an undesirable error.
+
+A @emph{pattern} is a predicate form that maps to variable bindings when
+matched against a compatible term.
+
+@centered[
+  @grammar["t"
+    (list @list{@~{t} @~{t}} "application")
+    (list @list{@~{t};@~{t}} "sequence")
+    (list @list{φ@~{p}.@~{t}} "function clause")
+    (list @list{μ@~{p}.@~{t}} "macro clause")
+    (list @~{x} "variable")
+    (list @~{δ} "constructor")
+    (list "◊" "unit")
+  ] "\n" "\n"
+
+  @grammar["p"
+    (list @list{@~{t} @~{t}} "application")
+    (list @list{@~{t};@~{t}} "sequence")
+    (list "_" "wildcard")
+    (list @~{x} "variable")
+    (list @~{δ} "constructor")
+    (list "◊" "unit")
+  ] "\n" "\n"
+
+  @grammar["v"
+    (list @list{φ@~{p}.@~{t};·} "function")
+    (list @list{μ@~{p}.@~{t};·} "macro")
+    (list @~{δ} "constructor")
+    (list @list{@~{δ} (@~{v};·)} "constructor")
+    (list "◊" "unit")
+  ]
+]
+
+An @emph{application} (@~{t} @~{t}) is a pair of juxtaposed sub-terms. To keep
+the implementation as simple as possible, nested applications are always
+parenthesized.
+
+A @emph{sequence} (@~{t};@~{t}) is a pair of sub-terms separated by a
+semicolon. Sequences combine multiple abstractions into a single unit. They
+are used for holding the non-tag components of a tagged tuple.
+
+A @emph{uniform sequence} (@~{t};·) is a sequence in which every left-hand
+side has the same type and every right-hand side (exept perhaps the last) has
+the same shape. Uniform sequences combine multiple abstractions into a single
+unit.
+
+A @emph{function clause} (φ@~{p}.@~{t}) is a λ-abstraction with the formal
+parameter generalized to a pattern. More generally, a @emph{function}
+(φ@~{p}.@~{t};·) is a function clause or a uniform sequence of function
+clauses. Similarly, a @emph{macro clause} (μ@~{p}.@~{t}) is a generalized
+λ-abstraction and a @emph{macro} (μ@~{p}.@~{t};·) is one or more macro clauses
+in sequence.
+
+A @emph{variable} (@~{x}) is a name that may be bound to a term within the
+body of a function or macro.
+
+A @emph{constructor} (@~{δ}) is a name that identifies a data type.
+Constructors evaluate to themselves.
+
+For convenience, a ``TitleCase'' name denotes a constructor and a
+``lowercase'' name denotes a variable.
+
+An @emph{instance} (@~{δ} (@~{v};·)) is a constructor applied to a uniform
+sequence of values.
+
+The @emph{unit} (◊) value denotes the presence of a value, as a convenient
+notation for when the actual value is irrelevant.
+
+@; -----------------------------------------------------------------------------
+
+@subsubsection*{Evaluation Semantics}
+
+Applications (@~{t} @~{t}) reduce quasi-eagerly, starting on the left. If the
+left side reduces to a macro, the macro is applied to the un-reduced right
+side. If the left side reduces to a function or constructor, evaluation
+continues on the right.
+
+Function clauses (φ@~{p}.@~{t}) attempt to match a single input value to a
+pattern @~{p}. If the match succeeds, any variables bound by the pattern are
+substituted into the body term @~{t}. If the match fails, the application is
+stuck.
+
+@core-example[
+  ((φ x x) (φ y y))
+]
+
+A @emph{macro clause} (μ@~{p}.@~{t}) attempts to match a single input
+@emph{term} to a pattern. The only semantic difference between function
+clauses and macro clauses is that macro clauses do not reduce their argument
+before attempthing the match.
+
+@core-example[
+  ((μ (fx fy) (fy fx)) ((φ x x) (φ y y)))
+]
+
+Sequences always reduce eagerly from left to right. The semicolon is special
+to Racket, so we'll prefix sequenced pairs with a dollar sign instead.
+
+@core-example[
+  ($ ((φ x x) (φ y y)) (φ z z))
+]
+
+Functions and macros attempt to match their inputs to each clause in the
+sequence, taking the body of the first succesful match as its result. If every
+clause fails, the term is stuck.
+
+@core-example[
+  (($ (φ ◊ ◊) (φ x (φ z x))) (φ y y))
+  (($ (φ ◊ ◊) (φ x (φ z x))) ◊)
+]
+
+Applying a constructor to a sequence produces an instance of the constructor.
+
+@core-example[
+  (A ($ B ($ (φ x x) (φ y y))))
+]
+
+@; -----------------------------------------------------------------------------
+
+@subsubsection*{Pattern Matching Semantics}
+
+@; -----------------------------------------------------------------------------
+
+@subsubsection*{Pragmatics}
+
+@; =============================================================================
+
+@section[#:tag "ref"]{API Reference}
+
+@defmodulelang[algebraic/racket/base]
+
+@; -----------------------------------------------------------------------------
+
+@subsection[#:tag "ref:sums-products"]{Sums and Products}
 
 @defform[
   (data sum-decl ...+)
-  #:grammar [(sum-decl (code:line sum-id (constructor-id ...)))]
+  #:grammar [(sum-decl (code:line sum-id (product-id ...)))]
 ]{
 
-  Binds each @var[constructor-id] to a fresh @tech{constructor}, then binds
-  @var[sum-id] to a @deftech{sum} representing the union of constructors bound
-  to @var[constructor-id]s and all of their instances. Also binds
-  @racketidfont{@var[type-id]?} to a predicate that determines whether an
-  object belongs to the sum.
+  Creates a new @tech{sum} on an ordered set of @tech{products} and binds
+  variables related to them.
+
+  A @tech{sum} with @var[n] @tech{products} defines 3+3@var[n] names:
+
+  @itemlist[
+    @item{for each @var[sum-id]:
+      @itemlist[
+
+        @item{a @rtech{transformer} binding that encapsulates information
+          about the @tech{sum} declaration.}
+
+        @item{a @tech{sum} structure that can be printed to retrieve its
+          definition.}
+
+      ]
+    }
+
+    @item{@var[sum-id]@tt{?}, for each @var[sum-id]; a predicate that returns
+      @racket[#t] for the @tech{sum} bound to @var[sum-id], its
+      @tech{constructors} or their @tech{instances}, and @racket[#f] for any
+      other value.}
+
+    @item{for each @var[product-id]:
+      @itemlist[
+
+        @item{a @rtech{transformer} binding that encapsulates information
+          about the @tech{product} declaration.}
+
+        @item{a @tech{constructor} that takes any number of arguments and
+          returns a new @tech{instance} of the @tech{product}.}
+
+      ]
+    }
+
+    @item{@var[product-id]@tt{?}, for each @var[product-id]; a predicate that
+      returns @racket[#t] for the @tech{constructor} bound to @var[product-id]
+      or its instances and @racket[#f] for any other value.}
+
+  ]
+
+  Example:
+  @example[
+    (data Unit (Unit))
+    (Unit? Unit)
+    (Unit? (Unit))
+    ((sum Unit?) Unit)
+    ((sum Unit?) (sum Unit))
+  ]
+}
+
+@defform[(sum id)]{
+
+  Adds the @tech{sum} scope to @var[id].
+
+  To prevent clashes between @tech{sums} and @tech{products} with the same
+  name, @tech{sum} bindings are defined in their own namespace. This form adds
+  a scope to @var[id] that represents the @tech{sum} namespace.
 
   Example:
   @example[
     (data Either (Left Right))
-    (values Either Left (Either? (Right 1)))
+    (eval:error (Either? Left))
+    ((sum Either?) Left)
+    (eval:error ((sum Either?) Either))
+    ((sum Either?) (sum Either))
+  ]
+}
+
+@defproc[(data-less-than? [Π1 product?] [Π2 product?]) boolean?]{
+
+  Returns @racket[#t] if the arguments are in the defined order.
+
+  Examples:
+  @example[
+    (data ABC (A B C))
+    (values (data-less-than? A C) (data-less-than? C A))
   ]
 
+  @example[
+    (data XYZ (X Y Z))
+    (sort (list Z Y X) data-less-than?)
+  ]
 }
 
 @defproc[(sum? [v any/c]) boolean?]{
+
   Returns @racket[#t] if @var[v] is a @tech{sum}.
+
 }
 
-@defproc[(constructor? [v any/c]) boolean?]{
+@defproc[(product? [v any/c]) boolean?]{
 
   Returns @racket[#t] if @var[v] is a @tech{constructor}.
 
@@ -234,7 +632,7 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
 @; -----------------------------------------------------------------------------
 
-@subsection[#:tag "ref-functions"]{Functions}
+@subsection[#:tag "ref:functions"]{Functions}
 
 @deftogether[(
 @defform[(φ patt maybe-if ... body ...+)]
@@ -244,11 +642,12 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
   [(patt literal
          wildcard-id
          variable-id
+         product-id
+         (product-id patt ...)
+         (product-id patt ... . patt)
          reference-id
-         constructor-id
-         (constructor-id patt ...)
-         (constructor-id patt ... . patt)
          (patt #:if cond-expr)
+         (patt #:as patt)
          regexp
          (regexp patt ...+)
          (regexp patt ... . patt)
@@ -285,10 +684,11 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
   Example:
   @example[
+    (data SZ (S Z))
     (let ([f (function
-              [(S x y) #:if (not x) #:if (not y) 0]
-              [(S x y) #:if (not (and x y)) (or x y)]
-              [(S x y) #:if x #:if y (+ x y)])])
+               [(S x y) #:if (not x) #:if (not y) 0]
+               [(S x y) #:if (not (and x y)) (or x y)]
+               [(S x y) #:if x #:if y (+ x y)])])
       (map f (list (S 1 2) (S #f 2) (S 1 #f) (S #f #f))))
   ]
 
@@ -305,7 +705,6 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
     @example[
       ((φ "one" 1) "one")
     ]
-
   }
 
   @specsubform[wildcard-id]{
@@ -319,7 +718,6 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
       ((φ _ 1) 0)
       (eval:error ((φ __x __x) 0))
     ]
-
   }
 
   @specsubform[variable-id]{
@@ -338,6 +736,33 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
       ((φ (S x x) x) (S 2 2))
       (eval:error ((φ (S x x) x) (S 3 4)))
     ]
+  }
+
+  @specsubform[product-id]{
+
+    Matches a @tech{constructor} named @var[product-id].
+
+    Example:
+    @example[
+      ((φ S 1) S)
+    ]
+  }
+
+  @defsubform*[
+    #:kind " "
+    #:link-target? #f
+    #:id [product-id (var product-id)]
+    [(product-id patt ...)
+     (product-id patt ... . patt)]
+  ]{
+
+    Matches an @tech{instance} of the @tech{product} bound to @var[product-id]
+    with @tech{fields} that match @var[patt]s.
+
+    Example:
+    @example[
+      ((φ (S x . xs) (list x xs)) (S 1 2 3))
+    ]
 
   }
 
@@ -353,36 +778,6 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
       ((φ + 'Plus) +)
       (eval:error ((φ + 'Plus) -))
     ]
-
-  }
-
-  @specsubform[constructor-id]{
-
-    Matches a @tech{constructor} named @var[constructor-id].
-
-    Example:
-    @example[
-      ((φ S 1) S)
-    ]
-
-  }
-
-  @defsubform*[
-    #:kind " "
-    #:link-target? #f
-    #:id [constructor-id (var constructor-id)]
-    [(constructor-id patt ...)
-     (constructor-id patt ... . patt)]
-  ]{
-
-    Matches an @tech{instance} of the @tech{constructor} named
-    @var[constructor-id] with an argument list that matches the @var[patt]s.
-
-    Example:
-    @example[
-      ((φ (S x . xs) (list x xs)) (S 1 2 3))
-    ]
-
   }
 
   @specsubform[(patt #:if cond-expr)]{
@@ -396,7 +791,16 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
       ((φ (n #:if (> n 0)) '+++) 5)
       (eval:error ((φ (n #:if (> n 0)) '+++) -3))
     ]
+  }
 
+  @specsubform[(patt #:as alias-patt)]{
+
+    Matches @var[patt] if @var[alias-patt] also matches the same value.
+
+    Example:
+    @example[
+      ((φ ((S x) #:as y) (list x y)) (S 1))
+    ]
   }
 
   @defsubform*[
@@ -430,13 +834,12 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
        ((φ (#rx"(a+)(b+)" as bs) (list as bs)) "--aabb++"))
       (eval:error ((φ (#rx"(a+)(b+)" as bs cs) 'OK) "--aabb++"))
     ]
-
   }
 
   @specsubform[symbol]{
 
     An unquoted datum literal that is not a @var[wildcard-id],
-    @var[variable-id], or @var[constructor-id].
+    @var[variable-id], or @var[product-id].
 
     Matches a symbol.
 
@@ -445,7 +848,6 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
       ((φ $ 1) '$)
       (eval:error ((φ $ 1) $))
     ]
-
   }
 
   @defsubform*[
@@ -470,7 +872,6 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
     @example[
       ((φ (a . b) (list a b)) '(1))
     ]
-
   }
 
   @defsubform*[
@@ -496,15 +897,14 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
     Example:
     @example[
       (struct tree (val left right))
-      ((φ (tree ([val a]
-                 [left (tree ([right #f] [val b] [left #f]))]
-                 [right #f]))
+      ((φ (tree [val a]
+                [left (tree [right #f] [val b] [left #f])]
+                [right #f])
          (list a b))
        (tree 0 (tree 1 #f #f) #f))
       ((φ (tree a (tree b #f #f) #f) (list a b))
        (tree 0 (tree 1 #f #f) #f))
     ]
-
   }
 
   @specsubform[
@@ -512,7 +912,7 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
     (quasiquote fqp)
   ]{
 
-    Introduces a @deftech{quasiquoted pattern}, in which identifiers match
+    Introduces a @deftech{quasiquoted pattern}, wherein all identifiers match
     symbols and @racket[unquote] escapes back to normal patterns.
 
     Example:
@@ -520,7 +920,6 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
       ((φ `(x y . ,(S a b)) (+ a b))
        (list* 'x 'y (S 1 2)))
     ]
-
   }
 
   @specsubform[
@@ -530,6 +929,7 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
     Matches a @seclink["void" #:doc '(lib
     "scribblings/reference/reference.scrbl")]{void} value.
+
   }
 
   @specsubform[#,(racketparenfont "#(" (var patt) " ...)")]{
@@ -550,7 +950,6 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
     @example[
       ((φ #&x x) (box 1))
     ]
-
   }
 
   @specsubform[#,(racketparenfont "#hash([" (var key) " . " (var patt) "] ...)")]{
@@ -564,9 +963,7 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
       ((φ #hash([x . a] ["y" . b]) (list a b))
        (hash "y" 1 #t 2 'x 3))
     ]
-
   }
-
 }
 
 @defform[(function [patt maybe-if ... body ...+] ...+)]{
@@ -577,9 +974,8 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
   Example:
   @example[
     (define fib
-      (function
-        [(n #:if (< n 2)) 1]
-        [n (+ (fib (- n 1)) (fib (- n 2)))]))
+      (function [(n #:if (< n 2)) 1]
+                [n (+ (fib (- n 1)) (fib (- n 2)))]))
     (map fib '(0 1 2 3 4 5 6))
   ]
 
@@ -607,18 +1003,16 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
     Example:
     @example[
       (define fact
-        (function*
-          [(n) (fact n 1)]
-          [(0 a) a]
-          [(n a) (fact (- n 1) (* a n))]))
+        (function* [(n) (fact n 1)]
+                   [(0 a) a]
+                   [(n a) (fact (- n 1) (* a n))]))
       (map fact '(0 1 2 3 4 5 6))
     ]
-
   }
 
   @specsubform[(patt ...+ . rest-patt)]{
 
-    The function accepts at least as many arguments arguments as the number of
+    The function accepts at least as many arguments as the number of
     @var[patt]s. When the function is applied, the @var[patt]s are associated
     with argument values by position, and all leftover arguments are placed
     into a list that is associated to @var[rest-id].
@@ -627,7 +1021,6 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
     @example[
       ((function* [(x y . zs) (list x y zs)]) 1 2 3 4)
     ]
-
   }
 
   @specsubform[rest-patt]{
@@ -639,15 +1032,13 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
     @example[
       ((function* [xs (reverse xs)]) 1 2 3 4)
     ]
-
   }
-
 }
 
 @defform[(function* [formals maybe-if ... body ...+] ...+)]{
 
-  Creates a @tech{function} of any number of arguments with at least one
-  clause. When multiple clauses are given, they are attempted in the order
+  Creates a @tech{function} of any number of arguments with one or more
+  clauses. When multiple clauses are given, they are attempted in the order
   specified.
 
 }
@@ -660,13 +1051,7 @@ With @racket[macro-expand], we can peek at the code produced by the macro.
 
 @; -----------------------------------------------------------------------------
 
-@subsection[#:tag "ref-macros"]{Macros}
-
-@defmodule[algebraic/racket/macro]
-
-The bindings documented in this section are provided by the
-@racketmodname[algebraic/racket/macro] library, not
-@racketmodname[algebraic/racket/base].
+@subsection[#:tag "ref:macros"]{Macros}
 
 @deftogether[(
 @defform[(μ macro-patt body ...+)]
@@ -713,7 +1098,6 @@ The bindings documented in this section are provided by the
       (m a)
       (eval:error (m 3))
     ]
-
   }
 
   @specsubform[id-literal]{
@@ -728,7 +1112,6 @@ The bindings documented in this section are provided by the
       (m ++)
       (eval:error (m --))
     ]
-
   }
 
   @specsubform[(struct-id macro-patt ...)]{
@@ -756,22 +1139,20 @@ The bindings documented in this section are provided by the
     Example:
     @example[
       (define-syntax m (μ `x 1))
-      (values (m `x) (m 'x))
-      (eval:error (m `y))
+      (m x)
+      (eval:error (m y))
     ]
-
   }
 
   @specsubform[(macro-patt ...)]{
 
-    Matches a sequence of @var[macro-patt]s.
+    Matches a parenthesized sequence of @var[macro-patt]s.
 
     Example:
     @example[
       (define-syntax m (μ (a b) (b a)))
       (values (m (0 S)) (instance? (m (0 S))))
     ]
-
   }
 
   @specsubform[(macro-patt ...+ . macro-patt)]{
@@ -784,7 +1165,6 @@ The bindings documented in this section are provided by the
       (define-syntax m (μ (x y . z) (list x y z)))
       (m (1 2 . 3))
     ]
-
   }
 
   @specsubform[(head-macro-patt ooo . tail-macro-pat)]{
@@ -803,7 +1183,6 @@ The bindings documented in this section are provided by the
        (m (3 4) 5 6))
       (eval:error (m 1 2 (3 4)))
     ]
-
   }
 
   The following pattern directives may appear in a macro clause:
@@ -811,19 +1190,18 @@ The bindings documented in this section are provided by the
   @specsubform[(code:line #:with macro-patt expr)]{
 
     Evaluates @var[expr] in the context of all pattern bindings and matches it
-    against the pattern. The @var[expr] is implicitly @racket[quasisyntax]ed,
-    so @var[unsyntax] and @var[unsyntax-splicing] escape to an expression
-    within the transformer environment.
+    against @var[macro-patt]. The @var[expr] is implicitly
+    @racket[quasisyntax]ed, so @var[unsyntax] and @var[unsyntax-splicing]
+    escape to an expression within the transformer environment.
 
     Example:
     @example[#:escape UNSYNTAX
       (define-syntax m
-        (macro [x #:with '(a) '#,(list 10)
+        (macro [x #:with (a) #,(list 10)
                   #:with b 1
                   (+ x a b)]))
       (m 100)
     ]
-
   }
 
   @specsubform[(code:line #:if condition-expr)]{
@@ -840,16 +1218,14 @@ The bindings documented in this section are provided by the
       (values
        (m-fib 0) (m-fib 1) (m-fib 2)
        (m-fib 3) (m-fib 4) (m-fib 5) (m-fib 6))
-      (eval:error (m-fib a))
+      (eval:error (let ([a 7]) (m-fib a)))
     ]
-
   }
-
 }
 
 @defform[(macro [macro-patt directive ... body ...+] ...+)]{
 
-  Creates a @tech{macro} with one argument and at least one clause. When
+  Creates a @tech{macro} of one argument with one or more clauses. When
   multiple clauses are given, they are attempted in the order specified.
 
 }
@@ -876,12 +1252,7 @@ The bindings documented in this section are provided by the
 
 }
 
-@defproc[(macro-expand [stx syntax?]) syntax?]{
-
-  Expands @var[stx] in the lexical context of the expression currently being
-  expanded.
-
-}
+@section{Experimental Features}
 
 @; =============================================================================
 

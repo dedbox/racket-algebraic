@@ -1,18 +1,10 @@
 #lang racket/base
 
-(require (for-template racket/base)
-         racket/syntax
-         syntax/parse)
+(require racket/syntax
+         syntax/parse
+         (for-template racket/base))
 
 (provide (all-defined-out))
-
-(struct scon (δ)
-  #:transparent
-  #:property prop:procedure
-  (λ (c stx)
-    (syntax-parse stx
-      [(_ v ...) #`(ins (con '#,(scon-δ c)) (list v ...))]
-      [_ #`(con '#,(scon-δ c))])))
 
 (define (first-char id-stx)
   (string-ref (symbol->string (syntax->datum id-stx)) 0))
@@ -25,8 +17,7 @@
   [pattern :char]
   [pattern :number]
   [pattern :string]
-  [pattern :bytes]
-  [pattern (quote datum)])
+  [pattern :bytes])
 
 (define-syntax-class wildcard
   (pattern x:id
@@ -38,12 +29,6 @@
            #:when (and (not (eq? (syntax->datum #'x) '||))
                        (char-lower-case? (first-char #'x)))))
 
-(define-syntax-class constructor
-  (pattern δ:id
-           #:when (and (identifier-transformer-binding #'δ)
-                       (namespace-variable-value (syntax->datum this-syntax) #t (λ _ #f))
-                       (scon? (syntax-local-eval #'δ)))))
-
 (define-syntax-class reference
   (pattern :id
            #:do [(define s (syntax->datum this-syntax))]
@@ -53,8 +38,8 @@
                             (not (char=? #\_ (first-char this-syntax)))))
                    (namespace-variable-value s #t (λ _ #f)))))
 
-(define-syntax-class regexp
-  (pattern x:expr #:when (regexp? (syntax->datum #'x))))
+(define-syntax-class regex
+  (pattern :expr #:when (regexp? (syntax->datum this-syntax))))
 
 (define maybe-quote
   (syntax-parser
@@ -68,33 +53,6 @@
     [(quote ~! _) this-syntax]
     [(a ...) #'(quote (a ...))]
     [_ this-syntax]))
-
-(define-syntax-class pair
-  (pattern :expr
-           #:do [(define p (syntax-e this-syntax))]
-           #:when (pair? p)
-           #:with car (car p)
-           #:with cdr (cdr p)))
-
-(define-syntax-class vector
-  (pattern :expr
-           #:do [(define V (syntax-e this-syntax))]
-           #:when (vector? V)
-           #:with (item:expr ...) (vector->list V)))
-
-(define-syntax-class box
-  (pattern :expr
-           #:do [(define B (syntax-e this-syntax))]
-           #:when (box? B)
-           #:with item (unbox B)))
-
-(define-syntax-class hash
-  (pattern :expr
-           #:do [(define H (syntax-e this-syntax))]
-           #:when (hash? H)
-           #:do [(define ks (hash-keys H))]
-           #:with (k ...) ks
-           #:with (v ...) (map (λ (k) (hash-ref H k)) ks)))
 
 (define-syntax-class struct-id
   (pattern :id
