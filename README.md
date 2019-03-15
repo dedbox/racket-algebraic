@@ -63,9 +63,8 @@ sorted.
 The product constructors `Just` and `Nothing` can be matched against
 directly, or they can be applied to argument lists to produce instances of
 the product type. An instance is a transparent data structure that
-resembles a tagged tuple. Algebraic Racket imposes no compile-time
-restrictions on the kind or number of arguments accepted by product
-constructors.
+resembles a tagged tuple. Algebraic Racket imposes no restrictions on the
+kind or number of arguments accepted by product constructors.
 
 ```
 > (values (Just) (Just 1) (Just 1 2))
