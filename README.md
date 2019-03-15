@@ -4,7 +4,7 @@
 [![Build Status](https://travis-ci.org/dedbox/racket-algebraic.svg?branch=master)](https://travis-ci.org/dedbox/racket-algebraic)
 [![Coverage Status](https://coveralls.io/repos/github/dedbox/racket-algebraic/badge.svg?branch=master)](https://coveralls.io/github/dedbox/racket-algebraic?branch=master)
 
-A Racket extension for untyped algebraic data structures.
+A Racket 7.0+ extension for untyped algebraic data structures.
 
 ## Why Algebraic Racket?
 
@@ -188,6 +188,13 @@ Algebraic Racket is a small extension to a general purpose language I
 happen to like building interpreters with. On the other hand, Redex does a
 lot of things Algebraic Racket doesn't, like typesetting and automated
 testing.
+
+## Racket Version Restriction
+
+Algebraic Racket is currently implemented with features only available in
+Racket 7.0 or above: `~?` and `~@`. This restriction may be dropped in a
+future release if there is sufficient demand for compatibility with older
+versions of Racket.
 
 ## Contrbuting
 
