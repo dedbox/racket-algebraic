@@ -247,4 +247,8 @@
 
   (test-case "quasiquote"
     (check-OK (μ `(x y ,z) z) (x y OK))
-    (check-not-OK (μ `(x y ,z) z) (1 2 OK) #rx"expected the literal symbol `x'")))
+    (check-not-OK (μ `(x y ,z) z) (1 2 OK) #rx"expected the literal symbol `x'"))
+
+  (test-case ":syntax-class"
+    (check-OK (μ x:number OK) -1)
+    (check-not-OK (μ x:number OK) #t #rx"expected number")))
