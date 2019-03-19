@@ -18,17 +18,14 @@
 (define-syntax-rule (top-interaction . form)
   (#%top-interaction . (algebraic form)))
 
-(define-syntax values->
-  (μ* (f xs ...+)
-    (call-with-values (λ () xs ...) f)))
-
 ;;; ----------------------------------------------------------------------------
 ;;; Syntax
 
 (data Term (TApp TSeq TFun TMac TVar TCon TUni)
       Patt (PApp PSeq PWil PVar PCon PUni))
 
-;;; parse : s-expression -> term
+;;; The Parser
+
 (define (parse t)
   (define term
     (function
@@ -36,23 +33,34 @@
       [($ t1 t2) (TSeq (term t1) (term t2))]
       [('φ p1 t2) (values-> TFun (α-rename-clause (patt p1) (term t2)))]
       [('μ p1 t2) (values-> TMac (α-rename-clause (patt p1) (term t2)))]
-      [x #:if (and (symbol? x) (char-lower-case? (first-char x))) (TVar x)]
-      [x #:if (and (symbol? x) (char-upper-case? (first-char x))) (TCon x)]
+      [x #:if (con-name? x) (TCon x)]
+      [x #:if (var-name? x) (TVar x)]
       [◊ TUni]))
   (define patt
     (function
       [(  p1 p2) (PApp (patt p1) (patt p2))]
       [($ p1 p2) (PSeq (patt p1) (patt p2))]
-      [x #:if (and (symbol? x) (char-lower-case? (first-char x))) (PVar x)]
-      [x #:if (and (symbol? x) (char-upper-case? (first-char x))) (PCon x)]
+      [x #:if (con-name? x) (PCon x)]
+      [x #:if (var-name? x) (PVar x)]
       ['_ PWil]
       [◊ PUni]))
   (term t))
 
+(define-syntax values->
+  (μ* (f xs-expr)
+    (call-with-values (λ () xs-expr) f)))
+
+(define (con-name? x)
+  (and (symbol? x) (char-upper-case? (first-char x))))
+
+(define (var-name? x)
+  (and (symbol? x) (char-lower-case? (first-char x))))
+
 (define (first-char s)
   (string-ref (symbol->string s) 0))
 
-;;; show : term -> s-expression
+;;; The Printer
+
 (define (show t)
   (define term
     (function
@@ -60,18 +68,35 @@
       [(TSeq t1 t2) `($ ,(term t1) ,(term t2))]
       [(TMac p1 t2) `(μ ,(patt p1) ,(term t2))]
       [(TFun p1 t2) `(φ ,(patt p1) ,(term t2))]
-      [(TVar x1) (string->symbol (symbol->string x1))]
+      [(TVar x1) (α-restore x1)]
       [(TCon δ1) δ1]
       [TUni '◊]))
   (define patt
     (function
       [(PApp p1 p2) `(  ,(patt p1) ,(patt p2))]
       [(PSeq p1 p2) `($ ,(patt p1) ,(patt p2))]
-      [(PVar x1) (string->symbol (symbol->string x1))]
+      [(PVar x1) (α-restore x1)]
       [(PCon δ1) δ1]
       [PWil '_]
       [PUni '◊]))
   (term t))
+
+;;; Values
+
+(define-syntax define-uniform-seq-pred
+  (μ* (name? kind?)
+    (define name?
+      (function
+        [(TSeq t1 t2) #:if (kind? t1) (name? t2)]
+        [t (kind? t)]))))
+
+(define-uniform-seq-pred fun? TFun?)
+(define-uniform-seq-pred mac? TMac?)
+(define-uniform-seq-pred dat? value?)
+
+(define ins? (function [(TApp (TCon _) t) (dat? t)] [_ #f]))
+
+(define value? (or/c fun? mac? TCon? ins? TUni?))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Semantics
@@ -88,33 +113,9 @@
       (or (step t)
           (error 'interpret "stuck at ~v" (show t))))]))
 
-(define (value? t)
-  (or (equal? TUni t) ((or/c φ? μ? data?) t)))
-
-(define-syntax define-uniform-seq-pred
-  (μ* (name? δ)
-    (define name?
-      (function
-        [(TSeq (δ . _) t) (name? t)]
-        [(δ . _) #t]
-        [_ #f]))))
-
-(define-uniform-seq-pred φ? TFun)
-(define-uniform-seq-pred μ? TMac)
-
-(define data?
-  (function
-    [(TApp (TCon _) t) (instance-data? t)]
-    [(TCon _) #t]
-    [_ #f]))
-
-(define instance-data?
-  (function
-    [(TSeq t1 t2) (and (value? t1) (instance-data? t2))]
-    [t (value? t)]))
-
 (define-syntax define-stepper
-  (μ* (stepper-name:id (ord-step:id ...+) [step-name:id pattern:fun-patt result] ...+)
+  (μ* (stepper-name:id (ord-step:id ...+)
+                       [step-name:id pattern:fun-patt result] ...+)
     (begin
       (define (stepper-name t) (or (ord-step t) ...))
       (define step-name (function [pattern result] [_ #f])) ...)))
@@ -173,6 +174,9 @@
     [PUni PUni]))
 
 (define genvar (φ x (string->uninterned-symbol (symbol->string x))))
+
+(define (α-restore x)
+  (string->symbol (symbol->string x)))
 
 (define (subst σ t [mask (seteq)])
   ((function

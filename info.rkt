@@ -5,5 +5,6 @@
 (define build-deps '("racket-doc"
                      "rackunit-lib"
                      "sandbox-lib"
-                     "scribble-lib"))
+                     "scribble-lib"
+                     "texmath"))
 (define scribblings '(("scribblings/algebraic.scrbl")))
