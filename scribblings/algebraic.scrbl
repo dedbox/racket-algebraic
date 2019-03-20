@@ -100,8 +100,6 @@
 @(define (subsubsection* #:tag [tag #f] . args)
    (apply subsubsection #:tag tag #:style '(unnumbered toc-hidden) args))
 
-@; @(define (~cite . args) (list ~ (superscript (apply cite args))))
-
 @(define full-width
    (make-style "fullwidth"
                (list (make-css-addition "scribblings/css/fullwidth.css"))))
@@ -122,8 +120,6 @@
           null
           (cons (list fst snd (caar rules) (list (hspace 4) (cadar rules)))
                 (loop "" "|" (cdr rules)))))))
-
-@(define ~ emph)
 
 @; #############################################################################
 
@@ -421,43 +417,43 @@ when matched against a compatible term.
 
 @centered[
   @grammar["t"
-    (list @list{@~{t} @~{t}} "application")
-    (list @list{@~{t};@~{t}} "sequence")
-    (list @list{φ@~{p}.@~{t}} "function clause")
-    (list @list{μ@~{p}.@~{t}} "macro clause")
-    (list @~{x} "variable")
-    (list @~{δ} "constructor")
+    (list @list{@${t} @${t}} "application")
+    (list @list{@${t};@${t}} "sequence")
+    (list @list{φ@${p}.@${t}} "function clause")
+    (list @list{μ@${p}.@${t}} "macro clause")
+    (list @${x} "variable")
+    (list @${δ} "constructor")
     (list "◊" "unit")
   ] "\n" "\n"
 
   @grammar["p"
-    (list @list{@~{t} @~{t}} "application")
-    (list @list{@~{t};@~{t}} "sequence")
+    (list @list{@${t} @${t}} "application")
+    (list @list{@${t};@${t}} "sequence")
     (list "_" "wildcard")
-    (list @~{x} "variable")
-    (list @~{δ} "constructor")
+    (list @${x} "variable")
+    (list @${δ} "constructor")
     (list "◊" "unit")
   ] "\n" "\n"
 
   @grammar["v"
-    (list @list{φ@~{p}.@~{t};·} "function")
-    (list @list{μ@~{p}.@~{t};·} "macro")
-    (list @~{δ} "constructor")
-    (list @list{@~{δ} (@~{v};·)} "instance")
+    (list @list{φ@${p}.@${t};·} "function")
+    (list @list{μ@${p}.@${t};·} "macro")
+    (list @${δ} "constructor")
+    (list @list{@${δ} (@${v};·)} "instance")
     (list "◊" "unit")
   ]
 ]
 
 There are seven kinds of terms and six kinds of patterns.
 
-An @emph{application} (@~{t} @~{t}) is a pair of juxtaposed sub-terms. Nested
+An @emph{application} (@${t} @${t}) is a pair of juxtaposed sub-terms. Nested
 applications are always parenthesized.
 
 @core-code{
   (A ◊)
 }
 
-A @emph{sequence} (@~{t};@~{t}) is a pair of sub-terms separated by a
+A @emph{sequence} (@${t};@${t}) is a pair of sub-terms separated by a
 semicolon in the model and prefixed by a dollar sign (@racketid[$]) in code.
 Sequences combine multiple terms into a single unit. They are used for holding
 the non-tag elements of a tagged @tech{list}.
@@ -466,8 +462,8 @@ the non-tag elements of a tagged @tech{list}.
   (A ($ ◊ ◊))
 }
 
-A @emph{function clause} (φ@~{p}.@~{t}) is a λ-abstraction with the formal
-parameter generalized to a pattern, and a @emph{macro clause} (μ@~{p}.@~{t})
+A @emph{function clause} (φ@${p}.@${t}) is a λ-abstraction with the formal
+parameter generalized to a pattern, and a @emph{macro clause} (μ@${p}.@${t})
 is a generalized λ-abstraction.
 
 @core-code{
@@ -475,13 +471,13 @@ is a generalized λ-abstraction.
   (μ a a)
 }
 
-A @emph{uniform sequence} (@~{t};·) is a right-hand nesting of sequences in
+A @emph{uniform sequence} (@${t};·) is a right-hand nesting of sequences in
 which every left-hand side is the same kind of term and every right-hand side,
 exept perhaps the last, is the same kind of uniform sequence. Uniform
 sequences combine multiple abstractions into a single unit.
 
-A @emph{function} (φ@~{p}.@~{t};·) is a function clause or a uniform sequence
-of them, and a @emph{macro}@elem['nbsp](μ@~{p}.@~{t};·) is one or more macro
+A @emph{function} (φ@${p}.@${t};·) is a function clause or a uniform sequence
+of them, and a @emph{macro}@elem['nbsp](μ@${p}.@${t};·) is one or more macro
 clauses in sequence.
 
 @core-code{
@@ -489,17 +485,17 @@ clauses in sequence.
   ($ (μ a a) ($ (μ b b) (μ c c)))
 }
 
-A @emph{variable} (@~{x}) is a name that may be bound to a term in the body of
+A @emph{variable} (@${x}) is a name that may be bound to a term in the body of
 a function clause or macro clause. We say a variable not bound by an
 abstraction is @emph{free}. All free variables are stuck.
 
-A @emph{constructor} (@~{δ}) is a name that identifies a data type.
+A @emph{constructor} (@${δ}) is a name that identifies a data type.
 Constructors evaluate to themselves.
 
 For convenience, constructors names begin with an uppercase letter and
 variable names begin with a lowercase letter.
 
-An @emph{instance} (@~{δ} (@~{v};·)) is a constructor applied to a value or
+An @emph{instance} (@${δ} (@${v};·)) is a constructor applied to a value or
 sequence of values.
 
 @core-code{
@@ -822,21 +818,21 @@ computation, or @racket[#f] if the term is stuck.
    ))
 ]
 
-Applications (@~{t} @~{t}) reduce quasi-eagerly, starting on the left. If the
+Applications (@${t} @${t}) reduce quasi-eagerly, starting on the left. If the
 left side reduces to a macro, the macro is applied to the un-reduced right
 side. If the left side reduces to a function or constructor, evaluation
 continues on the right.
 
-Function clauses (φ@~{p}.@~{t}) attempt to match a single argument value to a
-pattern @~{p}. If the match succeeds, any variables bound by the pattern are
-substituted into the body term @~{t}. If the match fails, the application is
+Function clauses (φ@${p}.@${t}) attempt to match a single argument value to a
+pattern @${p}. If the match succeeds, any variables bound by the pattern are
+substituted into the body term @${t}. If the match fails, the application is
 stuck.
 
 @core-example[
   ((φ x x) (φ y y))
 ]
 
-A @emph{macro clause} (μ@~{p}.@~{t}) attempts to match a single argument term
+A @emph{macro clause} (μ@${p}.@${t}) attempts to match a single argument term
 to a pattern. The only semantic difference between function clauses and macro
 clauses is that macro clauses do not reduce their argument before attempthing
 the match.
