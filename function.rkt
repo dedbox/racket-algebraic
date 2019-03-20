@@ -37,25 +37,25 @@
     #:attributes (compiled)
     (pattern (~and compiled:variable (~not :wildcard))))
 
-  (define-syntax-class fun-reference
-    #:description "variable reference"
-    #:attributes (compiled)
-    (pattern (~and x:id (~not (~or :wildcard :variable)))
-             #:when (namespace-variable-value (syntax->datum #'x) #t (λ _ #f))
-             #:attr compiled #'(app (λ (y) (equal? y x)) #t)))
-
   (define-syntax-class fun-product
     #:description "product pattern"
     #:attributes (compiled)
-    (pattern (~and Π:id (~not (~or :wildcard :variable :fun-reference)))
+    (pattern (~and Π:id (~not (~or :wildcard :variable)))
              #:when (product-id? #'Π)
              #:with Π? (format-id #'Π "~a?" #'Π)
              #:attr compiled #'(? Π?)))
 
+  (define-syntax-class fun-reference
+    #:description "variable reference"
+    #:attributes (compiled)
+    (pattern (~and x:id (~not (~or :wildcard :variable :fun-product :struct-id)))
+             #:when (identifier-binding #'x 0)
+             #:attr compiled #'(app (λ (y) (equal? y x)) #t)))
+
   (define-syntax-class fun-symbol
     #:description "symbol pattern"
     #:attributes (compiled)
-    (pattern (~and s:id (~not (~or :wildcard :variable :fun-reference :fun-product)))
+    (pattern (~and s:id (~not (~or :wildcard :variable :fun-product :fun-reference)))
              #:attr compiled #''s))
 
   (define-syntax-class fun-instance
@@ -468,7 +468,15 @@
     (check-OK ((φ * OK) *))
     (check-exn exn:algebraic:match? (λ () ((φ + OK) -)))
     (check-exn exn:algebraic:match? (λ () ((φ - OK) *)))
-    (check-exn exn:algebraic:match? (λ () ((φ * OK) +))))
+    (check-exn exn:algebraic:match? (λ () ((φ * OK) +)))
+    (define +++ 123)
+    (check-OK ((φ +++ OK) +++))
+    (check-OK ((φ +++ OK) 123))
+    (check-exn exn:algebraic:match? (λ () ((φ +++ OK) 456)))
+    (set! +++ 456)
+    (check-exn exn:algebraic:match? (λ () ((φ +++ OK) 123)))
+    (check-OK ((φ +++ OK) 456))
+    (check-OK ((φ +++ OK) +++)))
 
   (test-case "conditional"
     (check-OK ((φ _ #:if #t OK) #f))

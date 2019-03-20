@@ -29,15 +29,6 @@
            #:when (and (not (eq? (syntax->datum #'x) '||))
                        (char-lower-case? (first-char #'x)))))
 
-(define-syntax-class reference
-  (pattern :id
-           #:do [(define s (syntax->datum this-syntax))]
-           #:when (and
-                   (or (eq? s '||)
-                       (and (not (char-lower-case? (first-char this-syntax)))
-                            (not (char=? #\_ (first-char this-syntax)))))
-                   (namespace-variable-value s #t (λ _ #f)))))
-
 (define-syntax-class regex
   (pattern :expr #:when (regexp? (syntax->datum this-syntax))))
 
