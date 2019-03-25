@@ -83,64 +83,112 @@
 
 ;;; Values
 
-(define-syntax define-uniform-seq-pred
+(define-syntax define-uniform-sequence-pred
   (μ* (name? kind?)
     (define name?
       (function
         [(TSeq t1 t2) #:if (kind? t1) (name? t2)]
         [t (kind? t)]))))
 
-(define-uniform-seq-pred fun? TFun?)
-(define-uniform-seq-pred mac? TMac?)
-(define-uniform-seq-pred dat? value?)
+(define-uniform-sequence-pred fun? TFun?)
+(define-uniform-sequence-pred mac? TMac?)
+(define-uniform-sequence-pred dat? value?)
 
 (define ins? (function [(TApp (TCon _) t) (dat? t)] [_ #f]))
 
 (define value? (or/c fun? mac? TCon? ins? TUni?))
 
 ;;; ----------------------------------------------------------------------------
-;;; Semantics
+;;; Evaluation Semantics
 
 (define-syntax algebraic
   (μ t (show (interpret (parse 't)))))
 
-(define interpret
-  (function
-    [v #:if (value? v) v]
-    [t
-     ;; (writeln (show t))
-     (interpret
-      (or (step t)
-          (error 'interpret "stuck at ~v" (show t))))]))
+(define-syntax define-interpreter
+  (μ* ((name:id t:id) step-expr ...+)
+    (define name
+      (function
+        [v #:if (value? v) v]
+        [t (name
+            (or (begin step-expr ...)
+                (error 'name "stuck at ~v" (show t))))]))))
+
+(define-interpreter (interpret t)
+  (step t))
+
+(define-interpreter (trace t)
+  (writeln (show t))
+  (step t))
 
 (define-syntax define-stepper
-  (μ* (stepper-name:id (ord-step:id ...+)
-                       [step-name:id pattern:fun-patt result] ...+)
+  (μ* (stepper-name:id
+       (order:id ...+)
+       [step-name:id pattern:fun-patt result] ...+)
     (begin
-      (define (stepper-name t) (or (ord-step t) ...))
-      (define step-name (function [pattern result] [_ #f])) ...)))
+      (define (stepper-name t) (or (order t) ...))
+      (define step-name (function [pattern result] [_ #f]))
+      ...)))
 
-(define-stepper step (seq1 seq2 app1 appM redM app2 appF redF)
-  [seq1 (TSeq t1 t2) (let ([t1* (step t1)]) (and t1* (TSeq t1* t2 )))]
-  [seq2 (TSeq v1 t2) (let ([t2* (step t2)]) (and t2* (TSeq v1  t2*)))]
-  [app1 (TApp t1 t2) (let ([t1* (step t1)]) (and t1* (TApp t1* t2 )))]
-  [app2 (TApp v1 t2) (let ([t2* (step t2)]) (and t2* (TApp v1  t2*)))]
-  [appF (TApp (TFun p11 t12) v2) (let ([σ (× p11 v2)]) (and σ (subst σ t12)))]
-  [appM (TApp (TMac p11 t12) t2) (let ([σ (× p11 t2)]) (and σ (subst σ t12)))]
-  [redF (TApp (TSeq (TFun x t) v12) v2) (or (step (TApp (TFun x t) v2)) (TApp v12 v2))]
-  [redM (TApp (TSeq (TMac x t) v12) t2) (or (step (TApp (TMac x t) t2)) (TApp v12 t2))])
+(define-syntax sub-step
+  (μ* (t*-expr:expr t*:id result:expr)
+    (let ([t* t*-expr]) (and t* result))))
 
-;;; ----------------------------------------------------------------------------
-;;; Pragmatics
+(define-syntax alt-step
+  (μ* ((abs:expr val:expr) (alt:expr alt-val:expr))
+    (or (step (TApp abs val)) (TApp alt alt-val))))
+
+(define-stepper step
+  (seq1 seq2 app1 appM redM app2 appF redF)
+  [app1 (TApp t1 t2) (sub-step (step t1) t1* (TApp t1* t2 ))]
+  [app2 (TApp v1 t2) (sub-step (step t2) t2* (TApp v1  t2*))]
+  [seq1 (TSeq t1 t2) (sub-step (step t1) t1* (TSeq t1* t2 ))]
+  [seq2 (TSeq v1 t2) (sub-step (step t2) t2* (TSeq v1  t2*))]
+  [appF (TApp (TFun p11 t12) v2) (sub-step (× p11 v2) σ (subst σ t12))]
+  [appM (TApp (TMac p11 t12) t2) (sub-step (× p11 t2) σ (subst σ t12))]
+  [redF (TApp (TSeq (TFun x t) v12) v2) (alt-step ((TFun x t) v2) (v12 v2))]
+  [redM (TApp (TSeq (TMac x t) v12) v2) (alt-step ((TMac x t) v2) (v12 v2))])
+
+(define (subst σ t [mask (seteq)])
+  ((function
+     [(TApp t1 t2) (TApp (subst σ t1 mask) (subst σ t2 mask))]
+     [(TSeq t1 t2) (TSeq (subst σ t1 mask) (subst σ t2 mask))]
+     [(TFun p1 t2) (TFun p1 (subst σ t2 (set-union mask (vars p1))))]
+     [(TMac p1 t2) (TMac p1 (subst σ t2 (set-union mask (vars p1))))]
+     [(TVar x1) (if (set-member? mask x1) t (hash-ref σ x1))]
+     [(TCon _) t]
+     [TUni t])
+   t))
 
 (define vars
   (function
     [(PApp p1 p2) (set-union (vars p1) (vars p2))]
     [(PSeq p1 p2) (set-union (vars p1) (vars p2))]
     [(PVar x1) (seteq x1)]
-    [(PCon __) (seteq)]
+    [(PCon _) (seteq)]
     [PWil (seteq)]
     [PUni (seteq)]))
+
+;;; ----------------------------------------------------------------------------
+;;; Pattern Matching Semantics
+
+(define ×
+  (function*
+    [((PApp p11 p12) (TApp t21 t22))
+     (let ([σ1 (× p11 t21)]
+           [σ2 (× p12 t22)])
+       (and σ1 σ2 (hash-union σ1 σ2)))]
+    [((PSeq p11 p12) (TSeq t21 t22))
+     (let ([σ1 (× p11 t21)]
+           [σ2 (× p12 t22)])
+       (and σ1 σ2 (hash-union σ1 σ2)))]
+    [((PCon δ) (TCon δ)) (make-immutable-hasheq)]
+    [((PVar x1) t2) (make-immutable-hasheq `([,x1 . ,t2]))]
+    [(PWil _) (make-immutable-hasheq)]
+    [(PUni TUni) (make-immutable-hasheq)]
+    [(_ _) #f]))
+
+;;; ----------------------------------------------------------------------------
+;;; Pragmatics
 
 (define (α-rename-clause p t)
   (define p-vars (set->list (vars p)))
@@ -177,31 +225,6 @@
 
 (define (α-restore x)
   (string->symbol (symbol->string x)))
-
-(define (subst σ t [mask (seteq)])
-  ((function
-     [(TApp t1 t2) (TApp (subst σ t1 mask) (subst σ t2 mask))]
-     [(TSeq t1 t2) (TSeq (subst σ t1 mask) (subst σ t2 mask))]
-     [(TFun p1 t2) (TFun p1 (subst σ t2 (set-union mask (vars p1))))]
-     [(TMac p1 t2) (TMac p1 (subst σ t2 (set-union mask (vars p1))))]
-     [(TVar x1) (if (set-member? mask x1) t (hash-ref σ x1))]
-     [(TCon _) t]
-     [TUni t])
-   t))
-
-(define ×
-  (function*
-    [((PApp p1 p2) (TApp t1 t2)) (let ([σ1 (× p1 t1)]
-                                       [σ2 (× p2 t2)])
-                                   (and σ1 σ2 (hash-union σ1 σ2)))]
-    [((PSeq p1 p2) (TSeq t1 t2)) (let ([σ1 (× p1 t1)]
-                                       [σ2 (× p2 t2)])
-                                   (and σ1 σ2 (hash-union σ1 σ2)))]
-    [((PCon δ) (TCon δ)) (make-immutable-hasheq)]
-    [((PVar x1) t2) (make-immutable-hasheq `([,x1 . ,t2]))]
-    [(PWil _) (make-immutable-hasheq)]
-    [(PUni TUni) (make-immutable-hasheq)]
-    [(_ _) #f]))
 
 ;;; ============================================================================
 

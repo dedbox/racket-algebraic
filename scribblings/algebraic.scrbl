@@ -15,11 +15,43 @@
   (for-label (except-in algebraic/racket/base fun?)
              racket/contract/base
              racket/match
-             syntax/parse))
+             (except-in syntax/parse pattern)))
 
 @(define (rtech . args)
    (apply tech #:doc '(lib "scribblings/reference/reference.scrbl") args))
 
+@(define (stech . args)
+   (apply tech #:doc '(lib "syntax/scribblings/syntax.scrbl") args))
+
+@(define-simple-macro (id x) (racketid x))
+
+@; -----------------------------------------------------------------------------
+@; Syntax
+
+@(define-simple-macro (define-ids x:id ...+)
+   (begin (define x @racketid[x]) ...))
+
+@define-ids[Term  TApp  TSeq  TFun  TMac  TVar  TCon  TUni ]
+@define-ids[Term? TApp? TSeq? TFun? TMac? TVar? TCon? TUni?]
+@define-ids[Patt  PApp  PSeq  PWil  PVar  PCon  PUni ]
+@define-ids[Patt? PApp? PSeq? PWil? PVar? PCon? PUni?]
+
+@(define Terms @list{@racketid[Term]s})
+@(define Term. @list{@racketid[Term].})
+@(define Patt. @list{@racketid[Patt].})
+
+@(define App1 @list{A@smaller{PP}1})
+@(define App2 @list{A@smaller{PP}2})
+@(define Seq1 @list{S@smaller{EQ}1})
+@(define Seq2 @list{S@smaller{EQ}2})
+@(define AppF @list{A@smaller{PP}F})
+@(define AppM @list{A@smaller{PP}M})
+@(define Fun1 @list{F@smaller{UN}1})
+@(define Fun2 @list{F@smaller{UN}2})
+@(define Mac1 @list{M@smaller{AC}1})
+@(define Mac2 @list{M@smaller{AC}2})
+
+@; -----------------------------------------------------------------------------
 @; algebraic eval
 
 @(define algebraic-eval
@@ -35,9 +67,17 @@
 @(define-syntax-rule (example expr ...)
    @examples[#:eval algebraic-eval #:label #f expr ...])
 
+@; @(define-simple-macro (algebraic-code str ...)
+@;    #:with stx (datum->syntax this-syntax 1)
+@;    @typeset-code[#:context #'stx "#lang algebraic/racket/base\n\n" str ...])
+
 @(define-simple-macro (algebraic-code str ...)
    #:with stx (datum->syntax this-syntax 1)
-   @typeset-code[#:context #'stx "#lang algebraic/racket/base\n\n" str ...])
+   @typeset-code[
+     #:context #'stx
+     #:keep-lang-line? #f
+     "#lang algebraic/racket/base\n" str ...
+   ])
 
 @; core eval
 
@@ -53,7 +93,10 @@
    @examples[#:eval core-eval #:label #f expr ...])
 
 @(define-simple-macro (core-code str ...)
-   @typeset-code[#:keep-lang-line? #f "#lang algebraic/model/core\n" str ...])
+   @typeset-code["#lang algebraic/model/core\n\n" str ...])
+
+@; @(define-simple-macro (core-code str ...)
+@;    @typeset-code[#:keep-lang-line? #f "#lang algebraic/model/core\n" str ...])
 
 @; ext eval
 
@@ -138,19 +181,19 @@ functionality of @racket[struct], @racket[match-lambda], and
 @racket[syntax-parser] to streamline the funtional programming experience in
 vanilla Racket in two key areas:
 
-@subsubsub*section{Consistent syntax}
+@subsubsub*section{Consistent Syntax}
 
 The destructuring syntax for algebraic @racket[data] and most other data is
 the same across all @tech{function}- and @tech{macro}-producing forms.
 
-@subsubsub*section{Convenient defaults}
+@subsubsub*section{Full Transparency}
 
 Algebraic data @tech{constructors} are like type tags. When applied to an
-argument list, they produce an @tech{instance}---a @deftech{list}, or ordered
-sequence, of unnamed fields with the @tech{constructor} at its head. They are
+argument list, they produce an @tech{instance}---a @deftech{list} or ordered
+sequence of unnamed fields with the @tech{constructor} at its head. They are
 easy to print and easy to parse, like @rtech{prefab} structs. The main
-difference is that algebraic @tech{constructors} are lexically scoped and have
-a natural ordering.
+difference is algebraic @tech{constructors} are lexically scoped and have a
+natural ordering.
 
 @; -----------------------------------------------------------------------------
 
@@ -358,7 +401,7 @@ exposed.
 
 @; =============================================================================
 
-@section[#:tag "tut"]{Tutorial: Interpreters}
+@section[#:tag "tut"]{Tutorial Series: From Models to Interpreters}
 
 A core use case for @algebraic-mod is fast and cheap interpreter development.
 With the right tooling, throw-away interpreters can be an easy way to explore
@@ -368,9 +411,9 @@ As it happens, Haskell is already pretty good at this. Algebraic data types
 and functional destructuring syntax make interpreters easy to read and write,
 and its type system keeps track of pervasive breaking changes for you.
 @algebraic-mod addresses the untyped half of this equation---algebraic data
-@emph{structures} (ADTs sans type constraints) with destructuring syntax.
+@emph{structures} (ADTs sans typing constraints) with destructuring syntax.
 
-In this tutorial, we will build a tower of interpreters based on the models
+In this tutorial, we will build a series of interpreters based on the models
 originally used to design @algebraic-mod itself:
 
 @itemlist[
@@ -387,33 +430,39 @@ originally used to design @algebraic-mod itself:
 
 @; -----------------------------------------------------------------------------
 
-@subsection*{The Core Model}
+@subsection[#:tag "tut:core"]{The Core Calculus}
 
 @defmodulelang[algebraic/model/core]
 
-The core model started as a pure untyped λ-calculus, and it took a while to
-get everything right. Each time a construct was added or removed, everything
-else had to be re-tested. Without automation, exploration at this level of
-detail was easier on paper. Whereas this tutorial begins with a presumably
-viable model and proceeds directly to a robust solution, a realistic process
-will converge over many iterations of design, development, and testing until
-all three are in agreement.
+The core interpreter has three major components:
+
+@itemlist[
+
+  @item{A context-free grammar for the formal syntax,}
+
+  @item{Operational semantics for evaluation and pattern matching, and}
+
+  @item{A collection of helper functions that implement the operational
+    semantics.}
+
+]
 
 @subsubsection*{Syntax}
 
 The core defines three syntactic categories: terms, values, and patterns.
 
-A @emph{term} is a concrete expression of the calculus.
+A @emph{term} (@${t}) is a concrete expression of the calculus.
 
-A @emph{value} is a term that reduces to a normal form according to the
-evaluation semantics. When a term eventually reduces to a particular value, we
-say the term @emph{evaluates to} that value.
+A @emph{value} (@${v}) is a term in normal form with respect to the evaluation
+semantics.
 
-Non-value terms either diverge or get stuck. Some divergent terms are useful
-as infinite loops, but all stuck terms indicate an error.
+When a term eventually reduces to a particular value, we say the term
+@emph{evaluates} to that value. A term may never reduce to a value if the
+computation diverges or gets stuck. Some divergent terms are useful as
+infinite loops. Any stuck term is an error.
 
-A @emph{pattern} is a predicate form that produces a set of variable bindings
-when matched against a compatible term.
+A @emph{pattern} (@${p}) is a syntactic form that produces a set of variable
+bindings (σ) when matched with a compatible term.
 
 @centered[
   @grammar["t"
@@ -444,8 +493,6 @@ when matched against a compatible term.
   ]
 ]
 
-There are seven kinds of terms and six kinds of patterns.
-
 An @emph{application} (@${t} @${t}) is a pair of juxtaposed sub-terms. Nested
 applications are always parenthesized.
 
@@ -454,7 +501,7 @@ applications are always parenthesized.
 }
 
 A @emph{sequence} (@${t};@${t}) is a pair of sub-terms separated by a
-semicolon in the model and prefixed by a dollar sign (@racketid[$]) in code.
+semicolon in the model and prefixed by a dollar sign (@id[$]) in code.
 Sequences combine multiple terms into a single unit. They are used for holding
 the non-tag elements of a tagged @tech{list}.
 
@@ -462,9 +509,8 @@ the non-tag elements of a tagged @tech{list}.
   (A ($ ◊ ◊))
 }
 
-A @emph{function clause} (φ@${p}.@${t}) is a λ-abstraction with the formal
-parameter generalized to a pattern, and a @emph{macro clause} (μ@${p}.@${t})
-is a generalized λ-abstraction.
+A @emph{function clause} (φ@${p}.@${t}) or @emph{macro clause} (μ@${p}.@${t})
+is a λ-abstraction with the formal parameter generalized to a pattern.
 
 @core-code{
   (φ x x)
@@ -472,8 +518,8 @@ is a generalized λ-abstraction.
 }
 
 A @emph{uniform sequence} (@${t};·) is a right-hand nesting of sequences in
-which every left-hand side is the same kind of term and every right-hand side,
-exept perhaps the last, is the same kind of uniform sequence. Uniform
+which every left-hand side holds the same kind of term and every right-hand
+side, exept perhaps the last, is the same kind of uniform sequence. Uniform
 sequences combine multiple abstractions into a single unit.
 
 A @emph{function} (φ@${p}.@${t};·) is a function clause or a uniform sequence
@@ -492,8 +538,8 @@ abstraction is @emph{free}. All free variables are stuck.
 A @emph{constructor} (@${δ}) is a name that identifies a data type.
 Constructors evaluate to themselves.
 
-For convenience, constructors names begin with an uppercase letter and
-variable names begin with a lowercase letter.
+For convenience, constructor names begin with an uppercase letter and variable
+names begin with a lowercase letter.
 
 An @emph{instance} (@${δ} (@${v};·)) is a constructor applied to a value or
 sequence of values.
@@ -522,23 +568,25 @@ convenient to have a surface syntax that resembles the formal syntax.
 
 @subsubsub*section{The Parser}
 
-The parser's job is to map s-expressions onto the members of @racketid[Term].
-Some terms have a pattern, and patterns are parsed by different rules than
-terms. Although constructor arities are not encoded in the @racket[data]
-declaration, we can anticipate the following:
+The parser's job is to map s-expressions onto the members of @Term. Some terms
+have a pattern, and patterns are parsed by different rules than terms.
+Although constructor arities are not encoded in the @racket[data] declaration,
+we can anticipate the following:
 
 @itemlist[
 
-  @item{Applications, sequences, and the abstractions take two arguments.}
+  @item{Applications, sequences, and the abstractions take two arguments
+    each.}
 
-  @item{Variables and constructors take one argument.}
+  @item{Variables and constructors take one argument each.}
 
-  @item{Wildcards and units take no arguments.}
+  @item{The wildcard and the unit value take no arguments.}
+
+  @item{Applications and sequences are purely structurally recursive.}
 
 ]
 
-We can also assume applications and sequences are structurally recursive. With
-all of this in mind, the parser looks like this:
+With these points in mind, the parser will look like this:
 
 @algebraic-code{
   (define (parse t)
@@ -562,73 +610,73 @@ all of this in mind, the parser looks like this:
     (term t))
 }
 
-The @racketid[parse] function is defined as a pair of s-expression parser
-combinators: @racketid[term] and @racketid[patt]. The @racketid[term]
-combinator translates terms in the formal syntax onto @racketid[Term], while
-@racketid[patt] maps patterns in the formal syntax onto @racket[Patt]. Parsing
-always starts and ends with a single term.
+The @id[parse] @tech{function} is defined as a pair of s-expression parser
+combinators: @id[term] and @id[patt]. The @id[term] combinator translates
+terms in the formal syntax onto @Term, while @id[patt] maps patterns in the
+formal syntax onto @Patt. Parsing always starts and ends with a single term.
 
-In the patterns of these functions, some symbols are quoted and others are
-not. The Greek symbols are quoted because @racketid[φ] and @racketid[μ] are
-lowercase characters and we don't want them to behave like variables.
-@racketid[_] is quoted because an unquoted underscore is a wildcard pattern
-for the enclosing @racket[function] form. Quoting is optional for @racketid[$]
-and @racketid[◊] because neither is an uppercase or lowercase character.
+In the patterns of these @tech{functions}, some symbols are quoted while
+others are not. The Greek symbols are quoted because @id[φ] and @id[μ] are
+actually lowercase letters and we don't want them to behave like variables.
+The underscore is quoted because an unquoted @id[_] is a wildcard pattern for
+the enclosing @racket[function] form. Quoting is optional for @id[$] and
+@id[◊] because neither is an uppercase or lowercase character.
 
-For symbols other than @racketid[_] and @racketid[◊], we need a way to detect
-constructor and variable names. Inspecting the characters of a symbol's name
-is too low level for s-expression parsing, so we'll put that logic into helper
-predicates. The @racketid[con-name?] predicate checks if the first character
-of a symbol's name is uppercase, and @racketid[var-name?] checks if it is
-lowercase.
+For other symbols, we need a way to tell constructor names from variable
+names. Inspecting characters is too low level for s-expression parsing, so
+we've put that logic into helper predicates: @id[con-name?] checks if the
+first character is uppercase while @id[var-name?] checks if it is lowercase.
 
-But what about the abstraction parsers? Structural recursion is an option, but
-it turns out we can save some trouble in the interpreter if we do a little
-extra work here in the parser.
+@algebraic-code{
+  (define (con-name? x)
+    (and (symbol? x) (char-lower-case? (first-char x))))
 
-The following term is a standard illustration of @emph{unintended variable
-capture}.
+  (define (var-name? x)
+    (and (symbol? x) (char-upper-case? (first-char x))))
+
+  (define (first-char x)
+    (string-ref (symbol->string s) 0))
+}
+
+But what about the abstraction parsers? Pure structural recursion is an
+option, but we can save some trouble later if we do a little extra work here
+in the parser.
+
+The following is a standard illustration of an issue called @emph{unintended
+variable capture}:
 
 @core-code{
   ((φ x (φ y (x y))) y)
 }
 
-Substituting @racketid[y] for @racket[x] naively would produce a function
-clause wherein the free outer @racketid[y] is indistinguishable from the bound
-inner @racketid[y]:
+If we substitute @id[y] for @id[x] naively, the result would be a function
+clause wherein the free outer @id[y] is indistinguishable from the bound inner
+@id[y]:
 
 @core-code{
   (φ y (y y))
 }
 
-Unintended variable capture is a well-known problem with multiple solutions.
-Our goal is to produce correct and compact code, so we'll take a
-straight-forward approach and make all bound variable names unique as they are
-parsed. This is equivalent to rewriting the original s-expression so every
-bound variable gets a unique index:
+Unintended variable capture is a well-studied problem with multiple solutions.
+Our goal is to produce correct code that is easy to read, so we'll take a
+straight-forward approach of uniquely renaming all non-free variable names as
+they are parsed. This is equivalent to rewriting the original s-expression so
+every bound variable gets a unique index. For example, the original term could
+be rewritten as:
 
 @core-code{
   ((φ x1 (φ y2 (x1 y2))) y)
 }
 
-Reducing this term does not lead to the unintended capture of @racketid[y].
+Reducing this term does not lead to the unintended capture of @id[y2].
 
 @core-code{
   (φ y2 (y y2))
 }
 
-We'll name this rewriting function @racketid[α-rename-clause]. It takes two
-arguments---a @racketid[Patt] and a @racketid[Term]---and returns two values:
-a copy of the @racketid[Patt] with all of its variables renamed, and a copy of
-the @racketid[Term] with its variables renamed as they were in the
-@racketid[Patt]. The definition of @racketid[α-rename-clause] will be given
-later; for now, we'll just use it to finish the parser.
-
-The abstraction parsers also need to pass multiple return values to a
-constructor. To keep our parsing rules compact, we'll define our first
-@tech{macro}. The @racketid[values->] @tech{macro} is a simple syntactic patch
-for @racket[call-with-values] that merely rearranges the arguments and reduces
-the number of parentheses, admitting a more applicative style.
+Later, we'll implement a @tech{function} named @id[α-rename-clause] to
+automate this variable-renaming process. For now, we'll just use it to finish
+the @id[parse] @tech{function}.
 
 @algebraic-code{
   (define (parse t)
@@ -654,22 +702,21 @@ the number of parentheses, admitting a more applicative style.
   (define-syntax values->
     (μ* (f xs-expr)
       (call-with-values (λ () xs-expr) f)))
-
-  (define (con-name? x)
-    (and (symbol? x) (char-lower-case? (first-char x))))
-
-  (define (var-name? x)
-    (and (symbol? x) (char-upper-case? (first-char x))))
-
-  (define (first-char x)
-    (string-ref (symbol->string s) 0))
 }
+
+The @id[α-rename-clause] @tech{function} takes a @Patt and a @Term. It returns
+two values: a copy of the @Patt with all of its variables renamed, and a copy
+of the @Term with its variables renamed as they were in the @Patt.
+
+The @id[values->] @tech{macro} is a simple syntactic patch for
+@racket[call-with-values] that rearranges the arguments for a more compact
+applicative style.
 
 @subsubsub*section{The Printer}
 
-The printer's job is to translate the members of @racketid[Term] back into
+The printer's job is to translate the members of @Term back into
 s-expressions. The printer has the same structure as the parser, but the roles
-of the pattern and body are swapped.
+of pattern and body are swapped.
 
 @algebraic-code{
   (define (show t)
@@ -693,80 +740,103 @@ of the pattern and body are swapped.
     (term t))
 }
 
-The @racketid[show] function is also defined as a pair of
-@racketid[term]/@racketid[patt] combinators. This time, each @racket[function]
-pattern deconstructs a member of @racketid[Term] or @racketid[Patt] and
-produces a term or pattern in the formal syntax as an s-expression. A helper
-named @racketid[α-restore] is introduced pre-emptively to undo whatever
-@racketid[α-reduce-clause] does to variable names.
+The @id[show] function is also defined as a pair of @id[term]/@id[patt]
+combinators. This time, each @racket[function] pattern deconstructs a member
+of @Term or @Patt and produces a term or pattern in the formal syntax as an
+s-expression. A helper named @id[α-restore] is introduced pre-emptively to
+undo whatever @id[α-reduce-clause] does to variable names.
 
 @subsubsub*section{Values}
 
-A @emph{value} is a term that evaluates to itself trivially. Values are the
-subset of terms that constitute a valid computational result. To recognize
-them, we'll need a series of predicates on the members of @racketid[Term].
+Operationally, a value is a term that evaluates to itself trivially. Values
+are the subset of terms that constitute a valid computational result. To
+recognize them, we'll need a series of predicates on the members of @Term.
 
-The over-arching goal is to produce a @racketid[value?] predicate that checks
-whether a @racketid[Term] is a value. Values include:
+Our goal is to produce a @id[value?] predicate that checks whether a @Term is:
 
 @itemlist[
 
-  @item{functions,}
+  @item{a function,}
 
-  @item{macros,}
+  @item{a macro,}
 
-  @item{constructors,}
+  @item{a constructor,}
 
-  @item{instances of a constructor, and}
+  @item{an instance of a constructor, or}
 
   @item{the unit value.}
 
 ]
 
-We'll also need to recognize three kinds of uniform sequence: functions,
-macros, and instance data. Since these predicate all share the same internal
-structure, we'll create our second @racket[macro],
-@racketid[define-uniform-seq-pred]. It takes two arguments---an identifier and
-a predicate---and binds the identifier to a new predicate that recognizes
-uniform sequences of terms that satisfy the given predicate.
+To do all this, we need to recognize three kinds of uniform sequence:
+functions, macros, and instance data.
 
 @algebraic-code{
-  (define-syntax define-uniform-seq-pred
+  (define-syntax define-uniform-sequence-pred
     (μ* (name? kind?)
       (define name?
         (function
           [(TSeq t1 t2) #:if (kind? t1) (name? t2)]
           [t (kind? t)]))))
 
-  (define-uniform-seq-pred fun? TFun?)
-  (define-uniform-seq-pred mac? TMac?)
-  (define-uniform-seq-pred dat? value?)
+  (define-uniform-sequence-pred fun? TFun?)
+  (define-uniform-sequence-pred mac? TMac?)
+  (define-uniform-sequence-pred dat? value?)
+}
 
+A @id[define-uniform-sequence-pred] form takes two arguments: a name to bind
+and a predicate name. It binds the name to a new predicate for uniform
+sequences of terms satisfying the named predicate.
+
+The @id[fun?], @id[mac?], and @id[dat?] predicates recognize a uniform
+sequence of function clauses, macro clauses, and values, respectively.
+
+@algebraic-code{
   (define ins? (function [(TApp (TCon _) t) (dat? t)] [_ #f]))
+}
+
+The @id[ins?] predicate recognizes an instance as a constructor applied to
+instance data. Although instance data is not strictly uniform, thinking of it
+as a ``uniform'' sequence of values is convenient because the predicates all
+have the same shape.
+
+@algebraic-code{
+  (require racket/contract/base)
 
   (define value? (or/c fun? mac? TCon? ins? TUni?))
 }
 
-The @racketid[fun?], @racketid[mac?], and @racketid[dat?] predicates recognize
-a uniform sequence of function clauses, macro clauses, and instance data,
-respectively; and the @racketid[ins?] predicate recognizes an instance as a
-constructor applied to instance data.
+The @id[value?] predicate combines all three uniform sequence predicates with
+the @TCon? and @TUni? predicates generated by our @racket[data] declaration to
+cover all five cases.
 
 @; -----------------------------------------------------------------------------
 
 @subsubsection*{Evaluation Semantics}
 
-The top-level evaluator is a
-@racketid[parse]-@racketid[interpret]-@racketid[show] @tech{macro} named
-@racketid[algebraic]. It uses a function named @racketid[interpret] to
-evaluate a term to its normal form, which in turn calls a @racketid[step]
-@tech{function} that returns either a term representing the next step of the
-computation, or @racket[#f] if the term is stuck.
+Every interpreter in the tutorial series provides its own ``top level''
+@tech{macro} named @id[algebraic] which:
+
+@itemlist[
+  #:style 'ordered
+
+  @item{@id[parse]s an unquoted s-expression as a @Term,}
+
+  @item{attempts to evaluate the @Term to a @id[value?], and}
+
+  @item{@id[show]s the result.}
+
+]
 
 @algebraic-code{
   (define-syntax algebraic
     (μ t (show (interpret (parse 't)))))
+}
 
+The @id[interpret] @tech{function} drives the computation of @id[t] in a tight
+loop that calls another @tech{function} named @id[step].
+
+@algebraic-code{
   (define interpret
     (function
       [v #:if (value? v) v]
@@ -777,6 +847,102 @@ computation, or @racket[#f] if the term is stuck.
             (error 'interpret "stuck at ~v" (show t))))]))
 }
 
+The @id[interpret] @tech{function} takes a @id[Term] for the current step of a
+computation and returns the next step or @racket[#f] if stuck. When @id[step]
+returns a @id[value?], the computation halts and the result is @id[show]n.
+
+If a term gets stuck, we'll want to trace the steps of the computation to
+figure out what went wrong. We could just toggle the commented middle line in
+a pinch, but the generic looping behavior of @id[interpret] is easy to capture
+with a @tech{macro}.
+
+@margin-note{
+
+  The colon-delimited @stech{syntax class} name (@id[:id]) labels each
+  @tech{macro} argument as an identifier. These extra bits of notation give
+  better error messages when something goes wrong.
+
+}
+
+@algebraic-code{
+  (define-syntax define-interpreter
+    (μ* ((name:id t:id) step-expr ...+)
+      (define name
+        (function
+          [v #:if (value? v) v]
+          [t (name
+              (or (begin step-expr ...)
+                  (error 'name "stuck at ~v" (show t))))]))))
+}
+
+The @id[define-interpreter] form looks like the @racket[define] shorthand for
+a unary function. Its body calculates the next step of the computation based
+on the current step and either produces a value or gets stuck.
+
+With @id[define-interpreter], we can cleanly define the @id[interpret]
+@tech{function} alongside a more verbose @id[trace] variant.
+
+@algebraic-code{
+  (define-interpreter (interpret t)
+    (step t))
+
+  (define-interpreter (trace t)
+    (writeln (show t))
+    (step t))
+}
+
+We still need a @id[step] @tech{function}. Its job is to implement the
+semantics of our language. The core model consists of ten inference rules
+governing the evaluation of terms to values. Each rule corresponds to a clause
+of the @id[step] @tech{function}, so we'll put them into their own
+@tech{functions} and have @id[step] try them in order.
+
+The rule @tech{functions} have a regular shape:
+
+@algebraic-code{
+  (define step-name (function [pattern result] [_ #f]))
+}
+
+With a @tech{macro} that abstracts away everything but the @id[step-name]s,
+@id[pattern]s, and @id[result]s, our @id[step] definition will look like this:
+
+@algebraic-code{
+  (define-stepper step
+    (rule1 rule2 ... ruleN)
+    [rule1 pattern1 result1]
+    [rule2 pattern2 result2]
+    ...
+    [ruleN patternN resultN])
+}
+
+A @id[define-stepper] form with @${n} rules defines @${n+1} names: a
+@tech{function} for each rule and one more that tries them in the @id[order]
+specified.
+
+@margin-note{
+
+  The @id[fun-patt] @stech{syntax class} is provided by @algebraic-mod for
+  denoting @tech{function} patterns in @tech{macro} arguments.
+
+}
+
+@algebraic-code{
+  (define-syntax define-stepper
+    (μ* (stepper-name:id
+         (order:id ...+)
+         [step-name:id pattern:fun-patt result] ...+)
+      (begin
+        (define (stepper-name t) (or (order t) ...))
+        (define step-name (function [pattern result] [_ #f]))
+        ...)))
+}
+
+The @id[define-stepper] @tech{macro} expects a list of rule names in addition
+to definitions so we can change the order or rule application without having
+to touch the definitions.
+
+@subsubsub*section{Applications}
+
 @tabular[
   #:style full-width
   #:cell-properties '((center))
@@ -784,62 +950,52 @@ computation, or @racket[#f] if the term is stuck.
    (list
     @inferrule[
           @${t_1 ↝ t_1'}
-      ----------------------- @list{A@smaller{PP}1}
+      ----------------------- @App1
       @${t_1 t_2 ↝ t_1' t_2}
     ]
 
     @inferrule[
-                 @${p_{11}×t_2=σ}
-                @${σ(t_{12})=t_{12}'}
-      ---------------------------------------------- @list{A@smaller{PP}M}
-      @list{(μ@${p_{11}.t_{12}})@${ t_2 ↝ t_{12}'}}
-    ]
-   ))
-]
-
-@tabular[
-  #:style full-width
-  #:cell-properties '((center))
-  (list
-   (list
-    @inferrule[
       @list{@${v_1}≁μ@${p}.@${t};·}
             @${t_2 ↝ t_2'}
-      ------------------------------ @list{A@smaller{PP}2}
+      ------------------------------ @App2
          @${v_1 t_2 ↝ v_1 t_2'}
-    ]
-
-    @inferrule[
-                 @${p_{11}×v_2=σ}
-                @${σ(t_{12})=t_{12}'}
-      ---------------------------------------------- @list{A@smaller{PP}F}
-      @list{(φ@${p_{11}.t_{12}})@${ v_2 ↝ t_{12}'}}
     ]
    ))
 ]
 
-Applications (@${t} @${t}) reduce quasi-eagerly, starting on the left. If the
-left side reduces to a macro, the macro is applied to the un-reduced right
-side. If the left side reduces to a function or constructor, evaluation
-continues on the right.
+Applications evaluate quasi-eagerly, starting on the left. If the left side is
+a macro, the macro will operate on the un-evaluated right side. Otherwise,
+evaluation proceeds to the right.
 
-Function clauses (φ@${p}.@${t}) attempt to match a single argument value to a
-pattern @${p}. If the match succeeds, any variables bound by the pattern are
-substituted into the body term @${t}. If the match fails, the application is
-stuck.
+@algebraic-code{
+  (define-stepper step
+    ...
+    [app1 (TApp t1 t2) (let ([t1* (step t1)]) (and t1* (TApp t1* t2 )))]
+    [app2 (TApp v1 t2) (let ([t2* (step t2)]) (and t2* (TApp v1  t2*)))]
+    ...)
+}
 
-@core-example[
-  ((φ x x) (φ y y))
-]
+Most of the core rules have this @racket[(let ([t* ...]) (and t* ...))] form,
+so we'll put it in a @tech{macro}.
 
-A @emph{macro clause} (μ@${p}.@${t}) attempts to match a single argument term
-to a pattern. The only semantic difference between function clauses and macro
-clauses is that macro clauses do not reduce their argument before attempthing
-the match.
+@algebraic-code{
+  (define-syntax sub-step
+    (μ* (t*-expr:expr t*:id result:expr)
+      (let ([t* t*-expr]) (and t* result))))
+}
 
-@core-example[
-  ((μ (fx fy) (fy fx)) ((φ x x) (φ y y)))
-]
+The @id[sub-step] form lets us express structurally recursive steps a little
+more compactly:
+
+@algebraic-code{
+  (define-stepper step
+    ...
+    [app1 (TApp t1 t2) (sub-step (step t1) t1* (TApp t1* t2 ))]
+    [app2 (TApp v1 t2) (sub-step (step t2) t2* (TApp v1  t2*))]
+    ...)
+}
+
+@subsubsub*section{Sequences}
 
 @tabular[
   #:style full-width
@@ -848,24 +1004,132 @@ the match.
    (list
     @inferrule[
           @${t_1 ↝ t_1'}
-      ----------------------- @list{S@smaller{EQ}1}
+      ----------------------- @Seq1
       @${t_1;t_2 ↝ t_1';t_2}
     ]
 
     @inferrule[
           @${t_2 ↝ t_2'}
-      ----------------------- @list{S@smaller{EQ}2}
+      ----------------------- @Seq2
       @${v_1;t_2 ↝ v_1;t_2'}
     ]
    ))
 ]
 
-Sequences always reduce eagerly from left to right. The semicolon is special
-to Racket, so we'll prefix sequenced pairs with a dollar sign instead.
+Sequences always evaluate eagerly from left to right.
 
-@core-example[
-  ($ ((φ x x) (φ y y)) (φ z z))
+@algebraic-code{
+  (define-stepper step
+    ...
+    [seq1 (TSeq t1 t2) (sub-step (step t1) t1* (TSeq t1* t2 ))]
+    [seq2 (TSeq v1 t2) (sub-step (step t2) t2* (TSeq v1  t2*))]
+    ...)
+}
+
+@subsubsub*section{Simple Reduction}
+
+@tabular[
+  #:style full-width
+  #:cell-properties '((center))
+  (list
+   (list
+    @inferrule[
+                 @${p_{11}×v_2=σ}
+                @${σ(t_{12})=t_{12}'}
+      ---------------------------------------------- @AppF
+      @list{(φ@${p_{11}.t_{12}})@${ v_2 ↝ t_{12}'}}
+    ]
+
+    @inferrule[
+                 @${p_{11}×t_2=σ}
+                @${σ(t_{12})=t_{12}'}
+      ---------------------------------------------- @AppM
+      @list{(μ@${p_{11}.t_{12}})@${ t_2 ↝ t_{12}'}}
+    ]
+   ))
 ]
+
+Function clauses attempt to match a single argument value to a pattern. If the
+match succeeds, any variables bound by the pattern are substituted into the
+body of the function. If the match fails, the term is stuck.
+
+Macro clauses work similarly. The only semantic difference between function
+clauses and macro clauses is that macro clauses do not evaluate their argument
+before attempting the match.
+
+@algebraic-code{
+  (define-stepper step
+    ...
+    [appF (TApp (TFun p11 t12) v2) (sub-step (× p11 v2) σ (subst σ t12))]
+    [appM (TApp (TMac p11 t12) t2) (sub-step (× p11 t2) σ (subst σ t12))]
+    ...)
+}
+
+The @id[×] (``cross'') @tech{function} defines the semantics of pattern
+matching. It takes a @Patt and a @Term and returns a @rtech{hash} named @id[σ]
+as described in the next section.
+
+The @id[subst] @tech{function} implements our variable substition algorithm.
+It takes a given @rtech{hash} @id[σ] that maps variable names to @Terms and
+applies those mappings to a given @Term @id[t].
+
+@algebraic-code{
+  (require racket/set)
+
+  (define (subst σ t [mask (seteq)])
+    ((function
+       [(TApp t1 t2) (TApp (subst σ t1 mask) (subst σ t2 mask))]
+       [(TSeq t1 t2) (TSeq (subst σ t1 mask) (subst σ t2 mask))]
+       [(TFun p1 t2) (TFun p1 (subst σ t2 (set-union mask (vars p1))))]
+       [(TMac p1 t2) (TMac p1 (subst σ t2 (set-union mask (vars p1))))]
+       [(TVar x1) (if (set-member? mask x1) t (hash-ref σ x1))]
+       [(TCon _) t]
+       [TUni t])
+     t))
+
+  (define vars
+    (function
+      [(PApp p1 p2) (set-union (vars p1) (vars p2))]
+      [(PSeq p1 p2) (set-union (vars p1) (vars p2))]
+      [(PVar x1) (seteq x1)]
+      [(PCon _) (seteq)]
+      [PWil (seteq)]
+      [PUni (seteq)]))
+}
+
+The @id[subst] @tech{function} passes around an optional @rtech{set} named
+@id[mask] to remember which variables are already bound in the active
+substitution context. Thanks to @id[α-rename-clause], variable names can be
+compared with @racket[eq?].
+
+The @id[vars] @tech{function} takes a @Patt and returns the @rtech{set} of the
+variable names it binds.
+
+It's worth noting @algebraic-mod abstractions do not offer explicit syntax for
+default argument values. We could have implemented @id[subst] as a two-clause
+@racket[function*]:
+
+@algebraic-code{
+  (define subst
+    (function*
+      [(σ t) (subst σ t (seteq))]
+      [(σ t mask)
+       ((function ...) t)]))
+}
+
+Alternatively, we could have repeated the first and final arguments in every
+clause but the first:
+
+@algebraic-code{
+  (define subst
+    (function*
+      [(σ t) (subst σ t (seteq))]
+      [(σ (TApp t1 t2) mask) ...]
+      [(σ (TSeq t1 t2) mask) ...]
+      ...))
+}
+
+@subsubsub*section{Full Reduction}
 
 @tabular[
   #:style full-width
@@ -874,13 +1138,13 @@ to Racket, so we'll prefix sequenced pairs with a dollar sign instead.
    (list
     @inferrule[
        @list{(φ@${p_{11}}.@${t_{12}}) @${v_2 ↝ t_{12}'}}
-      ---------------------------------------------------- @list{F@smaller{UN}1}
+      ---------------------------------------------------- @Fun1
       @list{(φ@${p_{11}}.@${t_{12}};@${v_{13}}) @${v_2 ↝ t_{12}'}}
     ]
 
     @inferrule[
        @${p_{11}×v_2 undefined}
-      ---------------------------------------------------- @list{F@smaller{UN}2}
+      ---------------------------------------------------- @Fun2
       @list{(φ@${p_{11}}.@${t_{12}};@${v_{13}}) @${v_2 ↝ v_{13} v_2}}
     ]
    ))
@@ -893,41 +1157,173 @@ to Racket, so we'll prefix sequenced pairs with a dollar sign instead.
    (list
     @inferrule[
        @list{(μ@${p_{11}}.@${t_{12}}) @${t_2 ↝ t_{12}'}}
-      ---------------------------------------------------- @list{M@smaller{AC}1}
+      ---------------------------------------------------- @Mac1
       @list{(φ@${p_{11}}.@${t_{12}};@${v_{13}}) @${t_2 ↝ t_{12}'}}
     ]
 
     @inferrule[
        @${p_{11}×t_2 undefined}
-      ---------------------------------------------------- @list{M@smaller{AC}2}
+      ---------------------------------------------------- @Mac2
       @list{(φ@${p_{11}}.@${t_{12}};@${v_{13}}) @${t_2 ↝ v_{13} v_2}}
     ]
    ))
 ]
 
-Functions and macros attempt to match their inputs to each clause in the
-sequence, taking the body of the first succesful match as its result. If every
-clause fails, the term is stuck.
+Multi-clause functions and macros attempt to match their inputs to each clause
+in the sequence, taking the body of the first succesful match as their result.
+If every match fails, the term is stuck.
 
-@core-example[
-  (($ (φ ◊ ◊) (φ x (φ z x))) (φ y y))
-  (($ (φ ◊ ◊) (φ x (φ z x))) ◊)
-]
+If we transcribe @Fun1, @Fun2, @Mac1, and @Mac2 directly from the operational
+semantics, our @id[step] function would look like this:
 
-Applying a constructor to a sequence produces an instance of the constructor,
-and the existing inferences rules already cover this case.
+@algebraic-code{
+  (define-stepper step
+    ...
+    [fun1 (TApp (TSeq (TFun x t) v12) v2) (step (TApp (TFun x t) v2))]
+    [mac1 (TApp (TSeq (TFun x t) v12) v2) (step (TApp (TFun x t) v2))]
+    [fun2 (TApp (TSeq (TFun _ _) v12) v2) (TApp v12 v2)]
+    [mac2 (TApp (TSeq (TFun _ _) v12) v2) (TApp v12 v2)]
+    ...)
+}
 
-@core-example[
-  (A ($ B ($ (φ x x) (φ y y))))
-]
+but it turns out we can merge these four rules into two:
+
+@algebraic-code{
+  (define-stepper step
+    ...
+    [redF (TApp (TSeq (TFun x t) v12) v2) (or (step (TApp (TFun x t) v2)) (TApp v12 v2))]
+    [redM (TApp (TSeq (TMac x t) v12) t2) (or (step (TApp (TMac x t) t2)) (TApp v12 t2))]
+    ...)
+}
+
+and the structural similarity of these rules is compelling, given their
+length. We can keep our rule set compact by capturing the @racket[(or (step
+(TApp ...)) (TApp ...))] form in another @tech{macro}.
+
+@algebraic-code{
+  (define-syntax alt-step
+    (μ* ((abs:expr val:expr) (alt:expr alt-val:expr))
+      (or (step (TApp abs val)) (TApp alt alt-val))))
+}
+
+The @id[alt-step] form more compactly expresses this kind of choice.
+
+@algebraic-code{
+  (define-stepper step
+    ...
+    [redF (TApp (TSeq (TFun x t) v12) v2) (alt-step ((TFun x t) v2) (v12 v2))]
+    [redM (TApp (TSeq (TMac x t) v12) v2) (alt-step ((TMac x t) v2) (v12 v2))]
+    ...)
+}
+
+@subsubsub*section{The Full Stepper}
+
+When assembled, the fragments define a comprehensive @id[step]
+@tech{function}.
+
+@algebraic-code{
+  (define-stepper step
+    (seq1 seq2 app1 appM redM app2 appF redF)
+    [app1 (TApp t1 t2) (sub-step (step t1) t1* (TApp t1* t2 ))]
+    [app2 (TApp v1 t2) (sub-step (step t2) t2* (TApp v1  t2*))]
+    [seq1 (TSeq t1 t2) (sub-step (step t1) t1* (TSeq t1* t2 ))]
+    [seq2 (TSeq v1 t2) (sub-step (step t2) t2* (TSeq v1  t2*))]
+    [appF (TApp (TFun p11 t12) v2) (sub-step (× p11 v2) σ (subst σ t12))]
+    [appM (TApp (TMac p11 t12) t2) (sub-step (× p11 t2) σ (subst σ t12))]
+    [redF (TApp (TSeq (TFun x t) v12) v2) (alt-step ((TFun x t) v2) (v12 v2))]
+    [redM (TApp (TSeq (TMac x t) v12) v2) (alt-step ((TMac x t) v2) (v12 v2))])
+}
 
 @; -----------------------------------------------------------------------------
 
 @subsubsection*{Pattern Matching Semantics}
 
+Pattern matching is a binary operation on pattern-term pairs which produces a
+set of variable bindings if the pattern and term are compatible in one of the
+following six ways.
+
+@centered{
+  @${(p_{11} p_{12})×(t_{21} t_{22}) = (p_{11}×t_{21})∪(p_{12}×t_{22})}
+
+  @${(p_{11};p_{12})×(t_{21};t_{22}) = (p_{11}×t_{21})∪(p_{12}×t_{22})}
+
+  @${δ_1×δ_2 = \{\} if δ_1=δ_2}
+
+  @${x_1×t_2 = \{x_1↦t_2\}}
+
+  _@${×· = \{\}}
+
+  @${◊×◊ = \{\}}
+}
+
+An @emph{application pattern} (@${p_1 p_2}) matches an application if the
+sub-patterns and sub-terms all match by position, passing along any variable
+bindings.
+
+A @emph{sequence pattern} (@${p_1;p_2}) behaves similarly.
+
+A @emph{constructor pattern} (@${δ}) matches a constructor with the same name
+and binds no variables.
+
+A @emph{variable} (@${x}) matches any term and binds itself to the term.
+
+The @emph{wildcard} (_) matches any term and binds no variables.
+
+The @emph{unit pattern} (◊) matches only the unit value.
+
+Any other combination is undefined.
+
+@subsubsub*section{The Cross Function}
+
+The @id[×] @tech{function} implements these six equations directly, with a
+little extra code to check for valid sub-matches before performing any
+@rtech{set} operations.
+
+@algebraic-code{
+  (require racket/hash)
+
+  (define ×
+    (function*
+      [((PApp p11 p12) (TApp t21 t22))
+       (let ([σ1 (× p11 t21)]
+             [σ2 (× p12 t22)])
+         (and σ1 σ2 (hash-union σ1 σ2)))]
+      [((PSeq p11 p12) (TSeq t21 t22))
+       (let ([σ1 (× p11 t21)]
+             [σ2 (× p12 t22)])
+         (and σ1 σ2 (hash-union σ1 σ2)))]
+      [((PCon δ) (TCon δ)) (make-immutable-hasheq)]
+      [((PVar x1) t2) (make-immutable-hasheq `([,x1 . ,t2]))]
+      [(PWil _) (make-immutable-hasheq)]
+      [(PUni TUni) (make-immutable-hasheq)]
+      [(_ _) #f]))
+}
+
+In the constructors clause, @algebraic-mod implicitly guarantees the pattern
+and term refer to the same constructor because the @tech{function} pattern
+only matches when the two names are @racket[equal?].
+
 @; -----------------------------------------------------------------------------
 
 @subsubsection*{Pragmatics}
+
+It's time to pay the piper.
+
+α-rename-clause
+
+α-restore
+
+@; -----------------------------------------------------------------------------
+
+@subsection[#:tag "tut:ext"]{A Syntax Extension}
+
+@defmodulelang[algebraic/model/ext]
+
+@; -----------------------------------------------------------------------------
+
+@subsection[#:tag "tut:hosted"]{A Hosted Variant}
+
+@defmodulelang[algebraic/model/hosted]
 
 @; =============================================================================
 
@@ -1674,6 +2070,14 @@ and the existing inferences rules already cover this case.
 @; =============================================================================
 
 @bibliography[
+  @; @bib-entry[
+  @;   #:key "Krishnamurthi2001"
+  @;   #:title "Linguistic Reuse"
+  @;   #:author "Krishnamurthi, Sriram"
+  @;   #:location "PhD dissertation, Rice University"
+  @;   #:date "2001"
+  @; ]
+
   @bib-entry[
     #:key "Taha2004"
     #:title "A gentle introduction to multi-stage programming"
