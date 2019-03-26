@@ -7,4 +7,4 @@
                      "sandbox-lib"
                      "scribble-lib"
                      "texmath"))
-(define scribblings '(("scribblings/algebraic.scrbl")))
+(define scribblings '(("scribblings/algebraic.scrbl" (multi-page))))
