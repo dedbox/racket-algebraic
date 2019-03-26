@@ -31,8 +31,8 @@
     (function
       [(  t1 t2) (TApp (term t1) (term t2))]
       [($ t1 t2) (TSeq (term t1) (term t2))]
-      [('φ p1 t2) (values-> TFun (α-rename-clause (patt p1) (term t2)))]
-      [('μ p1 t2) (values-> TMac (α-rename-clause (patt p1) (term t2)))]
+      [('φ p1 t2) (values-> TFun (α-rename (patt p1) (term t2)))]
+      [('μ p1 t2) (values-> TMac (α-rename (patt p1) (term t2)))]
       [x #:if (con-name? x) (TCon x)]
       [x #:if (var-name? x) (TVar x)]
       [◊ TUni]))
@@ -190,7 +190,24 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Pragmatics
 
-(define (α-rename-clause p t)
+(define (α-rename p t)
+  (define (term x y)
+    (function
+      [(TApp t1 t2) (TApp ((term x y) t1) ((term x y) t2))]
+      [(TSeq t1 t2) (TSeq ((term x y) t1) ((term x y) t2))]
+      [(TFun p1 t2) (TFun p1 ((term x y) t2))]
+      [(TMac p1 t2) (TMac p1 ((term x y) t2))]
+      [(TVar x1) (TVar (if (equal? x1 x) y x1))]
+      [(TCon δ1) (TCon δ1)]
+      [TUni TUni]))
+  (define (patt x y)
+    (function
+      [(PApp p1 p2) (PApp ((patt x y) p1) ((patt x y) p2))]
+      [(PSeq p1 p2) (PSeq ((patt x y) p1) ((patt x y) p2))]
+      [(PVar x1) (PVar (if (equal? x1 x) y x1))]
+      [(PCon δ1) (PCon δ1)]
+      [PWil PWil]
+      [PUni PUni]))
   (define p-vars (set->list (vars p)))
   (let loop ([xs p-vars]
              [ys (map genvar p-vars)]
@@ -198,28 +215,9 @@
              [t* t])
     (if (null? xs)
         (values p* t*)
-        (let ([p** ((α-rename-patt (car xs) (car ys)) p*)]
-              [t** ((α-rename-term (car xs) (car ys)) t*)])
+        (let ([p** ((patt (car xs) (car ys)) p*)]
+              [t** ((term (car xs) (car ys)) t*)])
           (loop (cdr xs) (cdr ys) p** t**)))))
-
-(define (α-rename-term x y)
-  (function
-    [(TApp t1 t2) (TApp ((α-rename-term x y) t1) ((α-rename-term x y) t2))]
-    [(TSeq t1 t2) (TSeq ((α-rename-term x y) t1) ((α-rename-term x y) t2))]
-    [(TFun p1 t2) (TFun p1 ((α-rename-term x y) t2))]
-    [(TMac p1 t2) (TMac p1 ((α-rename-term x y) t2))]
-    [(TVar x1) (TVar (if (equal? x1 x) y x1))]
-    [(TCon δ1) (TCon δ1)]
-    [TUni TUni]))
-
-(define (α-rename-patt x y)
-  (function
-    [(PApp p1 p2) (PApp ((α-rename-patt x y) p1) ((α-rename-patt x y) p2))]
-    [(PSeq p1 p2) (PSeq ((α-rename-patt x y) p1) ((α-rename-patt x y) p2))]
-    [(PVar x1) (PVar (if (equal? x1 x) y x1))]
-    [(PCon δ1) (PCon δ1)]
-    [PWil PWil]
-    [PUni PUni]))
 
 (define genvar (φ x (string->uninterned-symbol (symbol->string x))))
 

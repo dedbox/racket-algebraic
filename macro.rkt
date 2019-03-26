@@ -156,6 +156,11 @@
     #:attributes (compiled)
     (pattern p:mac-patt #:attr compiled #'p.compiled))
 
+  (define-syntax-class mac-rest-arg
+    #:description "macro rest-argument"
+    #:attributes (compiled)
+    (pattern p:mac-patt #:attr compiled #'p.compiled))
+
   (define-syntax-class mac-body
     #:description "macro body"
     #:attributes ()
@@ -203,14 +208,18 @@
                            (format "condition failed: ~a" 'condition)))) ...
      #`body*]))
 
-(define-simple-macro (μ* (p:mac-arg ...)
+(define-simple-macro (μ* (~or (~and rest-id:id (~or :variable :wildcard))
+                              (p:mac-arg ...)
+                              (p:mac-arg ...+ . rest-p:mac-rest-arg))
                        (~alt (~seq #:with with-p:mac-patt with-stx:expr)
                              (~seq #:if condition:if-expr))
                        ...
                        body:mac-body ...+)
   #:with body* (simplify (attribute body))
   (syntax-parser
-    [(_ p.compiled ...)
+    [(~? (_ . rest-id)
+         (~? (_ p.compiled ... . rest-p.compiled)
+             (_ p.compiled ...)))
      (~? (~@ #:with with-p.compiled #`with-stx)) ...
      (~? (~@ #:post (~fail #:unless condition
                            (format "condition failed: ~a" 'condition)))) ...
