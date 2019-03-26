@@ -204,12 +204,12 @@
              #:attr compiled #'p.compiled))
 
   (define-syntax-class fun-arg
-    #:description "argument pattern"
+    #:description "function argument"
     #:attributes (compiled)
     (pattern p:fun-patt #:attr compiled #'p.compiled))
 
   (define-syntax-class fun-rest-arg
-    #:description "rest-argument pattern"
+    #:description "function rest-argument"
     #:attributes (compiled)
     (pattern p:fun-patt #:attr compiled #'p.compiled))
 
