@@ -2,7 +2,6 @@
 
 (require racket/contract/base
          racket/hash
-         racket/pretty
          racket/set
          (for-syntax syntax/parse))
 
@@ -12,11 +11,12 @@
          (all-defined-out)
          (for-syntax (all-defined-out)))
 
-(define-syntax-rule (module-begin form ...)
-  (#%plain-module-begin (pretty-write (algebraic form)) ...))
+(define-syntax module-begin
+  (μ* (form ...)
+    (#%plain-module-begin ((current-print) (algebraic form)) ...)))
 
-(define-syntax-rule (top-interaction . form)
-  (#%top-interaction . (algebraic form)))
+(define-syntax top-interaction
+  (μ* form (#%top-interaction . (algebraic form))))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Syntax
