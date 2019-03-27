@@ -43,7 +43,7 @@
     (pattern (~and Π:id (~not (~or :wildcard :variable)))
              #:when (product-id? #'Π)
              #:with Π? (format-id #'Π "~a?" #'Π)
-             #:attr compiled #'(? Π?)))
+             #:attr compiled #'(and (? product?) (? Π?))))
 
   (define-syntax-class fun-reference
     #:description "variable reference"
