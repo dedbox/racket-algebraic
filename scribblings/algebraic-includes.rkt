@@ -6,7 +6,8 @@
          scribble/html-properties
          scribble/manual
          syntax/parse/define
-         (for-syntax racket/base))
+         (for-syntax racket/base
+                     racket/syntax))
 
 (provide (all-defined-out))
 
@@ -28,14 +29,30 @@
 (define-simple-macro (define-ids x:id ...+)
   (begin (define x (racketid x)) ...))
 
+(define-simple-macro (define-ids+ s x:id ...+)
+  #:with (xs ...) (map (λ (x) (format-id x "~a~a" x (syntax->datum #'s)))
+                       (attribute x))
+  (begin (define xs (list (racketid x) s)) ...))
+
+;;; Core AST
+
 (define-ids Term  TApp  TSeq  TFun  TMac  TVar  TCon  TUni )
 (define-ids Term? TApp? TSeq? TFun? TMac? TVar? TCon? TUni?)
 (define-ids Patt  PApp  PSeq  PWil  PVar  PCon  PUni )
 (define-ids Patt? PApp? PSeq? PWil? PVar? PCon? PUni?)
 
-(define Terms (list (racketid Term) "s"))
-(define Term. (list (racketid Term) "."))
-(define Patt. (list (racketid Patt) "."))
+(define-ids+ "s" Term Patt)
+(define-ids+ "." Term TApp TSeq TFun TMac TVar TCon TUni)
+(define-ids+ "." Patt PApp PSeq PWil PVar PCon PUni)
+
+;;; Peano Arithmetic
+
+(define-ids Peano Succ Zero)
+
+(define-ids+ "s" Peano Succ Zero)
+(define-ids+ "." Peano Succ Zero)
+
+;;; Rule Names (small caps)
 
 (define-simple-macro (define-sc-ids name:id ...+)
   (begin
@@ -47,6 +64,17 @@
     ...))
 
 (define-sc-ids App1 App2 Seq1 Seq2 AppF AppM Fun1 Fun2 Mac1 Mac2)
+
+;;; Relations
+
+(define-simple-macro (relation (~seq (~or (~literal ~) L) op R) ...+)
+  (tabular
+   #:style full-width
+   #:column-properties '(right center left)
+   (list (list (~? (tt (format "~a" 'L)) ~)
+               (list ~ (format "~a" 'op) ~)
+               (tt (format "~a" 'R)))
+         ...)))
 
 ; -----------------------------------------------------------------------------
 ; algebraic eval
@@ -80,11 +108,21 @@
           [sandbox-error-output 'string])
        (make-base-eval #:lang 'algebraic/model/core)))))
 
-(define-syntax-rule (core-example expr ...)
+(define-simple-macro (core-code str ...)
+  #:with stx (datum->syntax #f 1)
+  (typeset-code #:context #'stx
+                "#lang algebraic/model/core\n\n" str ...))
+
+;; (define-syntax-rule (core-code expr ...)
+;;   (examples #:eval core-eval #:label #f #:no-prompt #:no-result expr ...))
+
+;; (define-syntax-rule (core-example expr ...)
+;;   (examples #:eval core-eval #:label #f expr ...))
+
+(define-simple-macro (core-example expr ...)
   (examples #:eval core-eval #:label #f expr ...))
 
-(define-simple-macro (core-code str ...)
-  (typeset-code "#lang algebraic/model/core\n\n" str ...))
+; core-mod eval
 
 (define core-mod-eval
   (call-with-trusted-sandbox-configuration
@@ -92,8 +130,12 @@
      (parameterize
          ([sandbox-output 'string]
           [sandbox-error-output 'string])
-       (make-base-eval #:lang 'racket/base
-                       '(require (only-in algebraic/model/core algebraic)))))))
+       (make-base-eval #:lang 'algebraic/racket/base
+                       '(require (except-in algebraic/model/core
+                                            #%module-begin #%top-interaction
+                                            #%datum #%app)
+                                 racket/format
+                                 racket/set))))))
 
 (define-syntax-rule (core-mod-example expr ...)
   (examples #:eval core-mod-eval #:label #f expr ...))
@@ -124,7 +166,7 @@
 (define-syntax-rule (hosted-example expr ...)
   (examples #:eval hosted-eval #:label #f expr ...))
 
-(define-syntax-rule (core-codeblock expr ...)
+(define-syntax-rule (hosted-codeblock expr ...)
   (examples #:eval hosted-eval #:label #f #:no-prompt #:no-result expr ...))
 
 ; odds and ends

@@ -1,10 +1,11 @@
 #lang scribble/manual
 
-@title[#:tag "tut"]{Tutorial Series: From Models to Interpreters}
+@title[#:tag "tut" #:style '(toc)]{Tutorial Series: From Models to Interpreters}
 
 @require{./algebraic-includes.rkt}
 @(require texmath
-          (for-label (except-in algebraic/racket/base fun?)))
+          (for-label (except-in algebraic/racket/base fun?)
+                     rackunit))
 
 A core use case for @algebraic-mod is fast and cheap interpreter development.
 With the right tooling, throw-away interpreters can be an easy way to explore
@@ -36,7 +37,9 @@ together. If you prefer source code, it can be read all in one place
 @hyperlink["https://github.com/dedbox/racket-algebraic/tree/master/model"]{on
 github}.
 
-@; -----------------------------------------------------------------------------
+@local-table-of-contents[]
+
+@; =============================================================================
 
 @section[#:tag "tut:core"]{The Core Calculus}
 
@@ -55,11 +58,13 @@ The core model has three major components:
 
 ]
 
-@subsection*{Syntax}
+@; -----------------------------------------------------------------------------
+
+@subsection[#:tag "tut:core:syntax"]{Syntax}
 
 The core defines three syntactic categories: terms, values, and patterns.
 
-A @emph{term} (@${t}) is a concrete expression of the calculus.
+A @emph{term} (@${t}) is a concrete expression in the calculus.
 
 A @emph{value} (@${v}) is a term in normal form with respect to the evaluation
 semantics.
@@ -420,9 +425,9 @@ cover all five cases.
 
 @; -----------------------------------------------------------------------------
 
-@subsection*{Evaluation Semantics}
+@subsection[#:tag "tut:core:eval-semantics"]{Evaluation Semantics}
 
-Every interpreter in the tutorial series provides its own ``top level''
+Every interpreter in the tutorial series provides a ``top level'' evaluator
 @tech{macro} named @id[algebraic] which:
 
 @itemlist[
@@ -441,8 +446,9 @@ Every interpreter in the tutorial series provides its own ``top level''
     (μ t (show (interpret (parse 't)))))
 }
 
-The @id[interpret] @tech{function} drives the computation of @id[t] in a tight
-loop that calls another @tech{function} named @id[step].
+The @id[interpret] @tech{function} will drive the computation of @id[t] in a
+tight loop that calls another @tech{function} named @id[step] until it returns
+a @id[value?].
 
 @algebraic-code{
   (define interpret
@@ -455,19 +461,18 @@ loop that calls another @tech{function} named @id[step].
             (error 'interpret "stuck at ~v" (show t))))]))
 }
 
-The @id[interpret] @tech{function} takes a @id[Term] for the current step of a
-computation and returns the next step or @racket[#f] if stuck. When @id[step]
-returns a @id[value?], the computation halts and the result is @id[show]n.
+The @id[step] @tech{function} will take a @id[Term] for the current step of a
+computation and return the next step or @racket[#f] if stuck.
 
 If a term gets stuck, we'll want to trace the steps of the computation to
 figure out what went wrong. We could just toggle the commented middle line in
-a pinch, but the generic looping behavior of @id[interpret] is easy to capture
-with a @tech{macro}.
+a pinch, but the conditional looping behavior of @id[interpret] is easy to
+capture with a @tech{macro}.
 
 @margin-note{
 
-  The colon-delimited @stech{syntax class} name (@id[:id]) labels each
-  @tech{macro} argument as an identifier. These extra bits of notation give
+  The colon-delimited @stech{syntax class} name (@id[:id]) labels some
+  @tech{macro} arguments as identifiers. These extra bits of notation give
   better error messages when something goes wrong.
 
 }
@@ -483,9 +488,9 @@ with a @tech{macro}.
                   (error 'name "stuck at ~v" (show t))))]))))
 }
 
-The @id[define-interpreter] form looks like the @racket[define] shorthand for
-a unary function. Its body calculates the next step of the computation based
-on the current step and either produces a value or gets stuck.
+A @id[define-interpreter] form looks like the @racket[define] shorthand for a
+unary function. Its argument receives the current step of the computation and
+its body calculates the next step.
 
 With @id[define-interpreter], we can cleanly define the @id[interpret]
 @tech{function} alongside a more verbose @id[trace] variant.
@@ -546,8 +551,8 @@ specified.
 }
 
 The @id[define-stepper] @tech{macro} expects a list of rule names in addition
-to definitions so we can change the order or rule application without having
-to touch the definitions.
+to definitions so we can change the order of application without having to
+move the definitions around.
 
 @subsubsub*section{Applications}
 
@@ -583,17 +588,26 @@ evaluation proceeds to the right.
     ...)
 }
 
-Most of the core rules have this @racket[(let ([t* ...]) (and t* ...))] form,
-so we'll put it in a @tech{macro}.
+This defines two @tech{functions}: @id[app1] and @id[app2].
+
+The @id[app1] @tech{function} takes a @TApp with two sub-terms and tries to
+@id[step] the first. If successful, it returns a copy of the @TApp with the
+new first sub-term. Otherwise, it returns @racket[#f].
+
+The @id[app2] @tech{function} does essentially the same thing with the second
+sub-term of a @TApp. If we always try @id[app1] first, we can assume the first
+sub-term of a @TApp is fully evaluated in @id[app2].
+
+Most of the rules have this @racket[(let ([t* ...]) (and t* ...))] form, so
+we'll put it in a @tech{macro}.
 
 @algebraic-code{
   (define-syntax sub-step
-    (μ* (t*-expr:expr t*:id result:expr)
+    (μ* (t*-expr t*:id result)
       (let ([t* t*-expr]) (and t* result))))
 }
 
-The @id[sub-step] form lets us express structurally recursive steps a little
-more compactly:
+The @id[sub-step] form expresses structural recursion a little more compactly:
 
 @algebraic-code{
   (define-stepper step
@@ -677,9 +691,10 @@ The @id[×] (``cross'') @tech{function} defines the semantics of pattern
 matching. It takes a @Patt and a @Term and returns a @rtech{hash} named @id[σ]
 as described in the next section.
 
-The @id[subst] @tech{function} implements our variable substition algorithm.
-It takes a given @rtech{hash} @id[σ] that maps variable names to @Terms and
-applies those mappings to a given @Term @id[t].
+The @id[subst] @tech{function} implements variable substitution. Here, it
+takes two arguments: a @rtech{hash} @id[σ] and a term @id[t12]. The
+@rtech{hash} maps variable names to @Terms, and @id[subst] applies those
+mappings to @id[t12] recursively.
 
 @algebraic-code{
   (require racket/set)
@@ -694,7 +709,15 @@ applies those mappings to a given @Term @id[t].
        [(TCon _) t]
        [TUni t])
      t))
+}
 
+The @id[subst] @tech{function} passes around an optional @rtech{set} named
+@id[mask] to remember which variables are already bound in the active
+substitution context. This is how we prevent unintended variable capture.
+Thanks to @id[α-rename], variable names can be compared directly with
+@racket[eq?].
+
+@algebraic-code{
   (define vars
     (function
       [(PApp p1 p2) (set-union (vars p1) (vars p2))]
@@ -705,13 +728,8 @@ applies those mappings to a given @Term @id[t].
       [PUni (seteq)]))
 }
 
-The @id[subst] @tech{function} passes around an optional @rtech{set} named
-@id[mask] to remember which variables are already bound in the active
-substitution context. Thanks to @id[α-rename], variable names can be compared
-with @racket[eq?].
-
-The @id[vars] @tech{function} takes a @Patt and returns the @rtech{set} of the
-variable names it binds.
+The @id[vars] @tech{function} takes a @Patt and returns a @rtech{set}
+containing all of the variable names it binds.
 
 It's worth noting @algebraic-mod abstractions do not offer explicit syntax for
 default argument values. We could have implemented @id[subst] as a two-clause
@@ -794,7 +812,7 @@ semantics, our @id[step] function would look like this:
     ...)
 }
 
-but it turns out we can merge these four rules into two:
+but these four rules can easily be merged into two:
 
 @algebraic-code{
   (define-stepper step
@@ -810,7 +828,7 @@ length. We can keep our rule set compact by capturing the @racket[(or (step
 
 @algebraic-code{
   (define-syntax alt-step
-    (μ* ((abs:expr val:expr) (alt:expr alt-val:expr))
+    (μ* ((abs val) (alt alt-val))
       (or (step (TApp abs val)) (TApp alt alt-val))))
 }
 
@@ -826,8 +844,7 @@ The @id[alt-step] form more compactly expresses this kind of choice.
 
 @subsubsub*section{The Full Stepper}
 
-When assembled, the fragments define a comprehensive @id[step]
-@tech{function}.
+When assembled, the rules define a complete @id[step] @tech{function}.
 
 @algebraic-code{
   (define-stepper step
@@ -844,11 +861,11 @@ When assembled, the fragments define a comprehensive @id[step]
 
 @; -----------------------------------------------------------------------------
 
-@subsection*{Pattern Matching Semantics}
+@subsection[#:tag "tut:core:match-semantics"]{Pattern Matching Semantics}
 
-Pattern matching is a binary operation on pattern-term pairs which produces a
-set of variable bindings if the pattern and term are compatible in one of the
-following six ways.
+Pattern matching (@${p×t=σ}) is a binary operation on patterns and terms which
+produces variable bindings when a pattern and term are compatible in one of
+the following six ways.
 
 @centered{
   @${(p_{11} p_{12})×(t_{21} t_{22}) = (p_{11}×t_{21})∪(p_{12}×t_{22})}
@@ -864,11 +881,11 @@ following six ways.
   @${◊×◊ = \{\}}
 }
 
-An @emph{application pattern} (@${p_1 p_2}) matches an application if the
+An @emph{application pattern} (@${p p}) matches an application if the
 sub-patterns and sub-terms all match by position, passing along any variable
 bindings.
 
-A @emph{sequence pattern} (@${p_1;p_2}) behaves similarly.
+A @emph{sequence pattern} (@${p;p}) behaves similarly.
 
 A @emph{constructor pattern} (@${δ}) matches a constructor with the same name
 and binds no variables.
@@ -884,8 +901,7 @@ Any other combination is undefined.
 @subsubsub*section{The Cross Function}
 
 The @id[×] @tech{function} implements these six equations directly, with a
-little extra code to check for valid sub-matches before performing any
-@rtech{set} operations.
+little extra code to check for valid sub-matches.
 
 @algebraic-code{
   (require racket/hash)
@@ -908,12 +924,13 @@ little extra code to check for valid sub-matches before performing any
 }
 
 In the constructors clause, @algebraic-mod implicitly guarantees the pattern
-and term refer to the same constructor because the @tech{function} pattern
-only matches when the two names are @racket[equal?].
+and term refer to the same constructor. When a @tech{function} variable name
+appears more than once in a single @tech{function} pattern, all of the values
+it binds must be @racket[equal?].
 
 @; -----------------------------------------------------------------------------
 
-@subsection*{Pragmatics}
+@subsection[#:tag "tut:core:pragmatics"]{Pragmatics}
 
 It's time to pay the piper.
 
@@ -950,17 +967,15 @@ It's time to pay the piper.
   (define genvar (φ x (string->uninterned-symbol (symbol->string x))))
 }
 
-The @id[α-rename] @tech{function} uses the familiar @id[term]/@id[patt] parser
-combinator technique. It takes a @Patt and a @Term and returns a copy of each
-with every variable bound by the @Patt consistently renamed across both of the
-arguments.
+The @id[α-rename] @tech{function} builds on the @id[term]/@id[patt] combinator
+technique. It takes a @Patt and a @Term and returns copies with every variable
+bound by the @Patt consistently renamed in both.
 
-Most of the code is just plumbing for structural recursion or no-ops, but the
-@TVar and @PVar cases are more interesting. If the name of a variable is
-@racket[equal?] to the name @id[x] being substituted, the name is replaced
-with @id[y].
+Most of the code is just plumbing for structural recursion, but the @TVar and
+@PVar cases are more interesting. If the name of a variable is @racket[equal?]
+to @id[x], we replace it with @id[y].
 
-The body of the @id[α-rename] @tech{function} does three things:
+The body @id[loop] does three things:
 
 @itemlist[
   #:style 'ordered
@@ -974,27 +989,83 @@ The body of the @id[α-rename] @tech{function} does three things:
 
 ]
 
-We're using @rtech{uninterned} symbols because they are @racket[eq?] to
-themselves only, which makes them easy to put into @rtech{sets} and
-@rtech{hash}es.
+The @id[genvar] @tech{function} takes an @rtech{interned} symbol and generates
+an @rtech{uninterned} symbol with the same name. If we replace @id[genvar]
+with @racket[gensym], the bound variables will be tagged with unique numbers
+when parsed:
 
-But why write our own @id[genvar] @tech{function} instead of just using the
-stock @racket[gensym]?
+@core-mod-example[
+  #:hidden
+  (define (parse/gensym t)
+    (define term
+      (function
+        [(  t1 t2) (TApp (term t1) (term t2))]
+        [($ t1 t2) (TSeq (term t1) (term t2))]
+        [('φ p1 t2) (values-> TFun (α-rename/gensym (patt p1) (term t2)))]
+        [('μ p1 t2) (values-> TMac (α-rename/gensym (patt p1) (term t2)))]
+        [x #:if (con-name? x) (TCon x)]
+        [x #:if (var-name? x) (TVar x)]
+        [◊ TUni]))
+    (define patt
+      (function
+        [(  p1 p2) (PApp (patt p1) (patt p2))]
+        [($ p1 p2) (PSeq (patt p1) (patt p2))]
+        [x #:if (con-name? x) (PCon x)]
+        [x #:if (var-name? x) (PVar x)]
+        ['_ PWil]
+        [◊ PUni]))
+    (term t))
 
-A big advantage of @rtech{uninterned} symbols or @racket[gensym]ed symbols is
-the @rtech{uninterned} symbols look exactly the same as the originals when
-printed. The only wrinkle is, Racket still knows the difference. If our
-@id[show] @tech{function} leaks @rtech{uninterned} symbols into the surface
-syntax, we won't be able to compare them with @racket[equal?]. The
-@id[α-restore] @tech{function} reproduces the @rtech{interned} variable names
-for printing.
+  (define (α-rename/gensym p t)
+    (define (term x y)
+      (function
+        [(TApp t1 t2) (TApp ((term x y) t1) ((term x y) t2))]
+        [(TSeq t1 t2) (TSeq ((term x y) t1) ((term x y) t2))]
+        [(TFun p1 t2) (TFun p1 ((term x y) t2))]
+        [(TMac p1 t2) (TMac p1 ((term x y) t2))]
+        [(TVar x1) (TVar (if (equal? x1 x) y x1))]
+        [(TCon δ1) (TCon δ1)]
+        [TUni TUni]))
+    (define (patt x y)
+      (function
+        [(PApp p1 p2) (PApp ((patt x y) p1) ((patt x y) p2))]
+        [(PSeq p1 p2) (PSeq ((patt x y) p1) ((patt x y) p2))]
+        [(PVar x1) (PVar (if (equal? x1 x) y x1))]
+        [(PCon δ1) (PCon δ1)]
+        [PWil PWil]
+        [PUni PUni]))
+    (define p-vars (set->list (vars p)))
+    (let loop ([xs p-vars]
+               [ys (map gensym p-vars)]
+               [p* p]
+               [t* t])
+      (if (null? xs)
+          (values p* t*)
+          (let ([p** ((patt (car xs) (car ys)) p*)]
+                [t** ((term (car xs) (car ys)) t*)])
+            (loop (cdr xs) (cdr ys) p** t**)))))
+]
+
+@core-mod-example[
+  (show (trace (parse/gensym '((φ x (φ y (x y))) y))))
+]
+
+There's a wrinkle. Racket can still tell the difference between two
+@rtech{uninterned} symbols with the same name. If the @id[show]
+@tech{function} can prevent @rtech{uninterned} symbols from leaking to the
+surface, we can compare surface terms with @racket[equal?] in unit tests.
+
+The @id[α-restore] @tech{function} will reconstruct the @rtech{interned}
+symbol for printing.
 
 @algebraic-code{
   (define (α-restore x)
     (string->symbol (symbol->string x)))
 }
 
-@subsection*{Putting It All Together}
+@; -----------------------------------------------------------------------------
+
+@subsection[#:tag "tut:core:hash-lang"]{Putting It All Together}
 
 We now have a complete @id[algebraic] form for evaluating core terms.
 
@@ -1018,74 +1089,317 @@ form if we turn the module into a @shlang.
 
 }
 
-To do that, we need to provide a little boilerplate and an extra file. When
-everything is in place, we should be able to enter a @id[.rkt] file with the
-first line set to @hash-lang[algebraic/model/core] (or whatever collection
-your module is installed in) and interact with our interpreter directly.
+To do that, we need to write a little boilerplate. With everything in place,
+we should be able to enter a @id[.rkt] file with the first line set to
+@hash-lang[algebraic/model/core] (or wherever your module is installed) and
+interact with the interpreter directly.
 
 @algebraic-code{
-  (define-syntax module-begin
+  (define-syntax core-module-begin
     (μ* (form ...)
       (#%plain-module-begin ((current-print) (algebraic form)) ...)))
 
-  (define-syntax top-interaction
+  (define-syntax core-top-interaction
     (μ* form (#%top-interaction . (algebraic form))))
 }
 
-The @id[module-begin] form replaces the stock @racket[#%module-begin] form,
-which wraps non-interactive top-level expressions ``to print
-non-@seclink["void+undefined" #:doc '(lib
+The default @racket[#%module-begin] form wraps non-interactive top-level
+expressions, ``to print non-@seclink["void+undefined" #:doc '(lib
 "scribblings/guide/guide.scrbl")]{@void-const} results using
-@racket[current-print].'' Our version wraps those expressions with the
-@id[algebraic] form before they are evaluated.
+@racket[current-print].'' We also wrap them with an @id[algebraic] form.
 
-The @id[top-interaction] form is a hook into the default
-@racket[read-eval-print-loop]. It wraps interactive inputs with @id[algebraic]
-before they are evaluated.
+The default @racket[#%top-interaction] form wraps interactive top-level
+expressions as a hook into the default @racket[read-eval-print-loop]. We also
+wrap the inputs with an @id[algebraic] form.
 
-To be sure our custom top-level forms replace the defaults, we can export them
-with different names.
+To replace the default top-level forms with our own, we'll rename them on
+export. We also need to export the default @racket[#%app] and @racket[#%datum]
+forms because Racket will complain if we don't.
 
 @algebraic-code{
   (provide (all-defined-out)
            (for-syntax (all-defined-out))
-           (rename-out [module-begin #%module-begin]
-                       [top-interaction #%top-interaction])
+           (rename-out [core-module-begin #%module-begin]
+                       [core-top-interaction #%top-interaction])
            #%app #%datum)
 }
 
-We're exporting the default @racket[#%app] and @racket[#%datum] forms in
-addition to our @racket[data] definitions, @tech{functions}, and
-@tech{macros}. Racket will complain if we don't export something under those
-two names and the default behavior is fine.
+Exporting the top-level forms this way makes our module work as a
+@gtech{module language}.
 
-When Racket sees @hash-lang[algebraic/model/core] at the beginning of a source
-file, it tries to load another module named
-@id[algebraic/model/core/lang/reader] that tells Racket how to use the @shlang
-module:
+When a @id[.rkt] file begins with @hash-lang[algebraic/model/core], Racket
+uses another module named @id[algebraic/model/core/lang/reader] to load our
+customizations:
 
-@typeset-code["#lang s-exp syntax/module-reader algebraic/model/core"]
+@typeset-code{#lang s-exp syntax/module-reader algebraic/model/core}
 
-The @racketmodname[syntax/module-reader] language turns a @gtech{module path}
-into a @gtech{module language} with the default @gtech{reader}, and the
-@racketmodname[s-exp] meta-language turns the @gtech{module language} into a
-@shlang.
-
-@subsection*{Writing and Running Programs}
-
-@subsubsub*section{Arithmetic}
-
-@subsubsub*section{Boolean Logic}
-
-@subsubsub*section{Lists}
+This file configures Racket to use @id[algebraic/model/core] as a
+@gtech{module language} with the default s-expression @gtech{reader} whenever
+it encounters a @id[.rkt] file that begins with
+@hash-lang[algebraic/model/core].
 
 @; -----------------------------------------------------------------------------
+
+@subsection[#:tag "tut:core:examples"]{Examples}
+
+We'll implement each example twice: once in @hash-lang[algebraic/racket/base]
+and again in @hash-lang[algebraic/model/core]. Our interpreter is too crude
+for real development work, so we'll discuss concepts and constructs in
+@algebraic-mod proper before attempting to encode them for our interpreter.
+
+@subsubsection{Peano Numbers}
+
+@hyperlink["https://en.wikipedia.org/wiki/Peano_axioms#First-order_theory_of_arithmetic"]{Peano
+numbers} are an easy way to represent the natural numbers (0, 1, 2, ...) with
+algebraic data.
+
+First, we designate a 0 element and define a
+@hyperlink["https://en.wikipedia.org/wiki/Successor_function"]{successor
+function} for it. A simple two-@tech{product} @tech{sum} would suffice.
+
+@example[
+  (data Peano (Zero Succ))
+]
+
+We can now define @Peano numbers inductively:
+
+@itemlist[
+
+  @item{@Zero is the smallest Peano number.}
+
+  @item{For every Peano number @${n}, (@Succ @${n}) is also a Peano number.}
+
+]
+
+Every natural number has a unique @Peano encoding. If @${n} is a natural
+number, its @Peano encoding is a series of @${n} @Succs terminated by a @Zero.
+The number 3, for example, is encoded as @code{(Succ (Succ (Succ Zero)))}.
+
+By definition, @Zero is not the successor of any other Peano number, and @Succ
+is an injective function from one Peano number to another. Whereas every Peano
+number is a member of the @Peano @tech{sum}, the converse is not true in
+general. Proving that an @tech{instance} of @Peano really is a Peano number
+takes some work:
+
+@example[
+  (define peano? (function [Zero #t] [(Succ n) (peano? n)] [_ #f]))
+  (peano? (Succ Zero))
+  (peano? (Zero Succ))
+]
+
+Now that we know what Peano number are, how do we use them?
+
+@subsubsection{Peano Arithmetic & Recursion}
+
+Addition (+) and multiplication (×) on Peano numbers are defined inductively:
+
+@tabular[
+  #:style full-width
+  @list[
+    @list[
+      @itemlist[
+        @item{@${n} + 0 = @${n}}
+        @item{@${n} + @Succ @${m} = @Succ(@${n} + @${m})}
+      ]
+      @itemlist[
+        @item{@${n} × 0 = 0}
+        @item{@${n} × @Succ @${m} = @${a} + @${a} × @${b}}
+      ]
+    ]
+  ]
+]
+
+The core calculus can express these relationships directly:
+
+@centered{
+  add = φ(@${a} Zero).@${a};φ(@${a} (Succ @${b})).Succ(add (@${a} @${b}))
+
+  mul = φ(@${a} Zero).Zero;φ(@${a} (Succ @${b})).add(@${a} (mul (@${a} @${b})))
+}
+
+and so can @list[@algebraic-mod ":"]
+
+@example[
+  (define add
+    (function*
+      [(n Zero) n]
+      [(n (Succ m)) (Succ (add n m))]))
+  (add (Succ Zero) (Succ (Succ Zero)))
+]
+
+@example[
+  (define mul
+    (function*
+      [(n Zero) Zero]
+      [(n (Succ m)) (add n (mul n m))]))
+  (mul (Succ (Succ Zero)) (Succ (Succ (Succ Zero))))
+]
+
+Both functions have two clauses: a base case and an inductive step. The
+inductive step is a recursive call. If we had a @racket[letrec] form, we could
+express the recursion directly:
+
+@core-code{
+  (letrec
+      [add ($ (φ (a Zero) a)
+              (φ (a (Succ b)) (Succ (add (a b)))))]
+    (add ((Succ Zero) (Succ (Succ Zero)))))
+}
+
+But our interpreter just isn't there yet. With a simple rewrite, we can
+express @racket[letrec] as @racket[let] plus a
+@hyperlink["https://en.wikipedia.org/wiki/Fixed-point_combinator#Strict_fixed_point_combinator"]{fixed-point
+combinator}:
+
+@relation[
+  (letrec [id val] body) ↝ (let [id (fix (φ id val))] body)
+]
+
+With a second rewrite, we can express @id[let] as a function application:
+
+@relation[
+  (let [id val] body) ↝ ((φ id body) val)
+]
+
+And if we fold this rewrite into the first one, the resulting form contains
+only functions and applications:
+
+@relation[
+  (letrec [id val] body) ↝ (let [id (fix (φ id val))] body)
+  ~                      ↝ ((φ id body) (fix (φ id val)))
+]
+
+The @id[fix] function gives us a way to encode functions that might call
+themselves.
+
+@centered{
+  fix = φ@${f}.(φ@${x}.@${f}(φ@${y}.@${(x x) y}))
+               (φ@${x}.@${f}(φ@${y}.@${(x x) y}))
+}
+
+With the following encoding of @id[fix], our interpreter will be able to
+handle the functional encodings of @id[let] and @id[letrec]:
+
+@core-code{
+  (φ f
+    ((φ x (φ f (φ y ((x x) y))))
+     (φ x (φ f (φ y ((x x) y))))))
+}
+
+We'll start with a program in the hypothetical syntax:
+
+@core-code{
+  (let [fix (φ f
+              ((φ x (φ f (φ y ((x x) y))))
+               (φ x (φ f (φ y ((x x) y))))))]
+     (letrec [add ($ (φ (a Zero) a)
+                     (φ (a (Succ b)) (Succ (add (a b)))))]
+       (add ((Succ Zero) (Succ (Succ Zero))))))
+}
+
+and turn it into a runnable program with two rewrites. First, eliminate the
+outer @id[let]:
+
+@core-code{
+  ((φ fix
+     (letrec [add ($ (φ (a Zero) a)
+                     (φ (a (Succ b)) (Succ (add (a b)))))]
+       (add ((Succ Zero) (Succ (Succ Zero))))))
+   (φ f
+     ((φ x (φ f (φ y ((x x) y))))
+      (φ x (φ f (φ y ((x x) y)))))))
+}
+
+Second, eliminate the inner @id[letrec]:
+
+@core-code{
+  ((φ fix
+     ((φ add
+        (add ((Succ Zero) (Succ (Succ Zero)))))
+      (fix (φ add ($ (φ (a Zero) a)
+                     (φ (a (Succ b)) (Succ (add (a b)))))))))
+   (φ f
+     ((φ x (f (φ y ((x x) y))))
+      (φ x (f (φ y ((x x) y)))))))
+}
+
+This program runs. It calculates 1 + 2 = 3 with Peano numbers. To run it, put
+the code in a @id[.rkt] file that begins with @hash-lang[algebraic/model/core]
+and point Racket at the file.
+
+@core-example[
+  ((φ fix
+     ((φ add
+        (add ((Succ Zero) (Succ (Succ Zero)))))
+      (fix (φ add ($ (φ (a Zero) a)
+                     (φ (a (Succ b)) (Succ (add (a b)))))))))
+   (φ f
+     ((φ x (f (φ y ((x x) y))))
+      (φ x (f (φ y ((x x) y)))))))
+]
+
+We can even turn it into a unit test inside the @id[algebraic/model/core]
+module:
+
+@algebraic-code{
+  (module+ test
+    (require rackunit)
+    (check equal?
+           (algebraic
+            ((φ fix
+               ((φ add
+                  (add ((Succ Zero) (Succ (Succ Zero)))))
+                (fix (φ add ($ (φ (a Zero) a)
+                               (φ (a (Succ b)) (Succ (add (a b)))))))))
+             (φ f
+               ((φ x (f (φ y ((x x) y))))
+                (φ x (f (φ y ((x x) y)))))))
+          '(Succ (Succ (Succ Zero))))))
+}
+
+By similar treatment, we can transform the hypothetical program:
+
+@core-code{
+  (let [fix (φ f
+              ((φ x (φ f (φ y ((x x) y))))
+               (φ x (φ f (φ y ((x x) y))))))]
+     (letrec [add ($ (φ (a Zero) a)
+                     (φ (a (Succ b)) (Succ (add (a b)))))]
+       (letrec [mul ($ (φ (a Zero) Zero)
+                       (φ (a (Succ b)) (add (a (mul (a b))))))]
+         (mul ((Succ (Succ Zero)) (Succ (Succ (Succ Zero))))))))
+}
+
+into a runnable program that computes 2 × 3 = 6 with Peano numbers in three
+rewrites:
+
+@core-example[
+  ((φ fix
+     ((φ add
+        ((φ mul
+           (mul ((Succ (Succ Zero)) (Succ (Succ (Succ Zero))))))
+         (fix (φ mul ($ (φ (a Zero) Zero)
+                        (φ (a (Succ b)) (add (a (mul (a b))))))))))
+      (fix (φ add ($ (φ (a Zero) a)
+                     (φ (a (Succ b)) (Succ (add (a b)))))))))
+   (φ f
+     ((φ x (f (φ y ((x x) y))))
+      (φ x (f (φ y ((x x) y)))))))
+]
+
+@subsubsection{Boolean Logic}
+
+
+
+@subsubsection{Lists}
+
+@; =============================================================================
 
 @section[#:tag "tut:ext"]{A Syntax Extension}
 
 @defmodulelang[algebraic/model/ext]
 
-@; -----------------------------------------------------------------------------
+@; =============================================================================
 
 @section[#:tag "tut:hosted"]{A Hosted Variant}
 

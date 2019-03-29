@@ -37,6 +37,8 @@ easy to print and easy to parse, like @rtech{prefab} structs. The main
 difference is algebraic @tech{constructors} are lexically scoped and have a
 natural ordering.
 
+@table-of-contents[]
+
 @; =============================================================================
 
 @section{Overview}
