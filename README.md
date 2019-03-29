@@ -1,16 +1,16 @@
-# Algebraic Racket
+# Algebraic Structures for Untyped Racket
 [![Racket Package](https://img.shields.io/badge/raco%20pkg-algebraic-red.svg)](https://pkgd.racket-lang.org/pkgn/package/algebraic)
 [![Documentation](https://img.shields.io/badge/read-docs-blue.svg)](http://docs.racket-lang.org/algebraic/)
 [![Build Status](https://travis-ci.org/dedbox/racket-algebraic.svg?branch=master)](https://travis-ci.org/dedbox/racket-algebraic)
 [![Coverage Status](https://coveralls.io/repos/github/dedbox/racket-algebraic/badge.svg?branch=master)](https://coveralls.io/github/dedbox/racket-algebraic?branch=master)
 
-A Racket 7.0+ extension for untyped algebraic data structures.
+A Racket 7+ extension for untyped algebraic data structures.
 
 ## Why Algebraic Racket?
 
 I love working with Racket, and I implement a lot of interpreters. Mostly,
 I use them to explore programming language models as I design them. For
-years, I'd use Haskell for this because of its algebraic data types and
+years, I used Haskell for this because of its algebraic data types and
 destructuring syntax. At the same time, I usually prefer Racket's eager
 effectful semantics and standard library over Haskell's, so I created
 Algebraic Racket to bridge the gap.
@@ -23,23 +23,21 @@ features to `#lang racket/base`:
   1. First class, lexically scoped data constructors, and
   2. A consistent destructuring syntax for functions and macros.
 
-### Algebraic data structures
+### Algebraic Data
 
 Algebraic data structures provide the operational under-pinnings for
-algebraic data types. What's missing is the static typing constraints and
-the analyses they enable. As implied by the name, Algebraic Racket works
-with two kinds of structures: sums and products.
+algebraic data types. What's missing is the static typing constraints.
 
-Sum and product structures are defined together.
+As the name implies, Algebraic Racket works with two kinds of structure:
+sums and products.
 
 ```
 (data Maybe (Just Nothing))
 ```
 
-This defines a sum named `Maybe` and two constituent product constructors
-named `Just` and `Nothing`. It also defines a membership predicate
-`Maybe?` and two predicates `Just?` and `Nothing?` for identifying a
-product and its instances.
+This defines a sum named `Maybe` and two constituent products named `Just`
+and `Nothing`. It also defines three membership predicates named `Maybe?`,
+`Just?`, and `Nothing?` for recognizing products and their instances.
 
 The elements of a sum are ordered by position so they can be compared and
 sorted.
@@ -60,11 +58,12 @@ sorted.
 '(Z Y X W V U T S R Q P O N M L K J I H G F E D C B A)
 ```
 
-The product constructors `Just` and `Nothing` can be matched against
-directly, or they can be applied to argument lists to produce instances of
-the product type. An instance is a transparent data structure that
-resembles a tagged tuple. Algebraic Racket imposes no restrictions on the
-kind or number of arguments accepted by product constructors.
+The products `Just` and `Nothing` can be matched against directly or they
+can be used to construct instances. An instance is a transparent data
+structure that resembles a tagged tuple.
+
+Algebraic Racket imposes no restrictions on the kind or number of
+arguments accepted by a product.
 
 ```
 > (values (Just) (Just 1) (Just 1 2))
@@ -73,11 +72,11 @@ kind or number of arguments accepted by product constructors.
 (Just 1 2)
 ```
 
-### Destructuring syntax
+### Destructuring Syntax
 
-Algebraic Racket introduces `phi` and `function` forms (and some variants)
-which extend the variable binding sites of the `lambda` forms with support
-for functional pattern matching and destructuring.
+Algebraic Racket provides `φ`/`phi` and `function` forms (and multi-arg
+variants) which extend the variable binding sites of the `λ`/`lambda` form
+with support for pattern-based destructuring.
 
 ```
 > (define maybe
@@ -91,8 +90,7 @@ for functional pattern matching and destructuring.
 #f
 ```
 
-Similarly, it introduces `mu` and `macro` forms for defining syntax
-transformers.
+It also provides `μ`/`mu` and `macro` forms for syntax transformers.
 
 ```
 > (define-syntax unroll-pow
@@ -116,14 +114,15 @@ Other notable features include pattern guards, rest args / ellipsis
 patterns, intuitive naming conventions for wildcards and variables, and
 support for the `:syntax-class` macro variable naming convention.
 
-Additionally, regular expression literals in patterns will match a string,
-byte string, or input port; and can destructure captured sub-matches.
+A regular expression literal in a pattern will match a string, byte
+string, or input port; and can destructure captured sub-matches.
 
 ## Installation and Use
 
-Algebraic Racket is distributed as the `algebraic` package in the official
-Racket package repository. It can be installed from DrRacket's package
-manager, or with `raco pkg` from the command line.
+Algebraic Racket is distributed in the
+[`algebraic`](https://pkgd.racket-lang.org/pkgn/package/algebraic) package
+in the official Racket package repository. It can be installed from
+DrRacket's package manager, or with `raco pkg` from the command line.
 
 ```
 raco pkg install algebraic
@@ -141,80 +140,81 @@ interpreters developed for and with Algebraic Racket.
 
 ## Related Work
 
-Whenever I try to discuss Algebraic Racket, someone inevitably asks
-something like, "Why not just use `<something else that isn't Haskell>`?".
+Why not just use `<something else that isn't Haskell>`?
 
 ### Plain old Racket structs
 
 Prefab struct types are globally scoped, which has been a problem for me
-in the past. Transparent and opaque structs are better in that regard,
-except basic features like type hierarchies and functional updaters have a
-tendency to interfere with each other.
+in the past. Non-prefab structs are better in that regard, except basic
+features like type hierarchies and functional updaters have a tendency to
+interfere with each other.
 
-Algebraic data constructors are lexically scoped and always transparent.
+Algebraic data constructors are lexically scoped and have no fixed arity.
+Instances of algebraic data are always transparent.
 
-On the other hand, plain old Racket structs work pretty well with
-Algebraic Racket destructuring syntax. They're always there when you need
-them.
+Despite their differences, plain old Racket structs work pretty well with
+Algebraic Racket's destructuring syntax. They're always there when you
+need them.
 
 ### Hackett
 
 Hackett is an excellent platform for pure, lazy functional programming in
-Racket land. If I needed pure and lazy evaluation semantics today, I'd
-probably reach for Hackett before even thinking about Haskell. Having said
-that, I don't usually want pure and lazy evaluation semantics.
+the Racket software ecosystem. If I needed pure and lazy evaluation
+semantics today, I'd try Hackett before considering Haskell seriously
+again. Having said that, I don't usually want pure and lazy evaluation
+semantics.
 
-Before starting this project, I thought, "wouldn't it be nice if I could
-import just the features I wanted from Hackett and ignore the rest?" That
-is the promise of language-oriented programming, after all. For all I
-know, it's possible now.
+Wouldn't it be nice if I could import just the features I wanted from
+Hackett and ignore the rest? That is the promise of language-oriented
+programming, after all. For all I know, it's possible now.
 
 Unfortunately, it isn't yet possible to mix and match off-the-shelf
 features to comprise a tool as robust as Hackett (at least, that isn't
-Hacket itself). Algebraic Racket is a step in that direction.
+Hackett itself). Algebraic Racket is a step in that direction.
 
 ### Typed Racket
 
-Typed Racket is a great tool for a broad range of purposes, and it keeps
-getting better. The type system offers the static analyses I care about
-and the documentation is excellent. After spending some time building
-interpreters in Typed Racket, I decided I still wanted something else for
-two reasons:
+Typed Racket is a robust platform with a broad scope, and it keeps getting
+better. The type system offers the static analyses I care about and the
+documentation is excellent. After spending some time building interpreters
+in Typed Racket, I decided I still wanted something else for two reasons:
 
-1. typing simple Racket idioms (like using `apply`) became a distraction,
-and
+1. Fumbling with types for common Racket idioms (like `apply`) became a
+   distraction, and
 
-2. uncompiled code loads very slowly
+2. Uncompiled code loads very slowly.
 
-This may say more about my own ignorance of gradual typing and Typed
-Racket idioms. Nonetheless, Algebraic Racket attempts to capitalize on the
-intuition I've acquired for Haskell syntax while also delivering the
-responsiveness needed for rapid iterative exploratory programming.
+This may say more about my ignorance of Typed Racket than anything else.
+Nonetheless, Algebraic Racket takes advantage of my intuition for Haskell
+syntax while staying responsive enough for rapid iterative exploratory
+programming.
 
 ### Redex
 
-Redex is a domain-specific language for semantics engineering, and
-Algebraic Racket is a small extension to a general purpose language I
-happen to like building interpreters with at the moment. Redex does a lot
-more for the semantics engineer than Algebraic Racket, like typesetting
-and testing automation.
+Redex is a domain-specific language for semantics engineering. It does a
+lot more for the semantics engineer than Algebraic Racket ever will, like
+typesetting and testing automation.
 
-On the other hand, developing full-fledged applications with Redex is
-probably not for the faint of heart. With Algebraic Racket, you get all
-the bells and whistles of vanilla Racket and then some.
+On the other hand, developing full applications with Redex is probably not
+for the faint of heart. With Algebraic Racket, you get all the bells and
+whistles of `#lang racket/base` and then some.
 
 ## Project Goals
 
-The Algebraic Racket project aims to provide a complete language-oriented
-toolkit for integrating high-performance algebraic data processing into
-other languages for the Racket software ecosystem.
+The Algebraic project aims to provide a complete language-oriented toolkit
+for high-performance algebraic data processing. It has two primary
+objectives:
+
+1. Supply and document the special forms and syntax classes comprising
+   Algebraic Racket
+
+2. Support the development of modular type systems and other static
+   analyses for algebraic data as libraries
 
 ## Racket Version Restriction
 
-Algebraic Racket is currently implemented with features only available in
-Racket 7.0 or above: `~?` and `~@`. This restriction may be dropped in a
-future release if there is sufficient demand for compatibility with older
-versions of Racket.
+Algebraic Racket is currently implemented with features only available
+since Racket version 6.90.0.25: `~?` and `~@`.
 
 ## Contributing
 
