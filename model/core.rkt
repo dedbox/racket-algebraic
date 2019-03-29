@@ -5,17 +5,17 @@
          racket/set
          (for-syntax syntax/parse))
 
-(provide #%app #%datum
-         (rename-out [module-begin #%module-begin]
-                     [top-interaction #%top-interaction])
-         (all-defined-out)
-         (for-syntax (all-defined-out)))
+(provide (all-defined-out)
+         (for-syntax (all-defined-out))
+         (rename-out [core-module-begin #%module-begin]
+                     [core-top-interaction #%top-interaction])
+         #%app #%datum)
 
-(define-syntax module-begin
+(define-syntax core-module-begin
   (μ* (form ...)
     (#%plain-module-begin ((current-print) (algebraic form)) ...)))
 
-(define-syntax top-interaction
+(define-syntax core-top-interaction
   (μ* form (#%top-interaction . (algebraic form))))
 
 ;;; ----------------------------------------------------------------------------
@@ -130,7 +130,7 @@
       ...)))
 
 (define-syntax sub-step
-  (μ* (t*-expr:expr t*:id result:expr)
+  (μ* (t*-expr t*:id result)
     (let ([t* t*-expr]) (and t* result))))
 
 (define-syntax alt-step
