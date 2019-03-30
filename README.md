@@ -6,27 +6,20 @@
 
 A Racket 7+ extension for untyped algebraic data structures.
 
-## Why Algebraic Racket?
-
-I love working with Racket, and I implement a lot of interpreters. Mostly,
-I use them to explore programming language models as I design them. For
-years, I used Haskell for this because of its algebraic data types and
-destructuring syntax. At the same time, I usually prefer Racket's eager
-effectful semantics and standard library over Haskell's, so I created
-Algebraic Racket to bridge the gap.
-
 ## What is Algebraic Racket?
 
-The present release provides a `#lang algebraic/racket/base` that adds two
-features to `#lang racket/base`:
+Algebraic structures provide the operational under-pinnings for algebraic
+data types. What's missing is the static typing constraints.
 
-  1. First class, lexically scoped data constructors, and
+The current release provides a `#lang algebraic/racket/base` that extends
+`#lang racket/base` with:
+
+  1. First class, lexically scoped, naturally ordered data constructors,
+     and
+
   2. A consistent destructuring syntax for functions and macros.
 
 ### Algebraic Data
-
-Algebraic data structures provide the operational under-pinnings for
-algebraic data types. What's missing is the static typing constraints.
 
 As the name implies, Algebraic Racket works with two kinds of structure:
 sums and products.
@@ -62,7 +55,7 @@ The products `Just` and `Nothing` can be matched against directly or they
 can be used to construct instances. An instance is a transparent data
 structure that resembles a tagged tuple.
 
-Algebraic Racket imposes no restrictions on the kind or number of
+Algebraic Racket imposes no restrictions on the type or number of
 arguments accepted by a product.
 
 ```
@@ -105,17 +98,25 @@ Patterns for literal data are designed to look and feel as similar as
 possible to the terms they match, including:
 
 - Plain old Racket structs
+
 - Unquoted literal values: boolean, number, string, bytes, char
+
 - Unquoted containers that look like literals: pair, list, vector, hash
+
 - Quoted data, including symbols
+
 - Quasiquoted data with escapes
 
-Other notable features include pattern guards, rest args / ellipsis
-patterns, intuitive naming conventions for wildcards and variables, and
-support for the `:syntax-class` macro variable naming convention.
+Other notable features include:
 
-A regular expression literal in a pattern will match a string, byte
-string, or input port; and can destructure captured sub-matches.
+- Pattern guards, aliases, rest args, and wildcard/variable naming
+  conventions all have a consistent look and feel across all function and
+  macro forms.
+
+- Macros also support ellipsis patterns and the `:syntax-class` naming
+  convention.
+
+- Regular expression patterns for functional string processing.
 
 ## Installation and Use
 
@@ -218,7 +219,7 @@ since Racket version 6.90.0.25: `~?` and `~@`.
 
 ## Contributing
 
-Pull requests are welcome. For major changes, please open an issue first
-to discuss what you would like to change.
-
-Please make sure to update tests as appropriate.
+Pull requests are welcome. For major changes, please start a thread on
+[racket-users](https://groups.google.com/forum/#!forum/racket-users) or
+open an [issue](https://github.com/dedbox/racket-algebraic/issues) to
+discuss what you would like to change.
