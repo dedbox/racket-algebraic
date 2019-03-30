@@ -261,37 +261,51 @@
                                   (~or (~and rest-id:id (~or :variable :wildcard))
                                        (p:fun-arg ...)
                                        (p:fun-arg ...+ . rest-p:fun-rest-arg)))
-                                 ifs:maybe-if ...
-                                 as:maybe-as ...
+                                 (~alt (~seq #:with
+                                             (~describe "consequent" with-p:fun-patt)
+                                             (~describe "premise" with-e:expr))
+                                       (~seq #:if (~describe "condition" if-e:expr))
+                                       (~seq #:as (~describe "alias" as-p:fun-patt)))
+                                 ...
                                  (~describe "function clause body" body:expr) ...+]
                                 ...+)
   #:with ctx this-syntax
   (fun (λ args
          (match args
-           [(~? (and rest-id as.p ...)
-                (~? (and (list-rest p.compiled ... rest-p.compiled) as.p ...)
-                    (and (list p.compiled ...) as.p ...)))
-            (~? (~@ #:when (and ifs.e ...)))
-            body ...]
+           [(~? (and rest-id as-p.compiled ...)
+                (~? (and (list-rest p.compiled ... rest-p.compiled) as-p.compiled ...)
+                    (and (list p.compiled ...) as-p.compiled ...)))
+            (~? (~@ #:when (and if-e ...)))
+            (~? (match (list with-e ...)
+                  [(list with-p.compiled ...) body ...]
+                  [_ (match:error args 'function* ctx)])
+                (~@ body ...))]
            ...
            [_ (match:error args 'function* ctx)]))))
 
 (define-simple-macro (phi* (~describe
                             "argument patterns"
-                            (~or (~and rest-id:id (~or :variable :wildcard))
+                            (~or rest-id:id
                                  (p:fun-arg ...)
                                  (p:fun-arg ...+ . rest-p:fun-rest-arg)))
-                       ifs:maybe-if ...
-                       as:maybe-as ...
+                       (~alt (~seq #:with
+                                   (~describe "consequent" with-p:fun-patt)
+                                   (~describe "premise" with-e:expr))
+                             (~seq #:if (~describe "condition" if-e:expr))
+                             (~seq #:as (~describe "alias" as-p:fun-patt)))
+                       ...
                        (~describe "function body" body:expr) ...+)
   #:with ctx this-syntax
   (fun (λ args
          (match args
-           [(~? (and rest-id as.p ...)
-                (~? (and (list-rest p.compiled ... rest-p.compiled) as.p ...)
-                    (and (list p.compiled ...) as.p ...)))
-            (~? (~@ #:when (and ifs.e ...)))
-            body ...]
+           [(~? (and rest-id as-p.compiled ...)
+                (~? (and (list-rest p.compiled ... rest-p.compiled) as-p.compiled ...)
+                    (and (list p.compiled ...) as-p.compiled ...)))
+            (~? (~@ #:when (and if-e ...)))
+            (~? (match (list with-e ...)
+                  [(list with-p.compiled ...) body ...]
+                  [_ (match:error args 'phi* ctx)])
+                (~@ body ...))]
            [_ (match:error args 'phi* ctx)]))))
 
 (define-simple-macro (φ* (~describe
@@ -299,51 +313,85 @@
                           (~or rest-id:id
                                (p:fun-arg ...)
                                (p:fun-arg ...+ . rest-p:fun-rest-arg)))
-                       ifs:maybe-if ...
-                       as:maybe-as ...
+                       (~alt (~seq #:with
+                                   (~describe "consequent" with-p:fun-patt)
+                                   (~describe "premise" with-e:expr))
+                             (~seq #:if (~describe "condition" if-e:expr))
+                             (~seq #:as (~describe "alias" as-p:fun-patt)))
+                       ...
                        (~describe "function body" body:expr) ...+)
   #:with ctx this-syntax
   (fun (λ args
          (match args
-           [(~? (and rest-id as.p ...)
-                (~? (and (list-rest p.compiled ... rest-p.compiled) as.p ...)
-                    (and (list p.compiled ...) as.p ...)))
-            (~? (~@ #:when (and ifs.e ...)))
-            body ...]
+           [(~? (and rest-id as-p.compiled ...)
+                (~? (and (list-rest p.compiled ... rest-p.compiled) as-p.compiled ...)
+                    (and (list p.compiled ...) as-p.compiled ...)))
+            (~? (~@ #:when (and if-e ...)))
+            (~? (match (list with-e ...)
+                  [(list with-p.compiled ...) body ...]
+                  [_ (match:error args 'φ* ctx)])
+                (~@ body ...))]
            [_ (match:error args 'φ* ctx)]))))
 
 (define-simple-macro (function
                        [(~describe "argument pattern" p:fun-patt)
-                        ifs:maybe-if ...
-                        as:maybe-as ...
+                        (~alt (~seq #:with
+                                    (~describe "consequent" with-p:fun-patt)
+                                    (~describe "premise" with-e:expr))
+                              (~seq #:if (~describe "condition" if-e:expr))
+                              (~seq #:as (~describe "alias" as-p:fun-patt)))
+                        ...
                         (~describe "function clause body" body:expr) ...+]
                        ...+)
   #:with ctx this-syntax
   (fun
    (λ (arg)
      (match arg
-       [(and p.compiled as.p ...) (~? (~@ #:when (and ifs.e ...))) body ...]
+       [(~? (and p.compiled as-p.compiled ...) p.compiled)
+        (~? (~@ #:when (and if-e ...)))
+        (~? (match (list with-e ...)
+              [(list with-p.compiled ...) body ...]
+              [_ (match:error arg 'function ctx)])
+            (~@ body ...))]
        ...
        [_ (match:error arg 'function ctx)]))))
 
 (define-simple-macro (phi (~describe "argument pattern" p:fun-patt)
-                       ifs:maybe-if ...
-                       as:maybe-as ...
+                       (~alt (~seq #:with
+                                   (~describe "consequent" with-p:fun-patt)
+                                   (~describe "premise" with-e:expr))
+                             (~seq #:if (~describe "condition" if-e:expr))
+                             (~seq #:as (~describe "alias" as-p:fun-patt)))
+                       ...
                        (~describe "function body" body:expr) ...+)
   #:with ctx this-syntax
   (fun (λ (arg)
          (match arg
-           [(and p.compiled as.p ...) (~? (~@ #:when (and ifs.e ...))) body ...]
+           [(~? (and p.compiled as-p.compiled ...) p.compiled)
+            (~? (~@ #:when (and if-e ...)))
+            (~? (match (list with-e ...)
+                  [(list with-p.compiled ...) body ...]
+                  [_ (match:error arg 'phi ctx)])
+                (~@ body ...))]
            [_ (match:error arg 'phi ctx)]))))
 
 (define-simple-macro (φ (~describe "argument pattern" p:fun-patt)
-                       ifs:maybe-if ...
-                       as:maybe-as ...
+                       (~alt (~seq #:with
+                                   (~describe "consequent" with-p:fun-patt)
+                                   (~describe "premise" with-e:expr))
+                             (~seq #:if (~describe "condition" if-e:expr))
+                             (~seq #:as (~describe "alias" as-p:fun-patt)))
+                       ...
                        (~describe "function body" body:expr) ...+)
   #:with ctx this-syntax
   (fun (λ (arg)
          (match arg
-           [(and p.compiled as.p ...) (~? (~@ #:when (and ifs.e ...))) body ...]
+           [(~? (and p.compiled as-p.compiled ...) p.compiled)
+            (~? (~@ #:when (and if-e ...)))
+            (~? (match (list with-e ...)
+                  [(list with-p.compiled ...) body ...]
+                  [_ (match:error arg 'φ ctx)])
+                (~@ body ...))]
            [_ (match:error arg 'φ ctx)]))))
 
 ;;; ============================================================================
@@ -630,4 +678,58 @@
   (test-case "quasiquote"
     (check-OK ((φ `(1 2 ,x) x) (list 1 2 OK)))
     (check-exn exn:algebraic:match? (λ () ((φ `(x y ,z) z) (list 1 2 OK))))
-    (check-exn exn:algebraic:match? (λ () ((φ `(1 2 ,x) #:if x OK) '(1 2 #f))))))
+    (check-exn exn:algebraic:match? (λ () ((φ `(1 2 ,x) #:if x OK) '(1 2 #f)))))
+
+  (test-case "premise"
+    (check equal?
+           ((φ (#rx"^([^ ]+) ([^ ]+) HTTP/([^\r\n]+)" method uri version)
+              #:with #rx"^(?:GET|PUT|POST)$" method
+              #:with (#rx"^(.+)\\?(.+)$" path params) uri
+              #:with #rx"^[0-9]\\.[0-9]$" version
+              (list method path params version))
+            "GET /r/s?q=123&p=4 HTTP/1.0\r\n\r\n")
+           '("GET" "/r/s" "q=123&p=4" "1.0"))
+
+    (check equal?
+           ((phi (#rx"^([^ ]+) ([^ ]+) HTTP/([^\r\n]+)" method uri version)
+              #:with #rx"^(?:GET|PUT|POST)$" method
+              #:with (#rx"^(.+)\\?(.+)$" path params) uri
+              #:with #rx"^[0-9]\\.[0-9]$" version
+              (list method path params version))
+            "GET /r/s?q=123&p=4 HTTP/1.0\r\n\r\n")
+           '("GET" "/r/s" "q=123&p=4" "1.0"))
+
+    (check equal?
+           ((function [(#rx"^([^ ]+) ([^ ]+) HTTP/([^\r\n]+)" method uri version)
+                       #:with #rx"^(?:GET|PUT|POST)$" method
+                       #:with (#rx"^(.+)\\?(.+)$" path params) uri
+                       #:with #rx"^[0-9]\\.[0-9]$" version
+                       (list method path params version)])
+            "GET /r/s?q=123&p=4 HTTP/1.0\r\n\r\n")
+           '("GET" "/r/s" "q=123&p=4" "1.0"))
+    (check equal?
+           ((φ* ((#rx"^([^ ]+) ([^ ]+) HTTP/([^\r\n]+)" method uri version))
+              #:with #rx"^(?:GET|PUT|POST)$" method
+              #:with (#rx"^(.+)\\?(.+)$" path params) uri
+              #:with #rx"^[0-9]\\.[0-9]$" version
+              (list method path params version))
+            "GET /r/s?q=123&p=4 HTTP/1.0\r\n\r\n")
+           '("GET" "/r/s" "q=123&p=4" "1.0"))
+
+    (check equal?
+           ((phi* ((#rx"^([^ ]+) ([^ ]+) HTTP/([^\r\n]+)" method uri version))
+              #:with #rx"^(?:GET|PUT|POST)$" method
+              #:with (#rx"^(.+)\\?(.+)$" path params) uri
+              #:with #rx"^[0-9]\\.[0-9]$" version
+              (list method path params version))
+            "GET /r/s?q=123&p=4 HTTP/1.0\r\n\r\n")
+           '("GET" "/r/s" "q=123&p=4" "1.0"))
+
+    (check equal?
+           ((function* [((#rx"^([^ ]+) ([^ ]+) HTTP/([^\r\n]+)" method uri version))
+                        #:with #rx"^(?:GET|PUT|POST)$" method
+                        #:with (#rx"^(.+)\\?(.+)$" path params) uri
+                        #:with #rx"^[0-9]\\.[0-9]$" version
+                        (list method path params version)])
+            "GET /r/s?q=123&p=4 HTTP/1.0\r\n\r\n")
+           '("GET" "/r/s" "q=123&p=4" "1.0"))))
