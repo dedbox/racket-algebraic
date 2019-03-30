@@ -376,10 +376,10 @@ exposed.
 @subsection[#:tag "ref:functions"]{Functions}
 
 @deftogether[(
-@defform[(φ patt maybe-if ... body ...+)]
+@defform[(φ patt fun-directive ... body ...+)]
 @defform/subs[
   #:literals (quasiquote unquote quote void)
-  (phi patt body ...+)
+  (phi patt fun-directive ... body ...+)
   [(patt literal
          wildcard-id
          variable-id
@@ -387,8 +387,8 @@ exposed.
          (product-id patt ...)
          (product-id patt ... . patt)
          reference-id
-         (patt #:if cond-expr)
-         (patt #:as patt)
+         (patt #:if condition-expr)
+         (patt #:as alias-patt)
          regexp
          (regexp patt ...+)
          (regexp patt ... . patt)
@@ -397,7 +397,7 @@ exposed.
          (patt ... . patt)
          (struct-id ([field patt] ...))
          (struct-id patt ...)
-         (quasiquote fqp)
+         (quasiquote #,(var qfp))
          (void)
          #,(racketparenfont "#(" (var patt) ")")
          #,(racketparenfont "#&" (var patt))
@@ -407,21 +407,26 @@ exposed.
             number
             string
             bytes
-            (quote datum))
-   (fqp literal
+            (quote #,(var datum)))
+   (qfp literal
         id
         ()
-        (fqp . fqp)
+        (qfp . qfp)
         (unquote patt))
-   (maybe-if (code:line)
-             #:if cond-expr)]
+   (fun-directive (code:line #:if condition-expr)
+                  (code:line #:as alias-patt)
+                  (code:line #:with consequent-patt premise-expr))]
 ])]{
 
   Creates a @tech{function} of one argument with one clause.
 
-  Optional @racket[#:if] @var[cond-expr]s specify that the pattern should only
-  match if the @var[cond-expr]s produce true values. @var[cond-expr] is in the
-  scope of all of the variables bound in @var[patt].
+  If @racket[#:as] @var[alias-patt]s are specified, they must all match the
+  original input for the overall match to succeed.
+
+  Optional @racket[#:if] @var[condition-expr]s specify that the pattern should
+  only match if the @var[condition-expr]s produce true values.
+  @var[condition-expr] is in the scope of all of the variables bound in
+  @var[patt] and any preceding @racket[#:as] directives.
 
   Example:
   @example[
@@ -431,6 +436,26 @@ exposed.
                [(S x y) #:if (not (and x y)) (or x y)]
                [(S x y) #:if x #:if y (+ x y)])])
       (map f (list (S 1 2) (S #f 2) (S 1 #f) (S #f #f))))
+  ]
+
+  An optional @racket[#:with] @var[consequent-patt] @var[premise-expr]
+  evaluates the @var[premise-expr] in the context of all the variables of
+  @var[patt] and the @var[alias-patt]s, if any. If the result matches
+  @var[consequent-patt], the pattern's variables are added to the environment
+  of subsequent side conditions. If the @racket[#:with] match fails, the
+  overall match also fails.
+
+  Multiple @racket[#:with] directives are evaluated independently from each
+  other.
+
+  Example:
+  @example[
+    ((φ (#rx"^([^ ]+) ([^ ]+) HTTP/([^\r\n]+)" method uri version)
+       #:with #rx"^(?:GET|PUT|POST)$" method
+       #:with (#rx"^(.+)\\?(.+)$" path params) uri
+       #:with #rx"^[0-9]\\.[0-9]$" version
+       (list method path params version))
+     "GET /r/s?q=123&p=4 HTTP/1.0\r\n\r\n")
   ]
 
   A @var[patt] has one of the following forms:
@@ -521,9 +546,9 @@ exposed.
     ]
   }
 
-  @specsubform[(patt #:if cond-expr)]{
+  @specsubform[(patt #:if condition-expr)]{
 
-    Matches @var[patt] if @var[cond-expr] produces a true value.
+    Matches @var[patt] if @var[condition-expr] produces a true value.
     @var[cond-expr] is in the scope of all of the variables bound in
     @var[patt].
 
@@ -650,11 +675,12 @@ exposed.
 
   @specsubform[
     #:literals (quasiquote)
-    (quasiquote fqp)
+    (quasiquote #,(var qfp))
   ]{
 
-    Introduces a @deftech{quasiquoted pattern}, wherein all identifiers match
-    symbols and @racket[unquote] escapes back to normal patterns.
+    Introduces a @deftech{quasiquoted function pattern}, wherein all
+    identifiers match symbols and @racket[unquote] escapes back to normal
+    patterns.
 
     Example:
     @example[
@@ -707,7 +733,7 @@ exposed.
   }
 }
 
-@defform[(function [patt maybe-if ... body ...+] ...+)]{
+@defform[(function [patt fun-directive ... body ...+] ...+)]{
 
   Creates a @tech{function} of one argument with at least one clause. When
   multiple clauses are given, they are attempted in the order specified.
@@ -715,17 +741,18 @@ exposed.
   Example:
   @example[
     (define fib
-      (function [(n #:if (< n 2)) 1]
-                [n (+ (fib (- n 1)) (fib (- n 2)))]))
+      (function [n #:if (< n 2) 1]
+                [n (+ (fib (- n 1))
+                      (fib (- n 2)))]))
     (map fib '(0 1 2 3 4 5 6))
   ]
 
 }
 
 @deftogether[(
-@defform[(φ* formals maybe-if ... body ...+)]
+@defform[(φ* formals fun-directive ... body ...+)]
 @defform/subs[
-  (phi* formals maybe-if ... body ...+)
+  (phi* formals fun-directive ... body ...+)
   [(formals (patt ...)
             (patt ...+ . rest-patt)
             rest-patt)]
@@ -739,7 +766,7 @@ exposed.
   @specsubform[(patt ...)]{
 
     The function accepts as many argument values as the number of @var[patt]s.
-    Each @var[patt] is associated with an argument value by position.
+    Each @var[patt] is matched against an argument value by position.
 
     Example:
     @example[
@@ -754,9 +781,9 @@ exposed.
   @specsubform[(patt ...+ . rest-patt)]{
 
     The function accepts at least as many arguments as the number of
-    @var[patt]s. When the function is applied, the @var[patt]s are associated
-    with argument values by position, and all leftover arguments are placed
-    into a list that is associated to @var[rest-id].
+    @var[patt]s. When the function is applied, the @var[patt]s are matched
+    against argument values by position, and all leftover arguments are placed
+    into a list that is matched against @var[rest-patt].
 
     Example:
     @example[
@@ -767,7 +794,7 @@ exposed.
   @specsubform[rest-patt]{
 
     The function accepts any number of arguments and places them into a list
-    that is associated with @var[rest-patt].
+    that is matched against @var[rest-patt].
 
     Example:
     @example[
@@ -776,7 +803,7 @@ exposed.
   }
 }
 
-@defform[(function* [formals maybe-if ... body ...+] ...+)]{
+@defform[(function* [formals fun-directive ... body ...+] ...+)]{
 
   Creates a @tech{function} of any number of arguments with one or more
   clauses. When multiple clauses are given, they are attempted in the order
@@ -795,31 +822,34 @@ exposed.
 @subsection[#:tag "ref:macros"]{Macros}
 
 @deftogether[(
-@defform[(μ macro-patt body ...+)]
+@defform[(μ mac-patt mac-directive ... body ...+)]
 @defform/subs[
   #:literals (void quasiquote unquote)
-  (mu macro-patt directive ... body ...+)
-  [(macro-patt literal
-               wildcard-id
-               variable-id
-               id-literal
-               (struct-id macro-patt ...)
-               (quasiquote mqp)
-               (macro-patt ...)
-               (macro-patt ...+ . macro-patt)
-               (macro-patt ooo . macro-patt))
-   (mqp (unquote macro-patt)
-        (mqp . mqp)
+  (mu mac-patt mac-directive ... body ...+)
+  [(mac-patt literal
+             wildcard-id
+             variable-id
+             id-literal
+             (mac-patt #:if condition-expr)
+             (mac-patt #:as alias-mac-patt)
+             (struct-id mac-patt ...)
+             (quasiquote #,(var qmp))
+             (mac-patt ...)
+             (mac-patt ...+ . mac-patt)
+             (mac-patt ooo . mac-patt))
+   (qmp (unquote mac-patt)
+        (qmp . qmp)
         datum)
    (ooo ...
         ...+)
-   (directive (code:line #:with macro-patt stx-expr)
-              (code:line #:if condition-expr))]
+   (mac-directive (code:line #:with consequent-mac-patt premise-expr)
+                  (code:line #:if condition-expr)
+                  (code:line #:as alias-mac-patt))]
 ])]{
 
   Creates a @tech{macro} of one argument with one clause.
 
-  A @var[macro-patt] is a @var[literal] or @var[wildcard-id] as defined for
+  A @var[mac-patt] is a @var[literal] or @var[wildcard-id] as defined for
   @racket[φ], or one of the following forms:
 
   @specsubform[variable-id]{
@@ -829,9 +859,10 @@ exposed.
 
     Matches anything, and binds the pattern variable to the matching sub-term
     in the @var[body]s. If the identifier is of the form
-    @var[id:syntax-class-id], it behaves like an @tech[#:doc '(lib
-    "syntax/scribblings/syntax.scrbl")]{annotated pattern variable} with the
-    implicit class inserted. Otherwise, the pattern variable matches anything.
+    @var[id:syntax-class-id], it is an @tech[#:doc '(lib
+    "syntax/scribblings/syntax.scrbl")]{annotated pattern variable} and only
+    matches forms described by the @stech{syntax class} bound to
+    @var[syntax-class-id]. Otherwise, it matches anything.
 
     Example:
     @example[
@@ -855,11 +886,38 @@ exposed.
     ]
   }
 
-  @specsubform[(struct-id macro-patt ...)]{
+  @specsubform[(mac-patt #:if condition-expr)]{
+
+    First matches @var[mac-patt], then evaluates the @var[condition-expr] in
+    the context of all previous variable bindings. If the value is
+    @racket[#f], the match fails.
+
+    Example:
+    @example[
+      (define-syntax m (μ (x #:if (number? (var x))) (+ x 2)))
+      (m 1)
+      (eval:error (m #f))
+    ]
+  }
+
+  @specsubform[(mac-patt #:as alias-mac-patt)]{
+
+    First matches @var[mac-patt], then matches @var[alias-mac-patt] against
+    the same argument. If either pattern fails, the match fails.
+
+    Example:
+    @example[
+      (let-syntax ([calc (μ ((x + y) #:as sum)
+                           (append 'sum `(= ,(+ x y))))])
+        (calc (1 + 2)))
+    ]
+  }
+
+  @specsubform[(struct-id mac-patt ...)]{
 
     Matches a sequence of terms, where the first element @var[struct-id] names
     a structure type and subsequent elements match the corresponding
-    @var[macro-patt].
+    @var[mac-patt].
 
     Example:
     @example[
@@ -871,7 +929,7 @@ exposed.
 
   @specsubform[
     #:literals (quasiquote)
-    (quasiquote mqp)
+    (quasiquote #,(var qmp))
   ]{
 
     Introduces a @deftech{quasiquoted macro pattern}, in which identifiers
@@ -879,24 +937,25 @@ exposed.
 
     Example:
     @example[
-      (define-syntax m (μ `x 1))
-      (m x)
-      (eval:error (m y))
+      (define-syntax m (μ `(x ,y) y))
+      (m (x #t))
+      (eval:error (m (z #t)))
     ]
   }
 
-  @specsubform[(macro-patt ...)]{
+  @specsubform[(mac-patt ...)]{
 
-    Matches a parenthesized sequence of @var[macro-patt]s.
+    Matches a parenthesized sequence of @var[mac-patt]s.
 
     Example:
     @example[
-      (define-syntax m (μ (a b) (b a)))
-      (values (m (0 S)) (instance? (m (0 S))))
+      (define-syntax swap (μ (a b) (b a)))
+      (swap (0 S))
+      (instance? (swap (0 S)))
     ]
   }
 
-  @specsubform[(macro-patt ...+ . macro-patt)]{
+  @specsubform[(mac-patt ...+ . mac-patt)]{
 
     Matches a term with a list head and a tail separated by a delimited
     @racketparenfont{.}.
@@ -908,11 +967,11 @@ exposed.
     ]
   }
 
-  @specsubform[(head-macro-patt ooo . tail-macro-pat)]{
+  @specsubform[(head-mac-patt ooo . tail-mac-pat)]{
 
     Matches any term that can be decomposed into a list head matching some
-    number of repetitions of @var[head-macro-patt] followed by a list tail
-    matching @var[tail-macro-patt].
+    number of repetitions of @var[head-mac-patt] followed by a list tail
+    matching @var[tail-mac-patt].
 
     Example:
     @example[
@@ -926,29 +985,30 @@ exposed.
     ]
   }
 
-  The following pattern directives may appear in a macro clause:
+  The following pattern directives may appear any number of times in a macro
+  clause:
 
-  @specsubform[(code:line #:with macro-patt expr)]{
+  @specsubform[(code:line #:with mac-patt expr)]{
 
-    Evaluates @var[expr] in the context of all pattern bindings and matches it
-    against @var[macro-patt]. The @var[expr] is implicitly
+    Evaluates @var[expr] in the context of all pattern bindings and matches
+    the result against @var[mac-patt]. The @var[expr] is implicitly
     @racket[quasisyntax]ed, so @var[unsyntax] and @var[unsyntax-splicing]
     escape to an expression within the transformer environment.
 
     Example:
     @example[#:escape UNSYNTAX
-      (define-syntax m
-        (macro [x #:with (a) #,(list 10)
-                  #:with b 1
-                  (+ x a b)]))
-      (m 100)
+      (let-syntax ([m (macro
+                        [x #:with (a) #,(list 10)
+                           #:with b 1
+                           (+ x a b)])])
+        (m 100))
     ]
   }
 
   @specsubform[(code:line #:if condition-expr)]{
 
-    Evaluates the @var[condition-expr] in the context of all previous
-    attribute bindings. If the value is @racket[#f], the match fails.
+    Evaluates the @var[condition-expr] in the context of all previous variable
+    bindings. If the value is @racket[#f], the match fails.
 
     Example:
     @example[#:escape UNSYNTAX
@@ -962,9 +1022,21 @@ exposed.
       (eval:error (let ([a 7]) (m-fib a)))
     ]
   }
+
+  @specsubform[(code:line #:as alias-mac-patt)]{
+
+    Matches the original argument list against @var[alias-mac-patt].
+
+    Example:
+    @example[
+      (let-syntax ([calc (μ* (x + y) #:as sum
+                           (append 'sum `(= ,(+ x y))))])
+        (calc 1 + 2))
+    ]
+  }
 }
 
-@defform[(macro [macro-patt directive ... body ...+] ...+)]{
+@defform[(macro [mac-patt mac-directive ... body ...+] ...+)]{
 
   Creates a @tech{macro} of one argument with one or more clauses. When
   multiple clauses are given, they are attempted in the order specified.
@@ -972,15 +1044,21 @@ exposed.
 }
 
 @deftogether[(
-@defform[(μ* (macro-patt ...) directive ... body ...+)]
-@defform[(mu* (macro-patt ...) directive ... body ...+)]
-)]{
+@defform[(μ* mac-formals mac-directive ... body ...+)]
+@defform/subs[
+   (mu* mac-formals mac-directive ... body ...+)
+   [(mac-formals (mac-patt ...)
+                 (mac-patt ...+ . rest-mac-patt)
+                 rest-mac-patt)]
+])]{
 
-  Creates a @tech{macro} with any number of arguments and one clause.
+  Creates a @tech{macro} with any number of arguments and one clause. The
+  @var[mac-formals] determine the number of arguments in the same way as for
+  @racket[φ*], except with @var[mac-patt]s instead of @var[patt]s.
 
 }
 
-@defform[(macro* [(macro-patt ...) directive ... body ...+] ...+)]{
+@defform[(macro* [mac-formals mac-directive ... body ...+] ...+)]{
 
   Creates a @tech{macro} with any number of arguments and at least one clause.
   When multiple clauses are given, they are attempted in the order specified.

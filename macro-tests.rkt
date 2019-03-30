@@ -19,6 +19,13 @@
           (with-check-info (['actual val])
             (check eq? val OK))))))
 
+  (define-simple-macro (check-OK* def arg ...)
+    (with-check-info (['macro 'def] ['arguments '(arg ...)] ['expected OK])
+      (let-syntax ([m def])
+        (let ([val (m arg ...)])
+          (with-check-info (['actual val])
+            (check eq? val OK))))))
+
   (define-simple-macro (check-not-OK def arg rx-or-pred)
     (with-check-info (['macro 'def] ['argument 'arg] ['expected rx-or-pred])
       (let-syntax ([m def])
@@ -143,7 +150,11 @@
     (check-OK (μ x #:if (var x) x) OK)
     (check-not-OK (μ _ #:if #f OK) #t #rx"condition failed: #f")
     (check-not-OK (μ x #:if (var x) x) #f #rx"condition failed: \\(var x\\)")
-    (check-not-OK (μ x #:if (var x) x) (not #t) #rx"condition failed: \\(var x\\)"))
+    (check-not-OK (μ x #:if (var x) x) (not #t) #rx"condition failed: \\(var x\\)")
+    (check-OK (μ (_ #:if #t) OK) #f)
+    (check-OK (μ (x #:if (var x)) OK) #t)
+    (check-not-OK (μ (_ #:if #f) OK) #t #rx"condition failed: #f")
+    (check-not-OK (μ (x #:if (var x)) OK) #f #rx"condition failed: \\(var x\\)"))
 
   (data XYZ (X Y Z))
 
@@ -251,4 +262,15 @@
 
   (test-case ":syntax-class"
     (check-OK (μ x:number OK) -1)
-    (check-not-OK (μ x:number OK) #t #rx"expected number")))
+    (check-not-OK (μ x:number OK) #t #rx"expected number"))
+
+  (test-case "formals"
+    (check-OK* (μ* (x y) (and (= x y) OK)) 1 1)
+    (check-OK* (mu* (x y) (and (= x y) OK)) 1 1)
+    (check-OK* (macro* [(x y) (and (= x y) OK)]) 1 1)
+    (check-OK* (μ* (x . xs) (and (andmap (λ (y) (= x y)) 'xs) OK)) 1 1 1)
+    (check-OK* (mu* (x . xs) (and (andmap (λ (y) (= x y)) 'xs) OK)) 1 1 1)
+    (check-OK* (macro* [(x . xs) (and (andmap (λ (y) (= x y)) 'xs) OK)]) 1 1 1)
+    (check-OK* (μ* xs (and (andmap (λ (y) (= y 1)) 'xs) OK)) 1 1 1 1 1)
+    (check-OK* (mu* xs (and (andmap (λ (y) (= y 1)) 'xs) OK)) 1 1 1 1 1)
+    (check-OK* (macro* [xs (and (andmap (λ (y) (= y 1)) 'xs) OK)]) 1 1 1 1 1)))

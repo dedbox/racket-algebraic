@@ -55,6 +55,20 @@
     (pattern (~and x:id (~not (~or :variable :wildcard :mac-product :mac-identifier)))
              #:attr compiled #`(~datum #,this-syntax)))
 
+  (define-syntax-class mac-conditional
+    #:description "conditional macro pattern"
+    #:attributes (compiled)
+    (pattern (p:mac-patt #:if e:expr)
+             #:attr compiled
+             #'(~and p.compiled
+                     (~fail #:unless e (format "condition failed: ~a" 'e)))))
+
+  (define-syntax-class mac-alias
+    #:description "alias macro pattern"
+    #:attributes (compiled)
+    (pattern (p1:mac-patt #:as p2:mac-patt)
+             #:attr compiled #'(~and p1.compiled p2.compiled)))
+
   (define-syntax-class mac-instance
     #:description "instance pattern"
     #:attributes (compiled)
@@ -143,6 +157,8 @@
                   p:mac-product
                   p:mac-identifier
                   p:mac-symbol
+                  p:mac-conditional
+                  p:mac-alias
                   p:mac-instance
                   p:mac-struct
                   p:mac-quasiquote
