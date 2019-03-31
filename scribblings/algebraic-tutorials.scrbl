@@ -235,7 +235,7 @@ with a lowercase letter is a variable name, and we don't want these two to
 behave like variables. The @id[_] is also quoted because an unquoted name that
 begins with an underscore is a wildcard pattern. Quoting is optional for
 @id[$] and @id[◊] because neither begin with a lowercase character or
-underscore.
+an underscore.
 
 For other symbols, we need a way to tell constructor names from variable
 names. Inspecting characters is too low level for s-expression parsing, so
@@ -264,9 +264,10 @@ variable capture}:
   ((φ x (φ y (x y))) y)
 }
 
-If we substitute @id[y] for @id[x] naively, the result would be a function
-clause wherein the free outer @id[y] is indistinguishable from the bound inner
-@id[y]:
+In the next step of this function application, the outer function will reduce
+to the inner function with all of the @id[x]s replaced with @id[y]s. If we
+perform the substitution naively, we get a function clause wherein the free
+outer @id[y] is indistinguishable from the bound inner @id[y]:
 
 @core-code{
   (φ y (y y))
@@ -1012,7 +1013,8 @@ The body @id[loop] does three things:
   @item{Generates a fresh @rtech{uninterned} symbol with the same name as each
   variable extracted, and}
 
-  @item{Recursively substitutes the new name for the original in both arguments.}
+  @item{Recursively substitutes the new names for the originals in both
+  arguments.}
 
 ]
 
@@ -1169,10 +1171,18 @@ it encounters a @id[.rkt] file that begins with
 
 @subsection[#:tag "tut:core:examples"]{Examples}
 
-We'll implement each example twice: once in @hash-lang[algebraic/racket/base]
-and again in @hash-lang[algebraic/model/core]. Our interpreter is too crude
-for real development work, so we'll discuss concepts and constructs in
-@algebraic-mod proper before attempting to encode them for our interpreter.
+Examples are presented in two or three formats:
+
+@itemlist[
+
+  @item{An expression in the core calculus,}
+
+  @item{A runnable encoding of the core expression as an s-expression, and}
+
+  @item{Some concepts and constructs are first introduced in
+  @hash-lang[algebraic/racket/base] as a basis for discussion.}
+
+]
 
 @; -----------------------------------------------------------------------------
 
@@ -1184,7 +1194,7 @@ algebraic data.
 
 First, we designate a 0 element and define a
 @hyperlink["https://en.wikipedia.org/wiki/Successor_function"]{successor
-function} for it. A simple two-@tech{product} @tech{sum} would suffice.
+function} for it. A simple two-@tech{product} @tech{sum} will suffice.
 
 @example[
   (data Peano (Zero Succ))
@@ -1234,7 +1244,7 @@ Addition (+) and multiplication (×) on Peano numbers are defined inductively:
       ]
       @relation[
                   @list{@${n} × 0} = "0"
-        @list{@${n} × @Succ @${m}} = @list{@${a} + @${a} × @${b}}
+        @list{@${n} × @Succ @${m}} = @list{@${n} + @${n} × @${m}}
       ]
     ]
   ]
@@ -1243,8 +1253,8 @@ Addition (+) and multiplication (×) on Peano numbers are defined inductively:
 The core calculus can express these relationships directly:
 
 @relation[
-  "add" = @list{φ(@${a} @Zero).@${a};φ(@${a} (@Succ @${b})).@Succ(add (@${a} @${b}))}
-  "mul" = @list{φ(@${a} @Zero).@Zero;φ(@${a} (@Succ @${b})).add(@${a} (mul (@${a} @${b})))}
+  "add" = @list{φ(@${n} @Zero).@${n};φ(@${n} (@Succ @${m})).@Succ(add (@${n} @${m}))}
+  "mul" = @list{φ(@${n} @Zero).@Zero;φ(@${n} (@Succ @${m})).add(@${n} (mul (@${n} @${m})))}
 ]
 
 and so can @list[@algebraic-mod ":"]
@@ -1448,7 +1458,7 @@ The @id[and] macro takes two arguments, @${a} and @${b}. The outer macro gets
 @${a} and @${b} un-evaluated and forces the evaluation of @${a} with an inner
 anonymous function which maps non-@False values to @${b}.
 
-The @id[or] macro uses the same approach, this time returning @${b} only if
+The @id[or] macro uses the same approach, this time evaluating @${b} only if
 @${a} evaluates to @False.
 
 The @id[xor] macro goes through a little extra trouble to return the original
@@ -1505,14 +1515,11 @@ This program calculates @list["¬" @True "∨(" @True "⊗" @True ")∧" @True] 
 
 @subsubsection{Lists}
 
-The past few examples focus on what functions and macros are and how they
-work. This time, we'll pay a little more attention to why that's interesting.
-
 The list is a simple but useful algebraic data type. Given a nullary
 constructor @Nil and a binary constructor @Cons, 
 
 @relation[
-  "list" = @list{μ(@${x} ◊).@Cons(@${x} @Nil);μ(@${x} @${xs}).@Cons(@${x} (list @${xs}))}
+  "list" = @list{μ(@${x} ◊).@Cons(@${x};@Nil);μ(@${x} @${xs}).@Cons(@${x};list @${xs})}
 ]
 
 The @id[list] macro folds a ◊-terminated series of applications into a
@@ -1545,7 +1552,7 @@ Reversing lists is a little more interesting than constructing them.
 
 @relation[
   "reverse" = @list{φ@${xs}.rev(@${xs} @Nil)}
-  "rev" = @list{φ(@Nil @${a}).@${a};φ((@Cons(@${x} @${xs})) @${a}).rev(@${xs} (@Cons(@${x} @${a})))}
+  "rev" = @list{φ(@Nil @${a}).@${a};φ(@Cons(@${x};@${xs}) @${a}).rev(@${xs} @Cons(@${x};@${a}))}
 ]
 
 The @id[reverse] function takes a list @${xs} and applies @id[rev] to it with

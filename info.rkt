@@ -3,6 +3,7 @@
 (define collection "algebraic")
 (define deps '("base"))
 (define build-deps '("racket-doc"
+                     "rackunit-doc"
                      "rackunit-lib"
                      "sandbox-lib"
                      "scribble-lib"

@@ -50,16 +50,15 @@ natural ordering.
 The @racket[data] form defines a variety of procedures and syntax
 @rtech{transformers} for working with named @tech{products} and @tech{sums}.
 
-A @deftech{product} identifies a family of structures comprising an ordered
-set of @deftech{fields}, and a @deftech{sum} identifies a @tech{list} of
-@tech{products}.
+A @deftech{product} identifies a family of structures comprising a @tech{list}
+of @deftech{fields}, and a @deftech{sum} is a @tech{list} of @tech{products}.
 
 @example[
-  (data Peano (Succ Zero))
+  (data Peano (Zero Succ))
 ]
 
-In this example, @racket[Peano] is a @tech{sum} comprising the @tech{products}
-@racket[Succ] and @racket[Zero].
+In this example, @racket[Peano] is a @tech{sum} of the @tech{products}
+@racket[Zero] and @racket[Succ].
 
 Each @tech{product} name is bound to a @deftech{constructor}, a function that
 creates @tech{instances} of the named @tech{product}. An @deftech{instance} is

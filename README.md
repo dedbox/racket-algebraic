@@ -145,10 +145,11 @@ Why not just use `<something else that isn't Haskell>`?
 
 ### Plain old Racket structs
 
-Prefab struct types are globally scoped, which has been a problem for me
-in the past. Non-prefab structs are better in that regard, except basic
-features like type hierarchies and functional updaters have a tendency to
-interfere with each other.
+[Prefab](https://docs.racket-lang.org/reference/structures.html?q=prefab#%28tech._prefab%29)
+struct types are globally scoped, which has been a problem for me in the
+past. Non-prefab structs are better in that regard, except basic features
+like type hierarchies and functional updaters have a tendency to interfere
+with each other.
 
 Algebraic data constructors are lexically scoped and have no fixed arity.
 Instances of algebraic data are always transparent.
@@ -159,11 +160,11 @@ need them.
 
 ### Hackett
 
-Hackett is an excellent platform for pure, lazy functional programming in
-the Racket software ecosystem. If I needed pure and lazy evaluation
-semantics today, I'd try Hackett before considering Haskell seriously
-again. Having said that, I don't usually want pure and lazy evaluation
-semantics.
+[Hackett](https://docs.racket-lang.org/hackett/index.html) is an excellent
+platform for pure, lazy functional programming in the Racket software
+ecosystem. If I needed pure and lazy evaluation semantics today, I'd try
+Hackett before considering Haskell seriously again. Having said that, I
+don't usually want pure and lazy evaluation semantics.
 
 Wouldn't it be nice if I could import just the features I wanted from
 Hackett and ignore the rest? That is the promise of language-oriented
@@ -175,10 +176,11 @@ Hackett itself). Algebraic Racket is a step in that direction.
 
 ### Typed Racket
 
-Typed Racket is a robust platform with a broad scope, and it keeps getting
-better. The type system offers the static analyses I care about and the
-documentation is excellent. After spending some time building interpreters
-in Typed Racket, I decided I still wanted something else for two reasons:
+[Typed Racket](https://docs.racket-lang.org/ts-guide/index.html) is a
+robust platform with a broad scope, and it keeps getting better. The type
+system offers the static analyses I care about and the documentation is
+excellent. After spending some time building interpreters in Typed Racket,
+I decided I still wanted something else for two reasons:
 
 1. Fumbling with types for common Racket idioms (like `apply`) became a
    distraction, and
@@ -192,9 +194,10 @@ programming.
 
 ### Redex
 
-Redex is a domain-specific language for semantics engineering. It does a
-lot more for the semantics engineer than Algebraic Racket ever will, like
-typesetting and testing automation.
+[Redex](https://docs.racket-lang.org/redex/index.html) is a
+domain-specific language for semantics engineering. It does a lot more for
+the semantics engineer than Algebraic Racket ever will, like typesetting
+and testing automation.
 
 On the other hand, developing full applications with Redex is probably not
 for the faint of heart. With Algebraic Racket, you get all the bells and
@@ -202,15 +205,17 @@ whistles of `#lang racket/base` and then some.
 
 ## Project Goals
 
-The Algebraic project aims to provide a complete language-oriented toolkit
-for high-performance algebraic data processing. It has two primary
-objectives:
+Algebraic Racket is the first major milestone in a larger effort to
+produce a complete language-oriented toolkit for integrating algebraic
+structure into more sophisticated designs.
 
-1. Supply and document the special forms and syntax classes comprising
-   Algebraic Racket
+The project aims to:
 
-2. Support the development of modular type systems and other static
-   analyses for algebraic data as libraries
+1. Implement and document the forms, functions, and syntax classes
+   comprising Algebraic Racket for maximum potential reuse.
+
+2. Support the development of modular type systems and other
+   language-facing components as libraries.
 
 ## Racket Version Restriction
 
@@ -219,7 +224,9 @@ since Racket version 6.90.0.25: `~?` and `~@`.
 
 ## Contributing
 
-Pull requests are welcome. For major changes, please start a thread on
-[racket-users](https://groups.google.com/forum/#!forum/racket-users) or
-open an [issue](https://github.com/dedbox/racket-algebraic/issues) to
+Pull requests of any size are welcome. For help creating one, please start
+a thread on
+[racket-users](https://groups.google.com/forum/#!forum/racket-users). For
+major changes, please open an
+[issue](https://github.com/dedbox/racket-algebraic/issues) first to
 discuss what you would like to change.
