@@ -329,18 +329,15 @@
 
   (test-case "booleans"
     (check-algebraic
-     ((φ fix
-        ((φ not
-           ((φ and
-              ((φ or
-                 ((φ xor
-                    (or ((not True) (and ((xor (True True)) True)))))
-                  (fix (φ xor (μ (a b) (($ (φ False b) (φ x (and ((not b) x)))) a))))))
-               (fix (φ or (μ (a b) (($ (φ False b) (φ x x)) a))))))
-            (fix (φ and (μ (a b) (($ (φ False False) (φ _ b)) a))))))
-         (fix (φ not ($ (φ False True) (φ _ False))))))
-      (φ f ((φ x (f (φ y ((x x) y))))
-            (φ x (f (φ y ((x x) y)))))))
+     ((φ not
+        ((φ and
+           ((φ or
+              ((φ xor
+                 (or ((not True) (and ((xor (True True)) True)))))
+               (μ (a b) (($ (φ False b) (φ x (and ((not b) x)))) a))))
+            (μ (a b) (($ (φ False b) (φ x x)) a))))
+         (μ (a b) (($ (φ False False) (φ _ b)) a))))
+      ($ (φ False True) (φ _ False)))
      => False))
 
   (test-case "list 1 2 3 ◊"

@@ -48,9 +48,13 @@
 ;;; Peano Arithmetic
 
 (define-ids Peano Succ Zero)
-
 (define-ids+ "s" Peano Succ Zero)
 (define-ids+ "." Peano Succ Zero)
+
+;;; Booleans
+
+(define-ids Bool False True)
+(define-ids+ "." Bool False True)
 
 ;;; Rule Names (small caps)
 
@@ -71,10 +75,7 @@
   (tabular
    #:style full-width
    #:column-properties '(right center left)
-   (list (list (~? (tt (format "~a" 'L)) ~)
-               (list ~ (format "~a" 'op) ~)
-               (tt (format "~a" 'R)))
-         ...)))
+   (list (list (~? L ~) (format "~a" 'op) R) ...)))
 
 ; -----------------------------------------------------------------------------
 ; algebraic eval

@@ -867,30 +867,56 @@ Pattern matching (@${p×t=σ}) is a binary operation on patterns and terms which
 produces variable bindings when a pattern and term are compatible in one of
 the following six ways.
 
-@centered{
-  @${(p_{11} p_{12})×(t_{21} t_{22}) = (p_{11}×t_{21})∪(p_{12}×t_{22})}
+@tabular[
+  #:style full-width
+  #:cell-properties '((center))
+  (list
+   (list
+    @inferrule[
+                      @list{@${p_{11}}×@${t_{21}} = @${σ_1}}
+                      @list{@${p_{12}}×@${t_{22}} = @${σ_2}}
+      ---------------------------------------------------------------------------
+      @list{(@${p_{11}} @${p_{12}})×(@${t_{21}} @${t_{22}}) = @${σ_1} ∪ @${σ_2}}
+    ]
 
-  @${(p_{11};p_{12})×(t_{21};t_{22}) = (p_{11}×t_{21})∪(p_{12}×t_{22})}
+    @inferrule[
+                      @list{@${p_{11}}×@${t_{21}} = @${σ_1}}
+                      @list{@${p_{12}}×@${t_{22}} = @${σ_2}}
+      ---------------------------------------------------------------------------
+      @list{(@${p_{11}};@${p_{12}})×(@${t_{21}};@${t_{22}}) = @${σ_1} ∪ @${σ_2}}
+    ]
+  ))
+]
 
-  @${δ_1×δ_2 = \{\} if δ_1=δ_2}
+@tabular[
+  #:style full-width
+  #:cell-properties '((center))
+  (list
+   (list
+    @list{@${x_1}×@${t_2} = {@${x_1}↦@${t_2}}}
 
-  @${x_1×t_2 = \{x_1↦t_2\}}
+    @inferrule[
+       @list{@${δ_1} = @${δ_2}}
+      ---------------------------
+      @list{@${δ_1}×@${δ_2} = {}}
+    ]
 
-  _@${×· = \{\}}
+    @list{_×@${t_1} = {}}
 
-  @${◊×◊ = \{\}}
-}
+    @list{◊×◊ = {}}
+  ))
+]
 
-An @emph{application pattern} (@${p p}) matches an application if the
+An @emph{application pattern} (@${p} @${p}) matches an application if the
 sub-patterns and sub-terms all match by position, passing along any variable
 bindings.
 
 A @emph{sequence pattern} (@${p;p}) behaves similarly.
 
+A @emph{variable} (@${x}) matches any term and binds itself to the term.
+
 A @emph{constructor pattern} (@${δ}) matches a constructor with the same name
 and binds no variables.
-
-A @emph{variable} (@${x}) matches any term and binds itself to the term.
 
 The @emph{wildcard} (_) matches any term and binds no variables.
 
@@ -900,8 +926,7 @@ Any other combination is undefined.
 
 @subsubsub*section{The Cross Function}
 
-The @id[×] @tech{function} implements these six equations directly, with a
-little extra code to check for valid sub-matches.
+The @id[×] @tech{function} implements these six equations directly.
 
 @algebraic-code{
   (require racket/hash)
@@ -1197,13 +1222,13 @@ Addition (+) and multiplication (×) on Peano numbers are defined inductively:
   #:style full-width
   @list[
     @list[
-      @itemlist[
-        @item{@${n} + 0 = @${n}}
-        @item{@${n} + @Succ @${m} = @Succ(@${n} + @${m})}
+      @relation[
+                  @list{@${n} + 0} = @${n}
+        @list{@${n} + @Succ @${m}} = @list{@Succ(@${n} + @${m})}
       ]
-      @itemlist[
-        @item{@${n} × 0 = 0}
-        @item{@${n} × @Succ @${m} = @${a} + @${a} × @${b}}
+      @relation[
+                  @list{@${n} × 0} = "0"
+        @list{@${n} × @Succ @${m}} = @list{@${a} + @${a} × @${b}}
       ]
     ]
   ]
@@ -1212,9 +1237,10 @@ Addition (+) and multiplication (×) on Peano numbers are defined inductively:
 The core calculus can express these relationships directly:
 
 @centered{
-  add = φ(@${a} Zero).@${a};φ(@${a} (Succ @${b})).Succ(add (@${a} @${b}))
-
-  mul = φ(@${a} Zero).Zero;φ(@${a} (Succ @${b})).add(@${a} (mul (@${a} @${b})))
+  @relation[
+    "add" = @list{φ(@${a} @Zero).@${a};φ(@${a} (@Succ @${b})).@Succ(add (@${a} @${b}))}
+    "mul" = @list{φ(@${a} @Zero).@Zero;φ(@${a} (@Succ @${b})).add(@${a} (mul (@${a} @${b})))}
+  ]
 }
 
 and so can @list[@algebraic-mod ":"]
@@ -1252,21 +1278,21 @@ express @racket[letrec] as @racket[let] plus a
 combinator}:
 
 @relation[
-  (letrec [id val] body) ↝ (let [id (fix (φ id val))] body)
+  @tt{(letrec [id val] body)} ↝ @tt{(let [id (fix (φ id val))] body)}
 ]
 
 With a second rewrite, we can express @id[let] as a function application:
 
 @relation[
-  (let [id val] body) ↝ ((φ id body) val)
+  @tt{(let [id val] body)} ↝ @tt{((φ id body) val)}
 ]
 
 And if we fold this rewrite into the first one, the resulting form contains
 only functions and applications:
 
 @relation[
-  (letrec [id val] body) ↝ (let [id (fix (φ id val))] body)
-  ~                      ↝ ((φ id body) (fix (φ id val)))
+  @tt{(letrec [id val] body)} ↝ @tt{(let [id (fix (φ id val))] body)}
+  ~                           ↝ @tt{((φ id body) (fix (φ id val)))}
 ]
 
 The @id[fix] function gives us a way to encode functions that might call
@@ -1389,7 +1415,71 @@ rewrites:
 
 @subsubsection{Boolean Logic}
 
+The Booleans are a popular example of an enumerated type. Assuming two
+constructors @False and @True that take no arguments, logical negation is a
+short function.
 
+@centered{
+  @relation[
+    "not" = @list{φ@id[False].@id[True];φ_.@id[False]}
+  ]
+}
+
+Logical conjunction and disjunction, however, should exhibit ``short
+circuiting'' behavior so only the arguments needed to determine the result are
+evaluated. This behavior is impossible to implement directly with ordinary
+functions, but macros make short work of them. We'll even throw in a
+short-circuiting @racket[xor] for kicks.
+
+@relation[
+  "and" = @list{μ(@${a} @${b}).(φ@id[False].@False;φ_.@${b}) @${a}}
+  "or"  = @list{μ(@${a} @${b}).(φ@id[False].@${b};φ@${x}.@${x}) @${a}}
+  "xor" = @list{μ(@${a} @${b}).(φ@id[False].@${b};φ@${x}.and ((not @${b}) @${x})) @${a}}
+]
+
+In all of these operations, any non-@False value is equivalent to @True, and
+the original value is preserved in the result whenever possible.
+
+The @id[and] macro takes two arguments. If the first argument evaluates to
+@False, the result is @False and the second argument is not evaluated.
+Otherwise, the result is determined by the second argument. It works because
+the outer macro captures @${a} and @${b} before they can be evaluated. It
+forces the evaluation of @${a} by applying the inner function to it, which
+then maps any non-@False value to @${b}.
+
+The @id[or] macro uses the same technique, this time returning @${b} only if
+@${a} evaluates to @False.
+
+The @id[xor] macro goes through a little extra trouble to return the appropriate
+value when the 
+
+Encoding these macros with the technique covered in the previous section is
+straight forward. Starting from the hypothetical program:
+
+@core-code{
+   (let [not ($ (φ False True) (φ _ False))]
+     (let [and (μ (a b) (($ (φ False False) (φ _ b)) a))]
+       (let [or (μ (a b) (($ (φ False b) (φ x x)) a))]
+         (let [xor (μ (a b) (($ (φ False b) (φ x (and ((not b) x)))) a))]
+           (or ((not 1) (and ((xor (2 3)) 4))))))))
+}
+
+We can derive a runnable program in four rewrites:
+
+@core-example[
+  ((φ not
+     ((φ and
+        ((φ or
+           ((φ xor
+              (or ((not True) (and ((xor (True True)) True)))))
+            (μ (a b) (($ (φ False b) (φ x (and ((not b) x)))) a))))
+         (μ (a b) (($ (φ False b) (φ x x)) a))))
+      (μ (a b) (($ (φ False False) (φ _ b)) a))))
+   ($ (φ False True) (φ _ False)))
+]
+
+This program calculates @list["¬" @True "∨(" @True "⊗" @True ")∧" @True] =
+@False.
 
 @subsubsection{Lists}
 
