@@ -358,18 +358,19 @@
   (test-case "reverse list 1 2 3 ◊"
     (check-algebraic
      ((φ fix
-        ((φ rev
-           ((φ reverse
-              (reverse
-               (Cons ($ (Succ Zero)
-                        (Cons ($ (Succ (Succ Zero))
-                                 (Cons ($ (Succ (Succ (Succ Zero)))
-                                          Nil))))))))
-            (fix (φ reverse (φ xs (rev (xs Nil)))))))
-         (fix
-          (φ rev
-            ($ (φ (Nil a) a)
-               (φ ((Cons ($ y ys)) a) (rev (ys (Cons ($ y a))))))))))
+        ((φ list
+           ((φ rev
+              ((φ reverse
+                 (reverse (list ((Succ Zero)
+                                 ((Succ (Succ Zero))
+                                  ((Succ (Succ (Succ Zero)))
+                                   ◊))))))
+               (fix (φ reverse (φ xs (rev (xs Nil)))))))
+            (fix (φ rev
+                   ($ (φ (Nil a) a)
+                      (φ ((Cons ($ y ys)) a) (rev (ys (Cons ($ y a))))))))))
+         (fix (φ list ($ (μ (x ◊) (Cons ($ x Nil)))
+                         (μ (x xs) (Cons ($ x (list xs)))))))))
       (φ f ((φ x (f (φ y ((x x) y))))
             (φ x (f (φ y ((x x) y)))))))
      =>

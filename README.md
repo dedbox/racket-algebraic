@@ -1,4 +1,4 @@
-# Algebraic Structures for Untyped Racket
+# Algebraic Racket
 [![Racket Package](https://img.shields.io/badge/raco%20pkg-algebraic-red.svg)](https://pkgd.racket-lang.org/pkgn/package/algebraic)
 [![Documentation](https://img.shields.io/badge/read-docs-blue.svg)](http://docs.racket-lang.org/algebraic/)
 [![Build Status](https://travis-ci.org/dedbox/racket-algebraic.svg?branch=master)](https://travis-ci.org/dedbox/racket-algebraic)

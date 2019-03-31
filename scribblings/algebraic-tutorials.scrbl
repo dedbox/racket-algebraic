@@ -1172,6 +1172,8 @@ and again in @hash-lang[algebraic/model/core]. Our interpreter is too crude
 for real development work, so we'll discuss concepts and constructs in
 @algebraic-mod proper before attempting to encode them for our interpreter.
 
+@; -----------------------------------------------------------------------------
+
 @subsubsection{Peano Numbers}
 
 @hyperlink["https://en.wikipedia.org/wiki/Peano_axioms#First-order_theory_of_arithmetic"]{Peano
@@ -1214,6 +1216,8 @@ takes some work:
 
 Now that we know what Peano number are, how do we use them?
 
+@; -----------------------------------------------------------------------------
+
 @subsubsection{Peano Arithmetic & Recursion}
 
 Addition (+) and multiplication (×) on Peano numbers are defined inductively:
@@ -1236,12 +1240,10 @@ Addition (+) and multiplication (×) on Peano numbers are defined inductively:
 
 The core calculus can express these relationships directly:
 
-@centered{
-  @relation[
-    "add" = @list{φ(@${a} @Zero).@${a};φ(@${a} (@Succ @${b})).@Succ(add (@${a} @${b}))}
-    "mul" = @list{φ(@${a} @Zero).@Zero;φ(@${a} (@Succ @${b})).add(@${a} (mul (@${a} @${b})))}
-  ]
-}
+@relation[
+  "add" = @list{φ(@${a} @Zero).@${a};φ(@${a} (@Succ @${b})).@Succ(add (@${a} @${b}))}
+  "mul" = @list{φ(@${a} @Zero).@Zero;φ(@${a} (@Succ @${b})).add(@${a} (mul (@${a} @${b})))}
+]
 
 and so can @list[@algebraic-mod ":"]
 
@@ -1413,23 +1415,23 @@ rewrites:
       (φ x (f (φ y ((x x) y)))))))
 ]
 
+@; -----------------------------------------------------------------------------
+
 @subsubsection{Boolean Logic}
 
 The Booleans are a popular example of an enumerated type. Assuming two
 constructors @False and @True that take no arguments, logical negation is a
 short function.
 
-@centered{
-  @relation[
-    "not" = @list{φ@id[False].@id[True];φ_.@id[False]}
-  ]
-}
+@relation[
+  "not" = @list{φ@id[False].@id[True];φ_.@id[False]}
+]
 
 Logical conjunction and disjunction, however, should exhibit ``short
 circuiting'' behavior so only the arguments needed to determine the result are
-evaluated. This behavior is impossible to implement directly with ordinary
-functions, but macros make short work of them. We'll even throw in a
-short-circuiting @racket[xor] for kicks.
+evaluated. Encoding that behavior in only functions is tedious, but macros
+make short work of it. We'll also throw in a smart @racket[xor] macro for
+kicks.
 
 @relation[
   "and" = @list{μ(@${a} @${b}).(φ@id[False].@False;φ_.@${b}) @${a}}
@@ -1437,24 +1439,30 @@ short-circuiting @racket[xor] for kicks.
   "xor" = @list{μ(@${a} @${b}).(φ@id[False].@${b};φ@${x}.and ((not @${b}) @${x})) @${a}}
 ]
 
-In all of these operations, any non-@False value is equivalent to @True, and
-the original value is preserved in the result whenever possible.
+For all of these operations, any non-@False value is equivalent to @True, and
+the original value is preserved in the result wherever possible.
 
-The @id[and] macro takes two arguments. If the first argument evaluates to
-@False, the result is @False and the second argument is not evaluated.
-Otherwise, the result is determined by the second argument. It works because
-the outer macro captures @${a} and @${b} before they can be evaluated. It
-forces the evaluation of @${a} by applying the inner function to it, which
-then maps any non-@False value to @${b}.
+The @id[and] macro takes two arguments, @${a} and @${b}. The outer macro gets
+@${a} and @${b} un-evaluated and forces the evaluation of @${a} with an inner
+anonymous function which maps non-@False values to @${b}.
 
-The @id[or] macro uses the same technique, this time returning @${b} only if
+The @id[or] macro uses the same approach, this time returning @${b} only if
 @${a} evaluates to @False.
 
-The @id[xor] macro goes through a little extra trouble to return the appropriate
-value when the 
+The @id[xor] macro goes through a little extra trouble to return the original
+value when its result is not @False. If @${a} and @${b} both evaluate to
+@False or non-@False, the result is @False. Otherwise, the result is the
+non-@False value.
 
-Encoding these macros with the technique covered in the previous section is
-straight forward. Starting from the hypothetical program:
+@relation[
+  @id[not] = @tt{($ (φ False True) (φ _ False))}
+  @id[and] = @tt{(μ (a b) (($ (φ False False) (φ _ b)) a))}
+  @id[or]  = @tt{(μ (a b) (($ (φ False b) (φ x x)) a))}
+  @id[xor] = @tt{(μ (a b) (($ (φ False b) (φ x (and ((not b) x)))) a))}
+]
+
+To combine these macros with the technique covered in the previous section, we
+start with the hypothetical program:
 
 @core-code{
    (let [not ($ (φ False True) (φ _ False))]
@@ -1464,7 +1472,7 @@ straight forward. Starting from the hypothetical program:
            (or ((not 1) (and ((xor (2 3)) 4))))))))
 }
 
-We can derive a runnable program in four rewrites:
+and derive a runnable program in four rewrites, one per @id[let]:
 
 @core-example[
   ((φ not
@@ -1479,18 +1487,113 @@ We can derive a runnable program in four rewrites:
 ]
 
 This program calculates @list["¬" @True "∨(" @True "⊗" @True ")∧" @True] =
-@False.
+@False with roughly the following trace:
+
+@core-code{
+  (or ((not True) (and ((xor (True True)) True))))
+↝ (or (False (and ((xor (True True)) True))))
+↝ (and ((xor (True True)) True))
+↝ (and ((and ((Not True) True)) True))
+↝ (and ((and (False True)) True))
+↝ (and (False True))
+↝ False
+}
+
+@; -----------------------------------------------------------------------------
 
 @subsubsection{Lists}
 
-@; =============================================================================
+The past few examples focus on what functions and macros are and how they
+work. This time, we'll pay a little more attention to why that's interesting.
 
-@section[#:tag "tut:ext"]{A Syntax Extension}
+The list is a simple but useful algebraic data type. Given a nullary
+constructor @Nil and a binary constructor @Cons, 
 
-@defmodulelang[algebraic/model/ext]
+@relation[
+  "list" = @list{μ(@${x} ◊).@Cons(@${x} @Nil);μ(@${x} @${xs}).@Cons(@${x} (list @${xs}))}
+]
 
-@; =============================================================================
+The @id[list] macro folds a ◊-terminated series of applications into a
+@list[Nil]-terminated series of @list[Cons]es.
 
-@section[#:tag "tut:hosted"]{A Hosted Variant}
+@relation[
+  @id[list] = @tt{($ (μ (x ◊) (Cons ($ x Nil))) (μ (x xs) (Cons ($ x (list xs)))))}
+]
 
-@defmodulelang[algebraic/model/hosted]
+Using the hypothetical-to-runnable technique, we get:
+
+@core-example[
+  ((φ fix
+     ((φ list
+        (list ((Succ Zero)
+               ((Succ (Succ Zero))
+                ((Succ (Succ (Succ Zero)))
+                 ◊)))))
+      (fix (φ list ($ (μ (x ◊) (Cons ($ x Nil)))
+                      (μ (x xs) (Cons ($ x (list xs)))))))))
+   (φ f
+     ((φ x (f (φ y ((x x) y))))
+      (φ x (f (φ y ((x x) y)))))))
+]
+
+This example merely constructs a list of the first three non-@Zero Peano
+numbers.
+
+Reversing lists is a little more interesting than constructing them.
+
+@relation[
+  "reverse" = @list{φ@${xs}.rev(@${xs} @Nil)}
+  "rev" = @list{φ(@Nil @${a}).@${a};φ((@Cons(@${x} @${xs})) @${a}).rev(@${xs} (@Cons(@${x} @${a})))}
+]
+
+The @id[reverse] function takes a list @${xs} and applies @id[rev] to it with
+a @Nil initial accumulator @${a}. The @id[rev] function then @list[Cons]es
+non-@Nil elements of @${xs} onto @${a} as it recursively calls itself on the
+tail of @${xs}. Since @${a} always holds a reversed copy of the non-@Nil
+elements of @${xs} @id[rev] has already seen, we can just return it when
+@${xs} is @Nil.
+
+@relation[
+  @id[reverse] = @tt{(φ xs (rev (xs Nil)))}
+  @id[rev] = @tt{($ (φ (Nil a) a) (φ ((Cons ($ y ys)) a) (rev (ys (Cons ($ y a))))))}
+]
+
+Again, we'll find no surprises deriving a runnable example:
+
+@core-example[
+  ((φ fix
+     ((φ list
+        ((φ rev
+           ((φ reverse
+              (reverse (list ((Succ Zero)
+                              ((Succ (Succ Zero))
+                               ((Succ (Succ (Succ Zero)))
+                                ◊))))))
+            (fix (φ reverse (φ xs (rev (xs Nil)))))))
+         (fix (φ rev
+                ($ (φ (Nil a) a)
+                   (φ ((Cons ($ y ys)) a) (rev (ys (Cons ($ y a))))))))))
+      (fix (φ list ($ (μ (x ◊) (Cons ($ x Nil)))
+                      (μ (x xs) (Cons ($ x (list xs)))))))))
+   (φ f
+     ((φ x (f (φ y ((x x) y))))
+      (φ x (f (φ y ((x x) y)))))))
+]
+
+@subsection[#:tag "tut:core:closing"]{Closing Remarks}
+
+This concludes our first foray into interpreter construction with
+@list[algebraic-mod]. In the next installment, we'll extend the surface syntax
+for a more realistic look and feel.
+
+@; @; =============================================================================
+
+@; @section[#:tag "tut:ext"]{A Syntax Extension}
+
+@; @defmodulelang[algebraic/model/ext]
+
+@; @; =============================================================================
+
+@; @section[#:tag "tut:hosted"]{A Hosted Variant}
+
+@; @defmodulelang[algebraic/model/hosted]

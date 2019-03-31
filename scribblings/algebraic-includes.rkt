@@ -56,6 +56,11 @@
 (define-ids Bool False True)
 (define-ids+ "." Bool False True)
 
+;;; Lists
+
+(define-ids List Nil Cons)
+(define-ids+ "." List Nil Cons)
+
 ;;; Rule Names (small caps)
 
 (define-simple-macro (define-sc-ids name:id ...+)
