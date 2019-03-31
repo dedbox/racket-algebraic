@@ -230,10 +230,12 @@ formal syntax onto @Patt. Parsing always starts and ends with a single term.
 
 In the patterns of these @tech{functions}, some symbols are quoted while
 others are not. The Greek symbols are quoted because @id[φ] and @id[μ] are
-actually lowercase letters and we don't want them to behave like variables.
-The underscore is quoted because an unquoted @id[_] is a wildcard pattern for
-the enclosing @racket[function] form. Quoting is optional for @id[$] and
-@id[◊] because neither is an uppercase or lowercase character.
+lowercase letters. In a @tech{function} pattern, an unquoted name that begins
+with a lowercase letter is a variable name, and we don't want these two to
+behave like variables. The @id[_] is also quoted because an unquoted name that
+begins with an underscore is a wildcard pattern. Quoting is optional for
+@id[$] and @id[◊] because neither begin with a lowercase character or
+underscore.
 
 For other symbols, we need a way to tell constructor names from variable
 names. Inspecting characters is too low level for s-expression parsing, so
