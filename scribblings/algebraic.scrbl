@@ -20,7 +20,7 @@ with uniform and compact destructuring syntax.
 
 @hash-lang[algebraic/racket/base] synthesizes and specializes the
 functionality of @racket[struct], @racket[match-lambda], and
-@racket[syntax-parser] to streamline the funtional programming experience in
+@racket[syntax-parser] to streamline the functional programming experience in
 vanilla Racket in two key areas:
 
 @subsubsub*section{Consistent Syntax}
