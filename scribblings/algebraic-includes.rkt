@@ -1,6 +1,9 @@
 #lang racket/base
 
-(require racket/sandbox
+(require (except-in pict table)
+         racket/class
+         racket/draw
+         racket/sandbox
          scribble/core
          scribble/examples
          scribble/html-properties
@@ -41,9 +44,12 @@
 (define-ids Patt  PApp  PSeq  PWil  PVar  PCon  PUni )
 (define-ids Patt? PApp? PSeq? PWil? PVar? PCon? PUni?)
 
-(define-ids+ "s" Term Patt)
 (define-ids+ "." Term TApp TSeq TFun TMac TVar TCon TUni)
+(define-ids+ "s" Term TApp TSeq TFun TMac TVar TCon TUni)
+(define-ids+ "s." Term TApp TSeq TFun TMac TVar TCon TUni)
 (define-ids+ "." Patt PApp PSeq PWil PVar PCon PUni)
+(define-ids+ "s" Patt PApp PSeq PWil PVar PCon PUni)
+(define-ids+ "s." Patt PApp PSeq PWil PVar PCon PUni)
 
 ;;; Peano Arithmetic
 
@@ -159,6 +165,11 @@
 (define-syntax-rule (ext-example expr ...)
   (examples #:eval ext-eval #:label #f expr ...))
 
+(define-simple-macro (ext-code str ...)
+  ;; #:with stx (datum->syntax #f 1)
+  (typeset-code #:context #'stx
+                "#lang algebraic/model/ext\n\n" str ...))
+
 ; hosted eval
 
 (define hosted-eval
@@ -194,6 +205,9 @@
 (define (subsubsection* #:tag [tag #f] . args)
   (apply subsubsection #:tag tag #:style '(unnumbered toc-hidden) args))
 
+(define (inset . args)
+  (nested-flow (style 'inset null) (list (paragraph plain args))))
+
 (define full-width
   (make-style "fullwidth"
               (list (make-css-addition "scribblings/css/fullwidth.css"))))
@@ -201,6 +215,10 @@
 (define grammar-style
   (make-style "grammar"
               (list (make-css-addition "scribblings/css/grammar.css"))))
+
+(define brackets
+  (make-style "brackets"
+              (list (make-css-addition "scribblings/css/brackets.css"))))
 
 (define (grammar name . rules)
   (tabular
@@ -214,3 +232,29 @@
          null
          (cons (list fst snd (caar rules) (list (hspace 4) (cadar rules)))
                (loop "" "|" (cdr rules)))))))
+
+; oversized parentheses
+
+(define rm-font (make-object font% 55 "CMU Serif" 'roman))
+
+(define (center-descent p)
+  (struct-copy pict p
+               [ascent (+ (/ (pict-height p) 2) 5.25)]
+               [descent (- (/ (pict-height p) 2) 5.25)]))
+
+(define LP
+  (center-descent
+   (inset/clip (scale-to-fit (text "(" rm-font) (blank 80 55)) 0 -7 0 0)))
+
+(define RP
+  (center-descent
+   (inset/clip (scale-to-fit (text ")" rm-font) (blank 80 55)) 0 -7 0 0)))
+
+;;; Extended Syntax
+
+(define-simple-macro (abs name [p ...+ t] ...)
+  (tabular
+   (list (list name (tabular
+                     #:style brackets
+                     #:column-properties '(center)
+                     (list (list p ... t) ...))))))

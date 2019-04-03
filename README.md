@@ -52,9 +52,9 @@ sorted.
 ```
 
 The products `Just` and `Nothing` can be matched against directly or they
-can be used to construct instances. An instance is a transparent data
-structure that resembles a tagged tuple.
+can be used to construct instances of the products.
 
+An instance is a transparent data structure that resembles a tagged tuple.
 Algebraic Racket imposes no restrictions on the type or number of
 arguments accepted by a product.
 
@@ -114,7 +114,9 @@ Other notable features include:
   macro forms.
 
 - Macros also support ellipsis patterns and the `:syntax-class` naming
-  convention.
+  convention. Use
+  [`syntax/parse`](https://docs.racket-lang.org/syntax/stxparse.html?q=syntax%2Fparse)
+  to define your own classes.
 
 - Regular expression patterns for functional string processing.
 
@@ -140,8 +142,6 @@ The package is fully documented, including a tutorial series of
 interpreters developed for and with Algebraic Racket.
 
 ## Related Work
-
-Why not just use `<something else that isn't Haskell>`?
 
 ### Plain old Racket structs
 

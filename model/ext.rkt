@@ -5,16 +5,18 @@
                     parse show algebraic))
 
 (provide #%app #%datum
-         (rename-out [module-begin #%module-begin]
-                     [top-interaction #%top-interaction])
+         (rename-out [ext-module-begin #%module-begin]
+                     [ext-top-interaction #%top-interaction])
          (all-defined-out)
          (for-syntax (all-defined-out)))
 
-(define-syntax-rule (module-begin form ...)
-  (#%plain-module-begin (pretty-write (algebraic form)) ...))
+(define-syntax ext-module-begin
+  (μ* (form ...)
+    (#%plain-module-begin ((current-print) (algebraic form)) ...)))
 
-(define-syntax-rule (top-interaction . form)
-  (#%top-interaction . (algebraic form)))
+(define-syntax ext-top-interaction
+  (μ* form
+    (#%top-interaction . (algebraic form))))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Syntax
@@ -23,73 +25,65 @@
   (define term
     (function
       ['fix (term '(φ f (φ x f φ y (x x) y) (φ x f φ y (x x) y)))]
-      [('fun [p . ts]) (term `(φ ,p ,@ts))]
-      [('mac [p . ts]) (term `(μ ,p ,@ts))]
+      [('fun [p . t]) (term `(φ ,p ,@t))]
+      [('mac [p . t]) (term `(μ ,p ,@t))]
       [('fun c . cs) (TSeq (term `(fun ,c)) (term `(fun ,@cs)))]
       [('mac c . cs) (TSeq (term `(mac ,c)) (term `(mac ,@cs)))]
       [('let () . body) (term body)]
-      [('let ([p . ts] . cs) . body) (term `((φ ,p let ,cs ,@body) ,@ts))]
+      [('let ([p . t] . cs) . body) (term `((φ ,p let ,cs ,@body) ,@t))]
       [('letrec () . body) (term body)]
-      [('letrec ([p . ts] . cs) . body) (term `((φ ,p letrec ,cs ,@body) fix φ ,p ,@ts))]
-      [($ t1 t2 . ts) (TSeq (term t1) (term `($ ,t2 ,@ts)))]
-      [($ t1) (term t1)]
+      [('letrec ([p . t] . cs) . body)
+       (term `((φ ,p letrec ,cs ,@body) fix φ ,p ,@t))]
       [('φ p1 . t2) (values-> TFun (α-rename (patt p1) (term t2)))]
       [('μ p1 . t2) (values-> TMac (α-rename (patt p1) (term t2)))]
-      [(t1 t2 . ts) (TApp (term t1) (term (cons t2 ts)))]
+      [($ t1 t2 . ts) (TSeq (term t1) (term `($ ,t2 ,@ts)))]
+      [($ t1) (term t1)]
+      [(t1 t2 . ts) (TApp (term t1) (term `(,t2 ,@ts)))]
       [(t1) (term t1)]
-      [x #:if (and (symbol? x) (char-lower-case? (first-char x))) (TVar x)]
-      [x #:if (and (symbol? x) (char-upper-case? (first-char x))) (TCon x)]
+      [x #:if (con-name? x) (TCon x)]
+      [x #:if (var-name? x) (TVar x)]
       [◊ TUni]))
   (define patt
     (function
-      [($ p1) (patt p1)]
       [($ p1 p2 . ps) (PSeq (patt p1) (patt `($ ,p2 ,@ps)))]
-      [(  p1) (patt p1)]
-      [(  p1 p2 . ps) (PApp (patt p1) (patt `(  ,p2 ,@ps)))]
+      [($ p1) (patt p1)]
+      [(p1 p2 . ps) (PApp (patt p1) (patt `(  ,p2 ,@ps)))]
+      [(p1) (patt p1)]
+      [x #:if (con-name? x) (PCon x)]
+      [x #:if (var-name? x) (PVar x)]
       ['_ PWil]
-      [◊ PUni]
-      [x #:if (and (symbol? x) (char-lower-case? (first-char x))) (PVar x)]
-      [x #:if (and (symbol? x) (char-upper-case? (first-char x))) (PCon x)]))
+      [◊ PUni]))
   (term t))
 
 (define (show a)
   (define term
     (function
-      [(TSeq (TFun _ _) _) #:as t `(fun ,@(show-fun t))]
-      [(TSeq (TMac _ _) _) #:as t `(mac ,@(show-mac t))]
+      [(TSeq (TFun _ _) _) #:as t `(fun ,@(fun->list t))]
+      [(TSeq (TMac _ _) _) #:as t `(mac ,@(mac->list t))]
       [(TSeq _ _) #:as t `($ ,@(seq->list t))]
       [(TApp _ _) #:as t (app->list t)]
       [(TFun p1 t2) `(φ ,(patt p1) ,@(app->list t2))]
       [(TMac p1 t2) `(μ ,(patt p1) ,@(app->list t2))]
-      [(TVar x1) (string->symbol (symbol->string x1))]
+      [(TVar x1) (α-restore x1)]
       [(TCon δ1) δ1]
       [TUni '◊]))
   (define patt
     (function
+      [(PSeq _ _) #:as p `($ ,@(seq->list p))]
       [(PApp _ _) #:as p (app->list p)]
-      [(PSeq _ _) #:as p (seq->list p)]
-      [(PVar x1) (string->symbol (symbol->string x1))]
+      [(PVar x1) (α-restore x1)]
       [(PCon δ1) δ1]
       [PWil '_]
       [PUni '◊]))
-  (define show-mac
-    (function
-      [(TMac p1 t2) `([,(patt p1) ,@(app->list t2)])]
-      [(TSeq t1 t2) (append (show-mac t1) (show-mac t2))]))
-  (define show-fun
+  (define fun->list
     (function
       [(TFun p1 t2) `([,(patt p1) ,@(app->list t2)])]
-      [(TSeq t1 t2) (append (show-fun t1) (show-fun t2))]))
+      [(TSeq t1 t2) (append (fun->list t1) (fun->list t2))]))
+  (define mac->list
+    (function
+      [(TMac p1 t2) `([,(patt p1) ,@(app->list t2)])]
+      [(TSeq t1 t2) (append (mac->list t1) (mac->list t2))]))
   (term a))
-
-;;; ----------------------------------------------------------------------------
-;;; Semantics
-
-(define-syntax algebraic
-  (μ t (show (interpret (parse 't)))))
-
-;;; ----------------------------------------------------------------------------
-;;; Pragmatics
 
 (define app->list
   (function
@@ -102,6 +96,11 @@
     [(TSeq t1 t2) (cons (show t1) (seq->list t2))]
     [(PSeq p1 p2) (cons (show p1) (seq->list p2))]
     [a (list (show a))]))
+
+;;; ----------------------------------------------------------------------------
+;;; Evaluation Semantics
+
+(define-syntax algebraic (μ t (show (interpret (parse 't)))))
 
 ;;; ============================================================================
 

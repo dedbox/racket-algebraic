@@ -16,7 +16,8 @@
     (#%plain-module-begin ((current-print) (algebraic form)) ...)))
 
 (define-syntax core-top-interaction
-  (μ* form (#%top-interaction . (algebraic form))))
+  (μ* form
+    (#%top-interaction . (algebraic form))))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Syntax
@@ -66,8 +67,8 @@
     (function
       [(TApp t1 t2) `(  ,(term t1) ,(term t2))]
       [(TSeq t1 t2) `($ ,(term t1) ,(term t2))]
-      [(TMac p1 t2) `(μ ,(patt p1) ,(term t2))]
       [(TFun p1 t2) `(φ ,(patt p1) ,(term t2))]
+      [(TMac p1 t2) `(μ ,(patt p1) ,(term t2))]
       [(TVar x1) (α-restore x1)]
       [(TCon δ1) δ1]
       [TUni '◊]))
