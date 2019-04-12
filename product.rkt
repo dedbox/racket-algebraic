@@ -38,10 +38,6 @@
                          (syntax->datum (sum-id (product-sum Π))))]
        [else (display (syntax->datum (product-id Π)) port)]))])
 
-;; (define ((product-pred Π1) Π2)
-;;   (or (and (product? Π2) (equal? Π2 Π1))
-;;       (and (instance? Π2) (equal? (instance-product Π2) Π1))))
-
 (begin-for-syntax
   (struct product-transformer (product-id sum-id ord hash1 hash2)
     #:transparent

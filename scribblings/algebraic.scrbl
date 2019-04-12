@@ -250,8 +250,6 @@ exposed.
 
 @include-section["algebraic-tutorials.scrbl"]
 
-@; @section[#:tag "tut"]{Tutorial Series: From Models to Interpreters}
-
 @; =============================================================================
 
 @section[#:tag "ref"]{API Reference}
@@ -349,6 +347,24 @@ exposed.
   @example[
     (data XYZ (X Y Z))
     (sort (list Z Y X) data-less-than?)
+  ]
+}
+
+@defproc[(data->list [arg any/c]) (listof any/c)]{
+
+  If @var[arg] is a @tech{sum}, returns its @tech{products} in the order they
+  were defined.
+
+  If @var[arg] is an @tech{instance}, returns its @tech{constructor} followed
+  by its @tech{fields}.
+
+  Any other @var[arg] is returned as a singleton list.
+
+  @example[
+    (data ABC (A B C))
+    (data->list (sum ABC))
+    (data->list (A 1 2 3))
+    (data->list 123)
   ]
 }
 

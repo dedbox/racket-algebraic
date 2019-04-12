@@ -27,6 +27,11 @@
        (equal? (product-sum Π1) (product-sum Π2))
        (< (product-ord Π1) (product-ord Π2))))
 
+(define (data->list a)
+  (cond [(sum? a) (map eval-syntax (sum-product-ids a))]
+        [(instance? a) (cons (instance-product a) (instance-args a))]
+        [else (list a)]))
+
 (begin-for-syntax
   (define-syntax-class sum-name #:description "sum name" (pattern :id))
   (define-syntax-class product-name #:description "product name" (pattern :id))
@@ -125,6 +130,7 @@
 
 (module+ test
   (require racket/format
+           racket/list
            rackunit
            syntax/macro-testing)
 
@@ -166,8 +172,6 @@
   (test-case "True is the second element of Bool"
     (check equal? (product-sum True) (sum Bool))
     (check = (product-ord True) 1))
-
-  ;; products
 
   (data Maybe (Just Nothing))
 
@@ -249,4 +253,20 @@
     (check-true (data-less-than? False True)))
 
   (test-case "True comes after False"
-    (check-false (data-less-than? True False))))
+    (check-false (data-less-than? True False)))
+
+  ;; data->list
+
+  (data A-Z (A B C D E F G H I J K L M N O P Q R S T U V W X Y Z))
+
+  (define-namespace-anchor ns-anchor)
+  (define ns (namespace-anchor->namespace ns-anchor))
+
+  (test-case "data->list"
+    (parameterize ([current-namespace ns])
+      (check equal?
+             (sort (shuffle (data->list (sum A-Z))) data-less-than?)
+             (list A B C D E F G H I J K L M N O P Q R S T U V W X Y Z))
+      (check equal? (data->list (A 1 2 3)) (list A 1 2 3))
+      (check equal? (data->list '(1 2 3)) '((1 2 3)))
+      (check equal? (data->list 123) '(123)))))

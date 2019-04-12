@@ -37,7 +37,7 @@ sorted.
 
 ```
 > (data A-Z (A B C D E F G H I J K L M N O P Q R S T U V W X Y Z))
-> (let ([Πs (shuffle (data->list A-Z))])
+> (let ([Πs (shuffle (data->list (sum A-Z)))])
     (values Πs (sort Πs data-less-than?)))
 '(G O M W V C Q H T K F S Y U Z A B R J N E P X I L D)
 '(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z)
@@ -45,7 +45,7 @@ sorted.
 
 ```
 > (data Z-A (Z Y X W V U T S R Q P O N M L K J I H G F E D C B A))
-> (let ([Πs (shuffle (data->list Z-A))])
+> (let ([Πs (shuffle (data->list (sum Z-A)))])
     (values Πs (sort Πs data-less-than?)))
 '(R C U N Y Z X L A K D H B J S V E G I W O M P Q F T)
 '(Z Y X W V U T S R Q P O N M L K J I H G F E D C B A)
