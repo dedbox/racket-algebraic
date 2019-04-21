@@ -1,6 +1,6 @@
 #lang scribble/manual
 
-@title[#:style '(toc)]{Algebraic structures for untyped Racket}
+@title[#:style '(toc)]{Algebraic Racket}
 @author{@author+email["Eric Griffis" "dedbox@gmail.com"]}
 
 @require{./algebraic-includes.rkt}
