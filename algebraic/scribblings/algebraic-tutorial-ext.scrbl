@@ -6,7 +6,7 @@
 @require[
   texmath
   @for-label[
-    (except-in algebraic/racket/base fun)
+    algebraic/racket/base
     racket/function
   ]
 ]
@@ -15,22 +15,300 @@ This is the second part of the @secref{tut}.
 
 @defmodulelang[algebraic/model/ext]
 
-In @secref{tut:core}, we built an s-expression interpreter as a small-step term
-evaluator based loosely on the λ-calculus. To help encode complex terms as
-runnable s-expressions, we used a manual term rewriting technique. This time,
-we're going to simplify the surface syntax dramatically by building that
-technique and one more into replacement @id[parse] and @id[print]
-@tech{functions}.
+In @secref{tut:core}, we built an s-expression interpreter as a small-step
+term evaluator based loosely on the λ-calculus. To help encode complex terms
+as runnable s-expressions, we used a manual term rewriting technique. This
+time, we're going to simplify the surface syntax dramatically by building that
+technique and one more into the @id[parse] and @id[print] @tech{functions}.
+
+@subsubsub*section{Syntax}
+
+@tabular[
+  #:style full-width
+  #:column-properties '(center)
+  @list[
+    @list[
+      @tabular[
+        @list[
+          @list[
+            @abs[
+              @list{@${t} ⩴ ⋯ | @${t}⋯@${t} | @${t};⋯;@${t} | φ}
+              [@${p} @${t}]
+              [ "⋮"   "⋮"  ]
+              [@${p} @${t}]
+            ]
+            @abs[
+              @list{@~ | μ}
+              [@${p} @${t}]
+              [ "⋮"   "⋮"  ]
+              [@${p} @${t}]
+            ]
+          ]
+        ]
+      ]
+      @list{@${p} ⩴ ⋯ | @${p}⋯@${p} | @${p};⋯;@${p}}
+    ]
+  ]
+]
+
+@subsubsub*section{Evaluation Semantics}
+
+@tabular[
+  #:style full-width
+  #:column-properties '(center) 
+  @list[
+    @list[
+      @tabular[
+        @list[
+          @list[@list{@${t_1} @${t_2} ⋯ @${t_n} @~ ↝ @~ @${t_1} (@${t_2} ⋯ @${t_n})}]
+          @list[@list{@${t_1};@${t_2};⋯;@${t_n} @~ ↝ @~ @${t_1};(@${t_2};⋯;@${t_n})}]
+        ]
+      ]
+      @tabular[
+        @list[
+          @list[@list{@${p_1} @${p_2} ⋯ @${p_n} @~ ↝ @~ @${p_1} (@${p_2} ⋯ @${p_n})}]
+          @list[@list{@${p_1};@${p_2};⋯;@${p_n} @~ ↝ @~ @${p_1};(@${p_2};⋯;@${p_n})}]
+        ]
+      ]
+    ]
+    @list[
+      @list{@${n} ≥ 2}
+      'cont
+    ]
+    @list[
+      @tabular[
+        @list[
+          @list[
+            @abs[
+              "φ"
+              [@${p_1} @${t_1}]
+              [@${p_2} @${t_2}]
+              [  "⋮"      "⋮"  ]
+              [@${p_n} @${t_n}]
+            ]
+            @~ " ↝ " @~
+            @abs[
+              @list{φ@${p_1}.@${t_1};φ}
+              [@${p_2} @${t_2}]
+              [  "⋮"      "⋮"  ]
+              [@${p_n} @${t_n}]
+            ]
+          ]
+        ]
+      ]
+      @tabular[
+        @list[
+          @list[
+            @abs[
+              "μ"
+              [@${p_1} @${t_1}]
+              [@${p_2} @${t_2}]
+              [  "⋮"      "⋮"  ]
+              [@${p_n} @${t_n}]
+            ]
+            @~ " ↝ " @~
+            @abs[
+              @list{μ@${p_1}.@${t_1};μ}
+              [@${p_2} @${t_2}]
+              [  "⋮"      "⋮"  ]
+              [@${p_n} @${t_n}]
+            ]
+          ]
+        ]
+      ]
+    ]
+  ]
+]
+
+@tabular[
+  #:style full-width
+  #:column-properties '(center)
+  @list[
+    @list[
+      @tabular[
+        @list[
+          @list[
+            @abs["φ" [@${p_1} @${t_1}]]
+            @~ " ↝ " @~
+            @list{φ@${p_1}.@${t_1}}
+          ]
+        ]
+      ]
+      @tabular[
+        @list[
+          @list[
+            @abs["μ" [@${p_1} @${t_1}]]
+            @~ " ↝ " @~
+            @list{μ@${p_1}.@${t_1}}
+          ]
+        ]
+      ]
+    ]
+  ]
+]
+
+@subsubsub*section{Special Forms}
+
+@tabular[
+  #:style full-width
+  #:column-properties '(center)
+  @list[
+    @list[
+      @list{fix = φ@${f}.(φ@${x}.@${f} φ@${y}.(@${x} @${x}) @${y}) (φ@${x}.@${f} φ@${y}.(@${x} @${x}) @${y})}
+    ]
+  ]
+]
+
+@tabular[
+  #:style full-width
+  #:column-properties '(center)
+  @list[
+    @list[
+      @abs[
+        "let ≈ μ"
+        [@list{(@${p} @${t})} @${body} @list{(φ@${p}.@${body}) @${t}}]
+        [@list{(@${p} @${t};@${cs})} @${body} @list{let (@${p} @${t}) let @${cs} @${body}}]
+      ]
+    ]
+  ]
+]
+
+@tabular[
+  #:style full-width
+  #:column-properties '(center)
+  @list[
+    @list[
+      @abs[
+        "letrec ≈ μ"
+        [   @list{(@${p} @${t})}     @${body} @list{let (@${p} fix φ@${p}.@${body}) @${t}}]
+        [@list{(@${p} @${t};@${cs})} @${body} @list{letrec (@${p} @${t}) letrec @${cs} @${body}}]
+      ]
+    ]
+  ]
+]
+
+@subsubsub*section{Example Programs}
+
+@tabular[
+  #:style full-width
+  #:column-properties '(center)
+  @list[
+    @list[
+      @abs[
+        @list{add = φ}
+        [@${a}       @Zero        @${a}]
+        [@${a} @list{@Succ @${b}} @list{@Succ add @${a} @${b}}]
+      ]
+      @abs[
+        @list{mul = φ}
+        [@${a}       @Zero        @Zero]
+        [@${a} @list{@Succ @${b}} @list{add @${a} mul @${a} @${b}}]
+      ]
+    ]
+  ]
+]
+
+@tabular[
+  #:style full-width
+  #:column-properties '(center)
+  @list[
+    @list[
+      @abs[
+        @list{not = φ}
+        [@False @True ]
+        ["_"    @False]
+      ]
+      @tabular[
+        @list[
+          @list[
+            @abs[
+              @list{and = μ(@${a} @${b}).φ}
+              [@False @False]
+              ["_"    @${b} ]
+            ] @${ a}
+          ]
+        ]
+      ]
+    ]
+  ]
+]
+
+@tabular[
+  #:style full-width
+  #:column-properties '(center)
+  @list[
+    @list[
+      @tabular[
+        @list[
+          @list[
+            @abs[
+              @list{or = μ(@${a} @${b}).φ}
+              [@False @${b}]
+              [@${x}  @${x}]
+            ] @${ a}
+          ]
+        ]
+      ]
+      @tabular[
+        @list[
+          @list[
+            @abs[
+              @list{xor = μ(@${a} @${b}).φ}
+              [@False @${b}]
+              [@${x}  @list{and (not @${b}) @${x}}]
+            ] @${ a}
+          ]
+        ]
+      ]
+    ]
+  ]
+]
+
+@tabular[
+  #:style full-width
+  #:column-properties '(center)
+  @list[
+    @list[
+      @abs[
+        @list{list = μ}
+        [@${x} "◊" @list{@Cons(@${x};@Nil)}]
+        [@${x} @${xs} @list{@Cons(@${x};list @${xs})}]
+      ]
+    ]
+  ]
+]
+
+@tabular[
+  #:style full-width
+  #:column-properties '(center)
+  #:cell-properties '((vcenter))
+  @list[
+    @list[
+      @tabular[
+        @list[
+          @list[
+            @abs[
+              @list{reverse = φ@${xs}.letrec @list[LP]@${rev} φ}
+              [           @Nil            @${a} @${a}]
+              [@list{@Cons(@${y};@${ys})} @${a} @list{@${rev} @${ys} @Cons(@${y};@${a})}]
+            ]
+            @list{@RP @${rev} @${xs} @Nil}
+          ]
+        ]
+      ]
+    ]
+  ]
+]
 
 @; =============================================================================
 
 @section[#:tag "tut:ext:syntax"]{The Extended Syntax}
 
-The point of this exercise is to make @secref{tut:core} easier to use. With a
+The point of this extension is to make @secref{tut:core} easier to use. With a
 more forgiving syntax, we can write more substantial programs. To get there,
 we'll implement two simple rewriting tricks. First, we'll eliminate some
-parentheses by generalizing the abstraction, application, and sequence forms to
-more than two clauses or sub-terms. Then, we'll get rid of boilerplate by
+parentheses by generalizing the abstraction, application, and sequence forms
+to any number of clauses or sub-terms. Then, we'll get rid of boilerplate by
 pre-defining @id[let], @id[letrec], and @id[fix] in the parser. Our new
 @id[parse] and @id[print] @tech{functions} will map between the new surface
 syntax and the existing AST, so we can re-use the core @id[interpret]
@@ -43,8 +321,8 @@ syntax and the existing AST, so we can re-use the core @id[interpret]
 We'll be re-using a good chunk of the core interpreter, so it makes sense to
 import those things up front. It's a lot of stuff to keep track of, so we'll
 just import all of @racketmodname[algebraic/model/core] except the forms that
-would clobber Racket's default behavior. We should also exclude the names we'll
-be re-defining.
+would clobber Racket's default behavior. We should also exclude the names
+we'll be re-defining.
 
 @algebraic-code{
   (require (except-in algebraic/model/core
@@ -104,16 +382,16 @@ sequences. If we view these rewrites as premise-less inference rules, or
     (define term
       (function
         ...
-        [($ t1 t2 . ts) (TSeq (term t1) (term `($ ,t2 ,@ts)))]
-        [($ t1) (term t1)]
+        [('$ t1 t2 . ts) (TSeq (term t1) (term `($ ,t2 ,@ts)))]
+        [('$ t1) (term t1)]
         [(t1 t2 . ts) (TApp (term t1) (term `(,t2 ,@ts)))]
         [(t1) (term t1)]
         ...))
     (define patt
       (function
         ...
-        [($ p1 p2 . ps) (PSeq (patt p1) (patt `($ ,p2 ,@ps)))]
-        [($ p1) (patt p1)]
+        [('$ p1 p2 . ps) (PSeq (patt p1) (patt `($ ,p2 ,@ps)))]
+        [('$ p1) (patt p1)]
         [(p1 p2 . ps) (PApp (patt p1) (patt `(  ,p2 ,@ps)))]
         [(p1) (patt p1)]
         ...))
@@ -432,23 +710,23 @@ core constructs.
          (term `((φ ,p letrec ,cs ,@body) fix φ ,p ,@t))]
         [('φ p1 . t2) (values-> TFun (α-rename (patt p1) (term t2)))]
         [('μ p1 . t2) (values-> TMac (α-rename (patt p1) (term t2)))]
-        [($ t1 t2 . ts) (TSeq (term t1) (term `($ ,t2 ,@ts)))]
-        [($ t1) (term t1)]
+        [('$ t1 t2 . ts) (TSeq (term t1) (term `($ ,t2 ,@ts)))]
+        [('$ t1) (term t1)]
         [(t1 t2 . ts) (TApp (term t1) (term `(,t2 ,@ts)))]
         [(t1) (term t1)]
         [x #:if (con-name? x) (TCon x)]
         [x #:if (var-name? x) (TVar x)]
-        [◊ TUni]))
+        ['◊ TUni]))
     (define patt
       (function
-        [($ p1 p2 . ps) (PSeq (patt p1) (patt `($ ,p2 ,@ps)))]
-        [($ p1) (patt p1)]
+        [('$ p1 p2 . ps) (PSeq (patt p1) (patt `($ ,p2 ,@ps)))]
+        [('$ p1) (patt p1)]
         [(p1 p2 . ps) (PApp (patt p1) (patt `(  ,p2 ,@ps)))]
         [(p1) (patt p1)]
         [x #:if (con-name? x) (PCon x)]
         [x #:if (var-name? x) (PVar x)]
         ['_ PWil]
-        [◊ PUni]))
+        ['◊ PUni]))
     (term t))
 }|
 
@@ -624,11 +902,14 @@ the core @id[interpret] @tech{function} in a new @id[algebraic] form.
   (define-syntax algebraic (μ t (show (interpret (parse 't)))))
 }|
 
-Second, we need a @racketidfont{lang/reader} module enabling
+Second, we need a @racketidfont{reader} sub-module enabling
 @hash-lang[algebraic/model/ext] as a @gtech{module language} with the default
 s-expression @gtech{reader}.
 
-@typeset-code{#lang s-exp syntax/module-reader algebraic/model/ext}
+@algebraic-code{
+  (module reader syntax/module-reader
+    algebraic/model/ext)
+}
 
 And that completes the extended interpreter. Let's kick the tires.
 
@@ -690,17 +971,25 @@ Before the ``add'' function takes control, its argument list (@Zero mul @Zero
   #:style 'ordered
 
   @item{@Zero is already a value---a constructor. Evaluation continues
-  @emph{down} the rest of the argument list: (mul @Zero @Zero).}
+  @emph{down} the rest of the argument list:
+
+  @centered{(mul @Zero @Zero)}}
 
   @item{The name ``mul'' reduces to an anonymous function. The argument list is
-  now ((φ mul ...) @Zero @Zero).}
+  now:
+
+  @centered{((φ mul ...) @Zero @Zero)}}
 
   @item{The trailing @Zeros are already values. Every element of the argument
   list is now known to be a value. Evaluation continues back @emph{up} the
-  argument list, which is still ((φ mul ...) @Zero @Zero).}
+  argument list, which hasn't changed:
+
+  @centered{((φ mul ...) @Zero @Zero)}}
 
   @item{((φ mul ...) @Zero @Zero) reduces to @Zero. Evaluation continues back
-  @emph{up} the argument list, which is now @Zero.}
+  @emph{up} the argument list:
+
+  @centered{(@Zero @Zero)}}
 
   @item{The argument list (@Zero @Zero) is now fully evaluated.}
 
@@ -760,6 +1049,13 @@ These definitions are a lot more realistic. They almost look like real
         ]
       ]
     ]
+  ]
+]
+
+@tabular[
+  #:style full-width
+  #:column-properties '(center)
+  @list[
     @list[
       @tabular[
         @list[
@@ -823,7 +1119,8 @@ itself. When we align patterns and terms vertically like this, the structural
 similarities and differences across clauses stand out.
 
 @ext-example[
-  (letrec ([list mac [(x ◊) Cons $ x Nil] [(x xs) Cons $ x (list xs)]])
+  (letrec ([list mac [(x  ◊) Cons $ x       Nil]
+                     [(x xs) Cons $ x (list xs)]])
     list (Succ Zero) (Succ Succ Zero) (Succ Succ Succ Zero) ◊)
 ]
 

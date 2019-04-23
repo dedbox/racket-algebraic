@@ -39,15 +39,3 @@ github}.
 @include-section["algebraic-tutorial-core.scrbl"]
 @include-section["algebraic-tutorial-ext.scrbl"]
 @include-section["algebraic-tutorial-host.scrbl"]
-
-@; @; =============================================================================
-
-@; @section[#:tag "tut:ext"]{A Syntax Extension}
-
-@; @defmodulelang[algebraic/model/ext]
-
-@; @; =============================================================================
-
-@; @section[#:tag "tut:hosted"]{A Hosted Variant}
-
-@; @defmodulelang[algebraic/model/hosted]

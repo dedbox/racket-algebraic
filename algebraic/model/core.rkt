@@ -7,17 +7,21 @@
 
 (provide (all-defined-out)
          (for-syntax (all-defined-out))
-         (rename-out [core-module-begin #%module-begin]
-                     [core-top-interaction #%top-interaction])
-         #%app #%datum)
+         #%app #%datum
+         (rename-out
+          [core-module-begin #%module-begin]
+          [core-top-interaction #%top-interaction]))
 
 (define-syntax core-module-begin
   (μ* (form ...)
-    (#%plain-module-begin ((current-print) (algebraic form)) ...)))
+    (#%module-begin (algebraic form) ...)))
 
 (define-syntax core-top-interaction
   (μ* form
     (#%top-interaction . (algebraic form))))
+
+(module reader syntax/module-reader
+  algebraic/model/core)
 
 ;;; ----------------------------------------------------------------------------
 ;;; Syntax
@@ -30,35 +34,28 @@
 (define (parse t)
   (define term
     (function
-      [(  t1 t2) (TApp (term t1) (term t2))]
-      [($ t1 t2) (TSeq (term t1) (term t2))]
+      [(   t1 t2) (TApp (term t1) (term t2))]
+      [('$ t1 t2) (TSeq (term t1) (term t2))]
       [('φ p1 t2) (values-> TFun (α-rename (patt p1) (term t2)))]
       [('μ p1 t2) (values-> TMac (α-rename (patt p1) (term t2)))]
       [x #:if (con-name? x) (TCon x)]
       [x #:if (var-name? x) (TVar x)]
-      [◊ TUni]))
+      ['◊ TUni]))
   (define patt
     (function
-      [(  p1 p2) (PApp (patt p1) (patt p2))]
-      [($ p1 p2) (PSeq (patt p1) (patt p2))]
+      [(   p1 p2) (PApp (patt p1) (patt p2))]
+      [('$ p1 p2) (PSeq (patt p1) (patt p2))]
       [x #:if (con-name? x) (PCon x)]
       [x #:if (var-name? x) (PVar x)]
       ['_ PWil]
-      [◊ PUni]))
+      ['◊ PUni]))
   (term t))
 
-(define-syntax values->
-  (μ* (f xs-expr)
-    (call-with-values (λ () xs-expr) f)))
+(define-syntax values-> (μ* (f xs-expr) (call-with-values (λ () xs-expr) f)))
 
-(define (con-name? x)
-  (and (symbol? x) (char-upper-case? (first-char x))))
-
-(define (var-name? x)
-  (and (symbol? x) (char-lower-case? (first-char x))))
-
-(define (first-char s)
-  (string-ref (symbol->string s) 0))
+(define (con-name? x) (and (symbol? x) (char-upper-case? (first-char x))))
+(define (var-name? x) (and (symbol? x) (char-lower-case? (first-char x))))
+(define (first-char s) (string-ref (symbol->string s) 0))
 
 ;;; The Printer
 
@@ -102,8 +99,7 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Evaluation Semantics
 
-(define-syntax algebraic
-  (μ t (show (interpret (parse 't)))))
+(define-syntax algebraic (μ t (show (interpret (parse 't)))))
 
 (define-syntax define-interpreter
   (μ* ((name:id t:id) step-expr ...+)
@@ -122,9 +118,7 @@
   (step t))
 
 (define-syntax define-stepper
-  (μ* (stepper-name:id
-       (order:id ...+)
-       [step-name:id pattern:fun-patt result] ...+)
+  (μ* (stepper-name:id (order:id ...+) [step-name:id pattern result] ...+)
     (begin
       (define (stepper-name t) (or (order t) ...))
       (define step-name (function [pattern result] [_ #f]))

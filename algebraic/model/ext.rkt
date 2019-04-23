@@ -4,19 +4,23 @@
                     #%app #%datum #%module-begin #%top-interaction
                     parse show algebraic))
 
-(provide #%app #%datum
-         (rename-out [ext-module-begin #%module-begin]
-                     [ext-top-interaction #%top-interaction])
-         (all-defined-out)
-         (for-syntax (all-defined-out)))
+(provide (all-defined-out)
+         (for-syntax (all-defined-out))
+         #%app #%datum
+         (rename-out
+          [ext-module-begin #%module-begin]
+          [ext-top-interaction #%top-interaction]))
 
 (define-syntax ext-module-begin
   (μ* (form ...)
-    (#%plain-module-begin ((current-print) (algebraic form)) ...)))
+    (#%module-begin (algebraic form) ...)))
 
 (define-syntax ext-top-interaction
   (μ* form
     (#%top-interaction . (algebraic form))))
+
+(module reader syntax/module-reader
+  algebraic/model/ext)
 
 ;;; ----------------------------------------------------------------------------
 ;;; Syntax
@@ -36,23 +40,23 @@
        (term `((φ ,p letrec ,cs ,@body) fix φ ,p ,@t))]
       [('φ p1 . t2) (values-> TFun (α-rename (patt p1) (term t2)))]
       [('μ p1 . t2) (values-> TMac (α-rename (patt p1) (term t2)))]
-      [($ t1 t2 . ts) (TSeq (term t1) (term `($ ,t2 ,@ts)))]
-      [($ t1) (term t1)]
+      [('$ t1 t2 . ts) (TSeq (term t1) (term `($ ,t2 ,@ts)))]
+      [('$ t1) (term t1)]
       [(t1 t2 . ts) (TApp (term t1) (term `(,t2 ,@ts)))]
       [(t1) (term t1)]
       [x #:if (con-name? x) (TCon x)]
       [x #:if (var-name? x) (TVar x)]
-      [◊ TUni]))
+      ['◊ TUni]))
   (define patt
     (function
-      [($ p1 p2 . ps) (PSeq (patt p1) (patt `($ ,p2 ,@ps)))]
-      [($ p1) (patt p1)]
+      [('$ p1 p2 . ps) (PSeq (patt p1) (patt `($ ,p2 ,@ps)))]
+      [('$ p1) (patt p1)]
       [(p1 p2 . ps) (PApp (patt p1) (patt `(  ,p2 ,@ps)))]
       [(p1) (patt p1)]
       [x #:if (con-name? x) (PCon x)]
       [x #:if (var-name? x) (PVar x)]
       ['_ PWil]
-      [◊ PUni]))
+      ['◊ PUni]))
   (term t))
 
 (define (show a)

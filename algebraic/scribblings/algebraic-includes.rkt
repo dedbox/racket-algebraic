@@ -97,7 +97,7 @@
      (parameterize
          ([sandbox-output 'string]
           [sandbox-error-output 'string])
-       (make-base-eval #:lang 'algebraic/racket/base
+       (make-base-eval #:lang 'algebraic/racket/base/lang
                        '(require (for-syntax syntax/parse)
                                  racket/function))))))
 
@@ -120,19 +120,17 @@
           [sandbox-error-output 'string])
        (make-base-eval #:lang 'algebraic/model/core)))))
 
+(define-syntax-rule (core-example expr ...)
+  (examples #:eval core-eval #:label #f expr ...))
+
 (define-simple-macro (core-code str ...)
   #:with stx (datum->syntax #f 1)
   (typeset-code #:context #'stx
-                "#lang algebraic/model/core\n\n" str ...))
+                #:keep-lang-line? #f
+                "#lang algebraic/model/core\n" str ...))
 
 ;; (define-syntax-rule (core-code expr ...)
 ;;   (examples #:eval core-eval #:label #f #:no-prompt #:no-result expr ...))
-
-;; (define-syntax-rule (core-example expr ...)
-;;   (examples #:eval core-eval #:label #f expr ...))
-
-(define-simple-macro (core-example expr ...)
-  (examples #:eval core-eval #:label #f expr ...))
 
 ; core-mod eval
 
@@ -142,15 +140,19 @@
      (parameterize
          ([sandbox-output 'string]
           [sandbox-error-output 'string])
-       (make-base-eval #:lang 'algebraic/racket/base
-                       '(require (except-in algebraic/model/core
-                                            #%module-begin #%top-interaction
-                                            #%datum #%app)
-                                 racket/format
-                                 racket/set))))))
+       (make-base-eval
+        #:lang 'algebraic/racket/base/lang
+        '(require (except-in algebraic/model/core
+                             #%app #%datum #%module-begin #%top-interaction)
+                  racket/format
+                  racket/set))))))
 
-(define-syntax-rule (core-mod-example expr ...)
-  (examples #:eval core-mod-eval #:label #f expr ...))
+(define-syntax (core-mod-example stx)
+  (syntax-case stx ()
+    [(_ e ...)
+     (with-syntax ([(e* ...) (map (λ (e) (datum->syntax #f (syntax->datum e)))
+                                  (syntax-e #'(e ...)))])
+       #'(examples #:eval core-mod-eval #:label #f e* ...))]))
 
 ; ext eval
 
@@ -166,25 +168,26 @@
   (examples #:eval ext-eval #:label #f expr ...))
 
 (define-simple-macro (ext-code str ...)
-  ;; #:with stx (datum->syntax #f 1)
+  #:with stx (datum->syntax #f 1)
   (typeset-code #:context #'stx
-                "#lang algebraic/model/ext\n\n" str ...))
+                #:keep-lang-line? #f
+                "#lang algebraic/model/ext\n" str ...))
 
-; hosted eval
+; host eval
 
-(define hosted-eval
-  (call-with-trusted-sandbox-configuration
-   (λ ()
-     (parameterize
-         ([sandbox-output 'string]
-          [sandbox-error-output 'string])
-       (make-base-eval #:lang 'algebraic/model/hosted)))))
+;; (define host-eval
+;;   (call-with-trusted-sandbox-configuration
+;;    (λ ()
+;;      (parameterize
+;;          ([sandbox-output 'string]
+;;           [sandbox-error-output 'string])
+;;        (make-base-eval #:lang 'algebraic/model/host)))))
 
-(define-syntax-rule (hosted-example expr ...)
-  (examples #:eval hosted-eval #:label #f expr ...))
+;; (define-syntax-rule (host-example expr ...)
+;;   (examples #:eval host-eval #:label #f expr ...))
 
-(define-syntax-rule (hosted-codeblock expr ...)
-  (examples #:eval hosted-eval #:label #f #:no-prompt #:no-result expr ...))
+;; (define-syntax-rule (host-codeblock expr ...)
+;;   (examples #:eval host-eval #:label #f #:no-prompt #:no-result expr ...))
 
 ; odds and ends
 

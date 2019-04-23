@@ -1,11 +1,10 @@
 #lang info
 
-(define collection "algebraic")
+(define collection 'multi)
 (define deps '("base"))
-(define build-deps '("racket-doc"
-                     "rackunit-doc"
+(define build-deps '("draw-lib"
+                     "pict-lib"
+                     "racket-doc"
                      "rackunit-lib"
                      "sandbox-lib"
-                     "scribble-lib"
-                     "texmath"))
-(define scribblings '(("scribblings/algebraic.scrbl" (multi-page))))
+                     "scribble-lib"))

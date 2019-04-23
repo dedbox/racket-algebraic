@@ -1,26 +1,30 @@
 #lang algebraic/racket/base
 
 (require (only-in algebraic/model/core
-                  define-stepper values-> first-char genvar)
+                  define-interpreter define-stepper values-> first-char genvar)
          racket/contract/base
          racket/hash
          racket/set
          racket/string
          (for-syntax syntax/parse))
 
-(provide #%app #%datum
-         (rename-out [hosted-module-begin #%module-begin]
-                     [hosted-top-interaction #%top-interaction])
-         (all-defined-out)
-         (for-syntax (all-defined-out)))
+(provide (all-defined-out)
+         (for-syntax (all-defined-out))
+         #%app #%datum
+         (rename-out
+          [host-module-begin #%module-begin]
+          [host-top-interaction #%top-interaction]))
 
-(define-syntax hosted-module-begin
+(define-syntax host-module-begin
   (μ* (form ...)
-    (#%plain-module-begin ((current-print) (algebraic form)) ...)))
+    (#%module-begin (algebraic form) ...)))
 
-(define-syntax hosted-top-interaction
+(define-syntax host-top-interaction
   (μ* form
     (#%top-interaction . (algebraic form))))
+
+(module reader syntax/module-reader
+  algebraic/model/host)
 
 ;;; ----------------------------------------------------------------------------
 ;;; Syntax
@@ -41,13 +45,13 @@
       [('let ([p . ts] . cs) . body) (term `((φ ,p let ,cs ,@body) ,@ts))]
       [('letrec () . body) (term body)]
       [('letrec ([p . ts] . cs) . body) (term `((φ ,p letrec ,cs ,@body) fix φ ,p ,@ts))]
-      [($ t1 t2 . ts) (TSeq (term t1) (term `($ ,t2 ,@ts)))]
-      [($ t1) (term t1)]
+      [('$ t1 t2 . ts) (TSeq (term t1) (term `($ ,t2 ,@ts)))]
+      [('$ t1) (term t1)]
       [('φ p1 . t2) (values-> TFun (α-rename (patt p1) (term t2)))]
       [('μ p1 . t2) (values-> TMac (α-rename (patt p1) (term t2)))]
       [(t1 t2 . ts) (TApp (term t1) (term (cons t2 ts)))]
       [(t1) (term t1)]
-      [◊ TUni]
+      ['◊ TUni]
       ['= (TPro '= =)]
       ['> (TPro '> >)]
       ['< (TPro '< <)]
@@ -69,17 +73,17 @@
 
   (define patt
     (function
-      [($ p1 p2 . ps) (PSeq (patt p1) (patt `($ ,p2 ,@ps)))]
-      [($ p1) (patt p1)]
-      [(  p1 'if . t2) (PGua (patt p1) (term t2))]
-      [(  p1  p2 . ps) (PApp (patt p1) (patt `(,p2 ,@ps)))]
-      [(  p1) (patt p1)]
+      [('$ p1 p2 . ps) (PSeq (patt p1) (patt `($ ,p2 ,@ps)))]
+      [('$ p1) (patt p1)]
+      [(p1 'if . t2) (PGua (patt p1) (term t2))]
+      [(p1  p2 . ps) (PApp (patt p1) (patt `(,p2 ,@ps)))]
+      [(p1) (patt p1)]
       ['_ PWil]
-      [◊ PUni]
-      [+ (PPro '+)]
-      [- (PPro '-)]
-      [* (PPro '*)]
-      [/ (PPro '/)]
+      ['◊ PUni]
+      ['+ (PPro '+)]
+      ['- (PPro '-)]
+      ['* (PPro '*)]
+      ['/ (PPro '/)]
       [x #:if (and (symbol? x) (char-lower-case? (first-char x))) (PVar x)]
       [x #:if (and (symbol? x) (char-upper-case? (first-char x))) (PCon x)]
       [n #:if (number? n) (PLit n)]
@@ -154,17 +158,12 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Semantics
 
-(define-syntax algebraic
-  (μ t (show (interpret (parse 't)))))
+(define-syntax algebraic (μ t (show (interpret (parse 't)))))
 
 (define interpret
   (function
     [v #:if (value? v) v]
-    [t
-     ;; (writeln (show t))
-     (interpret
-      (or (step t)
-          (error 'interpret "stuck at ~v" (show t))))]))
+    [t (interpret (or (step t) (error 'interpret "stuck at ~v" (show t))))]))
 
 (define (value? t)
   (or (equal? TUni t) ((or/c φ? μ? data? literal?) t)))
