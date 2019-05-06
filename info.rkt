@@ -7,4 +7,5 @@
                      "racket-doc"
                      "rackunit-lib"
                      "sandbox-lib"
-                     "scribble-lib"))
+                     "scribble-lib"
+                     "texmath"))
