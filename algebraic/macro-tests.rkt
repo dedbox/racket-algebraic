@@ -287,4 +287,13 @@
     (check-OK* (μ* xs (and (andmap (λ (y) (= y 1)) 'xs) OK)) 1 1 1 1 1)
     (check-OK* (mu* xs (and (andmap (λ (y) (= y 1)) 'xs) OK)) 1 1 1 1 1)
     (check-OK* (macro* [xs (and (andmap (λ (y) (= y 1)) 'xs) OK)]) 1 1 1 1 1)
-    (let-syntax ([m (μ* _ OK)]) (check equal? m OK))))
+    (let-syntax ([m (μ* _ OK)]) (check equal? m OK)))
+
+  (test-case "options"
+    (check-OK (μ #:datum-literals (!!) !! OK) !!)
+    (check-OK (mu #:datum-literals (!!) !! OK) !!)
+    (check-OK* (μ* #:datum-literals (<<) (_ << x) x) 1 << OK)
+    (check-OK* (mu* #:datum-literals (<<) (_ << x) x) 1 << OK)
+    (check-OK* (macro #:datum-literals (<- >>) [(<- _) #f] [(>> x) x]) (>> OK))
+    (check-OK* (macro* #:datum-literals (<- >>) [(<- _) #f] [(>> x) x]) >> OK)
+    (check-not-OK (μ #:datum-literals (!!) !! OK) '!! #rx"expected the literal symbol `!!'")))

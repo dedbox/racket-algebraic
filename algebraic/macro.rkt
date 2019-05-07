@@ -28,13 +28,60 @@
 (define macro? mac?)
 
 (begin-for-syntax
-  (define (make-macro type clauses)
-    #`(syntax-parser
-        #,@(map (make-clause (λ (a) #`(_ #,(argument a)))) (syntax-e clauses))))
+  (define (make-μ type options+clause)
+    (let ([options+clause* (syntax-e options+clause)])
+      (let ([options (skip-clauses options+clause*)]
+            [clause (datum->syntax options+clause (skip-options options+clause*))])
+        #`(syntax-parser
+            #,@options
+            #,((make-clause (λ (a) #`(_ #,(argument a)))) clause)))))
 
-  (define (make-macro* type clauses)
-    (with-syntax ([(clause ...) (map (make-clause formals) (syntax-e clauses))])
-      #'(syntax-parser #:literals (quote quasiquote unquote) clause ...)))
+  (define (make-μ* type options+clause)
+    (let ([options+clause* (syntax-e options+clause)])
+      (let ([options (skip-clauses options+clause*)]
+            [clause (datum->syntax options+clause (skip-options options+clause*))])
+        (with-syntax ([clause ((make-clause formals) clause)])
+          #`(syntax-parser #,@options clause)))))
+
+  (define (make-macro type options+clauses)
+    (let ([options+clauses* (syntax-e options+clauses)])
+      (let ([options (skip-clauses options+clauses*)]
+            [clauses (skip-options options+clauses*)])
+        #`(syntax-parser
+            #,@options
+            #,@(map (make-clause (λ (a) #`(_ #,(argument a)))) clauses)))))
+
+  (define (make-macro* type options+clauses)
+    (let ([options+clauses* (syntax-e options+clauses)])
+      (let ([options (skip-clauses options+clauses*)]
+            [clauses (skip-options options+clauses*)])
+        (with-syntax ([(clause ...) (map (make-clause formals) clauses)])
+          #`(syntax-parser #,@options clause ...)))))
+
+  (define (skip-clauses options+clauses*)
+    (let ([next (next-option options+clauses*)])
+      (if (not next) null (append (car next) (skip-clauses (cdr next))))))
+
+  (define (skip-options options+clauses*)
+    (let ([next (next-option options+clauses*)])
+      (if next (skip-options (cdr next)) options+clauses*)))
+
+  (define (next-option options+clauses*)
+    (and (keyword-syntax? (car options+clauses*))
+         (case (keyword-syntax->string (car options+clauses*))
+           [("track-literals"
+             "disable-colon-notation")
+            (cons (list (car options+clauses*)) (cdr options+clauses*))]
+           [("context"
+             "literals"
+             "datum-literals"
+             "literal-sets"
+             "conventions"
+             "local-conventions")
+            (cons (list (car options+clauses*)
+                        (cadr options+clauses*))
+                  (cddr options+clauses*))]
+           [else #f])))
 
   (define ((make-clause maker) clause)
     (let* ([clause* (syntax-e clause)]
@@ -167,27 +214,33 @@
 
 (define-syntax (μ stx)
   (syntax-case stx (...)
-    [(_ . clause) #`(mac (quote-syntax #,stx) #,(make-macro 'μ #'(clause)))]))
+    [(_ . options+clause)
+     #`(mac (quote-syntax #,stx) #,(make-μ 'μ #'options+clause))]))
 
 (define-syntax (mu stx)
   (syntax-case stx ()
-    [(_ . clause) #`(mac (quote-syntax #,stx) #,(make-macro 'mu #'(clause)))]))
+    [(_ . options+clause)
+     #`(mac (quote-syntax #,stx) #,(make-μ 'mu #'options+clause))]))
 
 (define-syntax (macro stx)
   (syntax-case stx ()
-    [(_ . clauses) #`(mac (quote-syntax #,stx) #,(make-macro 'macro #'clauses))]))
+    [(_ . options+clauses)
+     #`(mac (quote-syntax #,stx) #,(make-macro 'macro #'options+clauses))]))
 
 (define-syntax (μ* stx)
   (syntax-case stx ()
-    [(_ . clause) #`(mac (quote-syntax #,stx) #,(make-macro* 'μ* #'(clause)))]))
+    [(_ . options+clause)
+     #`(mac (quote-syntax #,stx) #,(make-μ* 'μ* #'options+clause))]))
 
 (define-syntax (mu* stx)
   (syntax-case stx ()
-    [(_ . clause) #`(mac (quote-syntax #,stx) #,(make-macro* 'mu* #'(clause)))]))
+    [(_ . options+clause)
+     #`(mac (quote-syntax #,stx) #,(make-μ* 'mu* #'options+clause))]))
 
 (define-syntax (macro* stx)
   (syntax-case stx ()
-    [(_ . clauses) #`(mac (quote-syntax #,stx) #,(make-macro* 'macro* #'clauses))]))
+    [(_ . options+clauses)
+     #`(mac (quote-syntax #,stx) #,(make-macro* 'macro* #'options+clauses))]))
 
 (define-syntax-rule (var id)
   (syntax-local-eval #'id))

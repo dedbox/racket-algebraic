@@ -805,11 +805,11 @@ The bindings documented in this section are provided by the
 libraries.
 
 @deftogether[(
-@defform[(μ mac-patt mac-directive ... body ...+)]
-@defform[(mu mac-patt mac-directive ... body ...+)]
+@defform[(μ parse-option ... mac-patt mac-directive ... body ...+)]
+@defform[(mu parse-option ... mac-patt mac-directive ... body ...+)]
 @defform/subs[
   #:literals (void quasiquote unquote)
-  (macro [mac-patt mac-directive ... body ...+] ...+)
+  (macro parse-option [mac-patt mac-directive ... body ...+] ...+)
   [(mac-patt literal-data
              (quasiquote #,(var qmp))
              wildcard-id
@@ -834,6 +834,9 @@ libraries.
 
   Creates a @tech{macro} of one argument with one clause. When multiple
   clauses are given, they are attempted in the order specified.
+
+  Any @var[parse-option]s are passed to @racket[syntax-parse] unaltered. See
+  @racket[syntax-parse] for details.
 
   A @var[mac-patt] is a @var[literal-data] or @var[wildcard-id] as defined for
   @racket[φ], or one of the following forms:
@@ -1029,10 +1032,10 @@ libraries.
 }
 
 @deftogether[(
-@defform[(μ* mac-formals mac-directive ... body ...+)]
-@defform[(mu* mac-formals mac-directive ... body ...+)]
+@defform[(μ* parse-option ... mac-formals mac-directive ... body ...+)]
+@defform[(mu* parse-option ... mac-formals mac-directive ... body ...+)]
 @defform/subs[
-  (macro* [mac-formals mac-directive ... body ...+] ...+)
+  (macro* parse-option ... [mac-formals mac-directive ... body ...+] ...+)
   [(mac-formals (mac-patt ...)
                 (mac-patt ...+ . rest-mac-patt)
                 rest-mac-patt)]
