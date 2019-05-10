@@ -155,8 +155,8 @@
     (check-not-OK (μ (x #:if (var x)) OK) #f #rx"condition failed: \\(var x\\)"))
 
   (test-case "premise"
-    (check-OK (μ _ #:with (x 1) (OK 1) x) #f)
-    (check-not-OK (μ _ #:with (x 1) (OK 2) x) #f #rx"expected the literal 1"))
+    (check-OK (μ _ #:with (x 1) #'(OK 1) x) #f)
+    (check-not-OK (μ _ #:with (x 1) #'(OK 2) x) #f #rx"expected the literal 1"))
 
   (data XYZ (X Y Z))
 

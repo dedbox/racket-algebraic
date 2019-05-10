@@ -1023,8 +1023,8 @@ libraries.
     Example:
     @example[#:escape UNSYNTAX
       (let-syntax ([m (macro
-                        [x #:with (a) #,(list 10)
-                           #:with b 1
+                        [x #:with (a) (list #'10)
+                           #:with b #'1
                            (+ x a b)])])
         (m 100))
     ]

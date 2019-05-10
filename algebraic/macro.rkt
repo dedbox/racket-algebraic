@@ -98,7 +98,7 @@
         null
         (with-syntax ([patt (argument (car consequents))]
                       [expr (car premises)])
-          (list* #'#:with #'patt #'#`expr
+          (list* #'#:with #'patt #'expr
                  (side-conditions (cdr consequents) (cdr premises))))))
 
   (define (post-conditions cond-patts)
