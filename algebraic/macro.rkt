@@ -89,9 +89,16 @@
       (with-syntax ([patt (maker (car clause*))]
                     [(alias-patt ...) (map maker (aliases tail))])
         #`[(~and patt alias-patt ...)
+           #,@(do-blocks (blocks tail))
            #,@(side-conditions (consequents tail) (premises tail))
            #,@(post-conditions (conditions tail))
            #,(singleton (body tail))])))
+
+  (define (do-blocks blocks)
+    (if (null? blocks)
+        null
+        (with-syntax ([block (car blocks)])
+          (list* #'#:do #'block (do-blocks (cdr blocks))))))
 
   (define (side-conditions consequents premises)
     (if (null? premises)

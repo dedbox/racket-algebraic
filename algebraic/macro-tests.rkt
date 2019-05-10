@@ -289,6 +289,12 @@
     (check-OK* (macro* [xs (and (andmap (λ (y) (= y 1)) 'xs) OK)]) 1 1 1 1 1)
     (let-syntax ([m (μ* _ OK)]) (check equal? m OK)))
 
+  (test-case "directives"
+    (check-OK (μ _ #:do [(define x #'OK)] #:with y x y) 0)
+    (check-OK (μ x #:as y y) OK)
+    (check-OK (μ x #:if (var x) OK) #t)
+    (check-not-OK (μ x #:if (var x) OK) #f #rx"condition failed: \\(var x\\)"))
+
   (test-case "options"
     (check-OK (μ #:datum-literals (!!) !! OK) !!)
     (check-OK (mu #:datum-literals (!!) !! OK) !!)

@@ -827,7 +827,8 @@ libraries.
         datum)
    (ooo ...
         ...+)
-   (mac-directive (code:line #:as alias-mac-patt)
+   (mac-directive (code:line #:do [defn-or-expr ...])
+                  (code:line #:as alias-mac-patt)
                   (code:line #:if condition-expr)
                   (code:line #:with consequent-mac-patt premise-expr))]
 ])]{
@@ -984,6 +985,20 @@ libraries.
 
   The following pattern directives may appear any number of times in a macro
   clause:
+
+  @specsubform[(code:line #:do [defn-or-expr ...])]{
+
+    Evaluates a sequence of definitions and expressions in the scope of all
+    previous variable bindings.
+
+    Example:
+    @example[
+      (define-syntax plus
+        (μ* args #:do [(define xs (syntax-e #'args))]
+          (+ #,@xs)))
+      (plus 1 2 3)
+    ]
+  }
 
   @specsubform[(code:line #:as alias-mac-patt)]{
 

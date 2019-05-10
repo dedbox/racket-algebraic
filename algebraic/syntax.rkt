@@ -21,6 +21,7 @@
   [conditions (-> (or/c syntax? (listof syntax?)) (listof syntax?))]
   [premises (-> (or/c syntax? (listof syntax?)) (listof syntax?))]
   [consequents (-> (or/c syntax? (listof syntax?)) (listof syntax?))]
+  [blocks (-> (or/c syntax? (listof syntax?)) (listof syntax?))]
   [body (-> (or/c syntax? (listof syntax?)) (listof syntax?))]
   ;; Predicates
   [literal-data? predicate/c]
@@ -86,6 +87,7 @@
 (define conditions (keyword "if" cadr cddr))
 (define consequents (keyword "with" cadr cdddr))
 (define premises (keyword "with" caddr cdddr))
+(define blocks (keyword "do" cadr cddr))
 
 (define (body clause*)
   (next-keyword "" clause*))
@@ -94,7 +96,7 @@
   (cond [(keyword-syntax=? (car clause*) name) clause*]
         [(keyword-syntax? (car clause*))
          (case (keyword-syntax->string (car clause*))
-           [("as" "if") (next-keyword name (cddr clause*))]
+           [("do" "as" "if") (next-keyword name (cddr clause*))]
            [("with") (next-keyword name (cdddr clause*))]
            [else (raise-syntax-error #f "unexpected keyword" (car clause*))])]
         [else clause*]))
