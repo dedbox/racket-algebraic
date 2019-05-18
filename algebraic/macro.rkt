@@ -1,12 +1,12 @@
 #lang racket/base
 
-(require algebraic/syntax
+(require algebraic/private
          racket/contract/base
          racket/syntax
          syntax/parse
          (for-template racket/base)
          (for-syntax algebraic/data/product
-                     algebraic/syntax
+                     algebraic/private
                      racket/base
                      syntax/parse)
          (for-meta 2 racket/base))

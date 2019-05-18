@@ -3,7 +3,7 @@
 (require algebraic/data
          racket/contract/base
          racket/match
-         (for-syntax algebraic/syntax
+         (for-syntax algebraic/private
                      racket/base
                      racket/struct-info
                      racket/syntax)

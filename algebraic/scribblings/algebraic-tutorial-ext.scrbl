@@ -1,6 +1,6 @@
 #lang scribble/manual
 
-@title[#:tag "tut:ext"]{A Syntax Extension}
+@title[#:tag "tut:ext" #:style '(quiet no-sidebar)]{A Syntax Extension}
 
 @require{./algebraic-includes.rkt}
 @require[
@@ -11,7 +11,16 @@
   ]
 ]
 
-This is the second part of the @secref{tut}.
+@define[core-eval (module-language-evaluator 'algebraic/model/core)]
+@define[ext-eval (module-language-evaluator 'algebraic/model/ext)]
+@define-syntax[core-example (algebraic-example core-eval)]
+@define-syntax[ext-example (algebraic-example ext-eval)]
+
+@; #############################################################################
+
+Part 2 of 3 in the @secref{tut}.
+
+@table-of-contents[]
 
 @defmodulelang[algebraic/model/ext]
 
@@ -1179,6 +1188,8 @@ tutorial, @secref{tut:host}, will address this question.
 Our model of the ``reverse'' function looks nice, but this time even the code is
 resisting simplification. It should be clear by now that we have more work to
 do.
+
+@; =============================================================================
 
 @section[#:tag "tut:ext:closing"]{Closing Remarks}
 

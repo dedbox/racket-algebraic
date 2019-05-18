@@ -1,169 +1,154 @@
 #lang racket/base
 
-(require racket/contract/base
-         racket/struct-info
-         racket/syntax
-         (for-template algebraic/data/product
-                       racket/base))
+;;; Context-preserving Syntax Transformations
+
+;;; A /context-preserving syntax transformer/ is a syntax transformer that
+;;; derives the lexical context and source locations of its result from its
+;;; argument.
+;;;
+;;; The class of syntax lists together with all context-preserving syntax
+;;; transformers between them (as morphisms), where the composition of
+;;; morphisms is the usual function composition, forms a category.
+
+(require algebraic/prelude
+         racket/contract/base
+         (for-syntax algebraic/prelude
+                     racket/base))
 
 (provide
+ do
  (contract-out
-  ;; Syntax List Predicate
-  [quote-pattern? predicate/c]
-  [quasiquote-pattern? predicate/c]
-  [unquote-pattern? predicate/c]
-  [instance-pattern? predicate/c]
-  [regexp-pattern? predicate/c]
-  [condition-pattern? predicate/c]
-  [alias-pattern? predicate/c]
-  ;; Keyword Parsers
-  [aliases (-> (or/c syntax? (listof syntax?)) (listof syntax?))]
-  [conditions (-> (or/c syntax? (listof syntax?)) (listof syntax?))]
-  [premises (-> (or/c syntax? (listof syntax?)) (listof syntax?))]
-  [consequents (-> (or/c syntax? (listof syntax?)) (listof syntax?))]
-  [blocks (-> (or/c syntax? (listof syntax?)) (listof syntax?))]
-  [body (-> (or/c syntax? (listof syntax?)) (listof syntax?))]
-  ;; Predicates
-  [literal-data? predicate/c]
-  [wildcard? predicate/c]
-  [variable? predicate/c]
-  [product-identifier? predicate/c]
-  [struct-identifier? predicate/c]
-  [keyword-syntax? predicate/c]
-  ;; Helpers
-  [keyword-syntax->string (-> any/c string?)]
-  [keyword-syntax=? (-> syntax? string? boolean?)]
-  [maybe-quote/ids (-> any/c any/c)]
-  [struct-field-names (-> identifier? (listof symbol?))]))
+  [syntax->values (-> syntax? any)]
+  [syntax-list? predicate/c]
+  [bind (-> (-> any/c ... syntax-list?) syntax-list? syntax-list?)]
+  [return (-> any/c ... syntax-list?)]
+  [join (-> syntax-list? any)]
+  [pure (-> any/c ... syntax-list?)]
+  [ap (-> syntax-list? syntax-list? ... syntax-list?)]
+  [fmap (-> procedure? syntax-list? ... syntax-list?)]
+  [mempty syntax-list?]
+  [mappend (-> syntax-list? ... syntax-list?)]))
 
-;;; Syntax Lists
+(define (syntax->values xs)
+  ($ id (syntax-e xs)))
 
-(define (quote-pattern? arg*)
-  (syntax-case #`#,arg* (quote)
-    [(quote _) #t]
-    [_ #f]))
+(define syntax-list? (.. list? syntax-e))
 
-(define (quasiquote-pattern? arg*)
-  (syntax-case #`#,arg* (quasiquote)
-    [(quasiquote _) #t]
-    [_ #f]))
+(define (leftmost-context x)
+  (cond [(syntax? x) x]
+        [(pair? x) (or (leftmost-context (car x))
+                       (leftmost-context (cdr x)))]
+        [else #f]))
 
-(define (unquote-pattern? arg*)
-  (syntax-case #`#,arg* (unquote)
-    [(unquote _) #t]
-    [_ #f]))
+(define (simplify xs)
+  (if (singleton? xs) (car xs) xs))
 
-(define (instance-pattern? arg*)
-  (and (pair? arg*) (product-identifier? (car arg*))))
+(define singleton? (&& pair? (.. null? cdr)))
 
-(define (regexp-pattern? arg*)
-  (and (pair? arg*) (regexp? (syntax-e (car arg*)))))
+(module+ test
+  (require rackunit)
 
-(define (condition-pattern? arg*)
-  (and (list? arg*)
-       (pair? arg*)
-       (pair? (cdr arg*))
-       (pair? (cddr arg*))
-       (null? (cdddr arg*))
-       (keyword-syntax=? (cadr arg*) "if")))
+  (define-simple-check (check-syntax stx want)
+    (equal? (syntax->datum stx) want)))
 
-(define (alias-pattern? arg*)
-  (and (list? arg*)
-       (pair? arg*)
-       (pair? (cdr arg*))
-       (pair? (cddr arg*))
-       (null? (cdddr arg*))
-       (keyword-syntax=? (cadr arg*) "as")))
+;;; ----------------------------------------------------------------------------
+;;; Monad
 
-;;; Keyword Parsers
+(define (bind f xs)
+  ($ f (syntax-e xs)))
 
-(define ((keyword name head tail) clause*)
-  (let ([next (next-keyword name clause*)])
-    (if (and (pair? next) (keyword-syntax=? (car next) name))
-        (cons (head next) ((keyword name head tail) (tail next)))
-        null)))
+(define (return . vs)
+  (let ([ctx (leftmost-context vs)])
+    (datum->syntax ctx vs ctx)))
 
-(define aliases (keyword "as" cadr cddr))
-(define conditions (keyword "if" cadr cddr))
-(define consequents (keyword "with" cadr cdddr))
-(define premises (keyword "with" caddr cdddr))
-(define blocks (keyword "do" cadr cddr))
+;;; syntax-list -> values
+(define (join xs)
+  ($ id (map syntax-e (syntax-e xs))))
 
-(define (body clause*)
-  (next-keyword "" clause*))
+(module+ test
+  (check-syntax (bind return #'(1)) '(1))
+  (check-syntax (bind return #'(1 2)) '(1 2))
+  (check eq? (join (return +)) +)
+  (check equal? (values-> list (join (return 1 2 3))) '(1 2 3)))
 
-(define (next-keyword name clause*)
-  (cond [(keyword-syntax=? (car clause*) name) clause*]
-        [(keyword-syntax? (car clause*))
-         (case (keyword-syntax->string (car clause*))
-           [("do" "as" "if") (next-keyword name (cddr clause*))]
-           [("with") (next-keyword name (cdddr clause*))]
-           [else (raise-syntax-error #f "unexpected keyword" (car clause*))])]
-        [else clause*]))
+;;; ----------------------------------------------------------------------------
+;;; Applicative Functor
 
-;;; Predicates
+(define pure return)
 
-(define (literal-data? stx)
-  (let ([val (syntax-e stx)])
-    (or (boolean? val)
-        (char? val)
-        (number? val)
-        (string? val)
-        (bytes? val))))
+(define (ap f . xss)
+  ($ fmap (join f) xss))
 
-(define (wildcard? stx)
-  (and (identifier? stx)
-       (not (eq? (syntax->datum stx) '||))
-       (char=? (first-char stx) #\_)))
+(module+ test
+  (check-syntax (ap (pure ::) #'(1) #'(2)) '((1 . 2)))
+  (check-syntax (ap (pure ::) #'(1 2) #'(3 4)) '((1 . 3) (2 . 4)))
+  (check-syntax (ap (pure (.. add1 syntax-e)) #'(1)) '(2))
+  (check-syntax (ap (pure (.. add1 syntax-e)) #'(1 2)) '(2 3))
+  (check-syntax (ap (pure (.. add1 syntax-e)) #'(1 2 3)) '(2 3 4)))
 
-(define (first-char stx)
-  (string-ref (symbol->string (syntax->datum stx)) 0))
+;;; ----------------------------------------------------------------------------
+;;; Functor
 
-(define (variable? stx)
-  (and (identifier? stx)
-       (not (or (wildcard? stx)
-                (product-identifier? stx)
-                (struct-identifier? stx)))))
+;;; maps f along the elements of the xss, taking an argument from each
+(define (fmap f . xss)
+  (define ctx (leftmost-context xss))
+  (datum->syntax ctx (bind (λ xss ($ map f (map syntax-e xss))) ($ return xss))
+                 ctx))
 
-(define (product-identifier? stx)
-  (and (identifier? stx)
-       (identifier-binding stx)
-       (product-transformer? (syntax-local-value stx (λ _ #f)))))
+(module+ test
+  (check-syntax (fmap :: #'(1) #'(2)) '((1 . 2)))
+  (check-syntax (fmap :: #'(1 2) #'(3 4)) '((1 . 3) (2 . 4)))
+  (check-syntax (fmap (.. add1 syntax-e) #'(1)) '(2))
+  (check-syntax (fmap (.. add1 syntax-e) #'(1 2)) '(2 3))
+  (check-syntax (fmap (.. add1 syntax-e) #'(1 2 3)) '(2 3 4)))
 
-(define (struct-identifier? stx)
-  (and (identifier? stx)
-       (or (identifier-binding (format-id stx "struct:~a" stx))
-           (identifier-template-binding (format-id stx "struct:~a" stx)))
-       #t))
+;;; ----------------------------------------------------------------------------
+;;; Monoid
 
-(define (keyword-syntax? stx)
-  (keyword? (syntax->datum stx)))
+(define mempty (return))
 
-;;; Helpers
+(define (mappend . xss)
+  ($ return ($ ++ (map syntax-e xss))))
 
-(define (keyword-syntax->string stx)
-  (and (keyword-syntax? stx)
-       (keyword->string (syntax->datum stx))))
+(module+ test
+  (check-syntax (mappend mempty mempty) null)
+  (check-syntax (mappend mempty #'(1 2)) '(1 2))
+  (check-syntax (mappend #'(1 2) mempty) '(1 2))
+  (check-syntax (mappend #'(1 2) #'(3 4)) '(1 2 3 4))
+  (check-syntax (mappend (mappend #'(1 2) #'(3 4)) #'(5 6)) '(1 2 3 4 5 6))
+  (check-syntax (mappend #'(1 2) (mappend #'(3 4) #'(5 6))) '(1 2 3 4 5 6)))
 
-(define (keyword-syntax=? kw name)
-  (equal? (keyword-syntax->string kw) name))
+;;; ----------------------------------------------------------------------------
+;;; ``Do'' Notation
 
-(define (maybe-quote/ids stx)
-  (let ([stx* (syntax-e stx)])
-    (cond [(and (list? stx*)
-                (pair? stx*)
-                (pair? (cdr stx*))
-                (null? (cddr stx*))
-                (free-identifier=? (car stx*) #'quote)) stx]
-          [(list? stx*) (with-syntax ([(a ...) stx*]) #'(quote (a ...)))]
-          [else stx])))
+(begin-for-syntax
+  (define arrow? (&& identifier? (.. (<< eq? '<-) syntax->datum)))
 
-(define (struct-field-names struct-id)
-  (define rx
-    (regexp
-     (string-append "^" (symbol->string (syntax->datum struct-id)) "-(.+)$")))
-  (define (field-name id)
-    (string->symbol
-     (cadr (regexp-match rx (symbol->string (syntax->datum id))))))
-  (map field-name
-       (cadddr (extract-struct-info (syntax-local-value struct-id)))))
+  (define (make-block stx)
+    (syntax-case stx ()
+
+      [(as arrow xs . block)
+       (and (identifier? #'as) (arrow? #'arrow))
+       #`(bind (λ as #,(make-block #'block)) xs)]
+
+      [((a ...) arrow xs . block)
+       (and (andmap identifier? (syntax-e #'(a ...))) (arrow? #'arrow))
+       #`(bind (λ (a ...) #,(make-block #'block)) xs)]
+
+      [((a ... . b) arrow xs . block)
+       (and (andmap identifier? (syntax-e #'(a ... b))) (arrow? #'arrow))
+       #`(bind (λ (a ... . b) #,(make-block #'block)) xs)]
+
+      [(expr) #'expr]
+
+      [(expr . block) #`(begin expr #,(make-block #'block))])))
+
+(define-syntax (do stx)
+  (syntax-case stx () [(_ . block) #`#,(make-block #'block)]))
+
+(module+ test
+  (check-syntax (do xs <- #'(1 2)
+                    (y z) <- #'(3 4)
+                    (w . vs) <- #'(5 6 7)
+                    ($ pure (++ xs (list y z) (list* w vs))))
+                '(1 2 3 4 5 6 7)))

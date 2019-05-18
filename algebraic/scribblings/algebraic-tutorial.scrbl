@@ -1,8 +1,10 @@
 #lang scribble/manual
 
-@title[#:tag "tut" #:style '(toc)]{Tutorial Series: From Models to Interpreters}
+@title[#:tag "tut" #:style '(toc no-sidebar)]{Tutorial Series: From Models to Interpreters}
 
 @require{./algebraic-includes.rkt}
+
+@; #############################################################################
 
 A core use case for @algebraic-mod is fast and cheap interpreter development.
 With the right tooling, throw-away interpreters can be an easy way to explore
@@ -34,8 +36,10 @@ together. If you prefer source code, it can be read all in one place
 @hyperlink["https://github.com/dedbox/racket-algebraic/tree/master/model"]{on
 github}.
 
-@local-table-of-contents[]
+@table-of-contents[]
 
-@include-section["algebraic-tutorial-core.scrbl"]
-@include-section["algebraic-tutorial-ext.scrbl"]
-@include-section["algebraic-tutorial-host.scrbl"]
+@; #############################################################################
+
+@include-section{./algebraic-tutorial-core.scrbl}
+@include-section{./algebraic-tutorial-ext.scrbl}
+@include-section{./algebraic-tutorial-host.scrbl}

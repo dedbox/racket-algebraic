@@ -1,6 +1,6 @@
 #lang scribble/manual
 
-@title[#:tag "tut:host"]{Exposing the Host}
+@title[#:tag "tut:host" #:style '(quiet no-sidebar)]{Exposing the Host}
 
 @require{./algebraic-includes.rkt}
 @require[
@@ -10,4 +10,8 @@
   ]
 ]
 
-This will be the third part of the @secref{tut}.
+@; #############################################################################
+
+Part 3 of 3 in the @secref{tut}.
+
+@table-of-contents[]

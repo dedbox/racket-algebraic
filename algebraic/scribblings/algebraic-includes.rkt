@@ -12,7 +12,9 @@
          (for-syntax racket/base
                      racket/syntax))
 
-(provide (all-defined-out))
+(provide (all-defined-out)
+         (for-syntax (all-defined-out)
+                     (all-from-out racket/base)))
 
 (define (rtech . args)
   (apply tech #:doc '(lib "scribblings/reference/reference.scrbl") args))
@@ -88,21 +90,33 @@
    #:column-properties '(right center left)
    (list (list (~? L ~) (format "~a" 'op) R) ...)))
 
+;;; ----------------------------------------------------------------------------
+;;; Evaluators
+
+(define-syntax-rule (module-language-evaluator mod-name)
+  (call-with-trusted-sandbox-configuration
+   (λ ()
+     (parameterize ([sandbox-output       'string]
+                    [sandbox-error-output 'string])
+       (make-base-eval #:lang mod-name)))))
+
+(define-syntax-rule (algebraic-evaluator)
+  (module-language-evaluator 'algebraic/racket/base/lang))
+
+(begin-for-syntax
+  (define-syntax-rule (algebraic-example -eval)
+    (...
+     (λ (stx)
+       (syntax-case stx ()
+         [(_ expr ...) #'(examples #:eval -eval #:label #f expr ...)])))))
+
 ; -----------------------------------------------------------------------------
 ; algebraic eval
 
-(define algebraic-eval
-  (call-with-trusted-sandbox-configuration
-   (λ ()
-     (parameterize
-         ([sandbox-output 'string]
-          [sandbox-error-output 'string])
-       (make-base-eval #:lang 'algebraic/racket/base/lang
-                       '(require (for-syntax syntax/parse)
-                                 racket/function))))))
+(define algebraic-eval (algebraic-evaluator))
+(define-syntax example (algebraic-example algebraic-eval))
 
-(define-syntax-rule (example expr ...)
-  (examples #:eval algebraic-eval #:label #f expr ...))
+(void (example #:hidden (require racket/function (for-syntax syntax/parse))))
 
 (define-simple-macro (algebraic-code str ...)
   #:with stx (datum->syntax this-syntax 1)
@@ -111,17 +125,6 @@
                 "#lang algebraic/racket/base\n" str ...))
 
 ; core eval
-
-(define core-eval
-  (call-with-trusted-sandbox-configuration
-   (λ ()
-     (parameterize
-         ([sandbox-output 'string]
-          [sandbox-error-output 'string])
-       (make-base-eval #:lang 'algebraic/model/core)))))
-
-(define-syntax-rule (core-example expr ...)
-  (examples #:eval core-eval #:label #f expr ...))
 
 (define-simple-macro (core-code str ...)
   #:with stx (datum->syntax #f 1)
@@ -156,38 +159,11 @@
 
 ; ext eval
 
-(define ext-eval
-  (call-with-trusted-sandbox-configuration
-   (λ ()
-     (parameterize
-         ([sandbox-output 'string]
-          [sandbox-error-output 'string])
-       (make-base-eval #:lang 'algebraic/model/ext)))))
-
-(define-syntax-rule (ext-example expr ...)
-  (examples #:eval ext-eval #:label #f expr ...))
-
 (define-simple-macro (ext-code str ...)
   #:with stx (datum->syntax #f 1)
   (typeset-code #:context #'stx
                 #:keep-lang-line? #f
                 "#lang algebraic/model/ext\n" str ...))
-
-; host eval
-
-;; (define host-eval
-;;   (call-with-trusted-sandbox-configuration
-;;    (λ ()
-;;      (parameterize
-;;          ([sandbox-output 'string]
-;;           [sandbox-error-output 'string])
-;;        (make-base-eval #:lang 'algebraic/model/host)))))
-
-;; (define-syntax-rule (host-example expr ...)
-;;   (examples #:eval host-eval #:label #f expr ...))
-
-;; (define-syntax-rule (host-codeblock expr ...)
-;;   (examples #:eval host-eval #:label #f #:no-prompt #:no-result expr ...))
 
 ; odds and ends
 
