@@ -1,6 +1,6 @@
 #lang scribble/manual
 
-@title[#:tag "tut" #:style '(toc no-sidebar)]{Tutorial Series: From Models to Interpreters}
+@title[#:tag "tut" #:style '(toc no-sidebar)]{Tutorial: From Models to Interpreters}
 
 @require{./algebraic-includes.rkt}
 

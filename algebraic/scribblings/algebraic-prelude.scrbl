@@ -44,7 +44,7 @@ more compact code. They are used extensively throughout the collection.
 
   Example:
   @example[
-    ((thunk<- 1 2 3))
+    ((thunk<- (+ 1 2) (+ 3 4)))
   ]
 }
 

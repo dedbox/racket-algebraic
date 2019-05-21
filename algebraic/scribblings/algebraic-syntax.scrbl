@@ -13,7 +13,7 @@
   ]
 ]
 
-@define[syntax-eval (algebraic-evaluator )]
+@define[syntax-eval (algebraic-evaluator)]
 @define-syntax[example (algebraic-example/locations syntax-eval)]
 
 @example[#:hidden (require algebraic/syntax

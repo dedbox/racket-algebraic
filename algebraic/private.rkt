@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require racket/contract/base
+         racket/pretty
          racket/struct-info
          racket/syntax
          (for-template algebraic/data/product
@@ -34,7 +35,9 @@
   [keyword-syntax->string (-> any/c string?)]
   [keyword-syntax=? (-> syntax? string? boolean?)]
   [maybe-quote/ids (-> any/c any/c)]
-  [struct-field-names (-> identifier? (listof symbol?))]))
+  [struct-field-names (-> identifier? (listof symbol?))]
+  ;; Pretty Printing
+  [algebraic-pretty-print-style-table pretty-print-style-table?]))
 
 ;;; Syntax Lists
 
@@ -167,3 +170,15 @@
      (cadr (regexp-match rx (symbol->string (syntax->datum id))))))
   (map field-name
        (cadddr (extract-struct-info (syntax-local-value struct-id)))))
+
+;;; Pretty Printing
+
+(define algebraic-pretty-print-style-table
+  (pretty-print-extend-style-table
+   (pretty-print-current-style-table)
+   '(class
+      φ phi φ* phi* function function*
+      μ mu μ* mu* macro macro*)
+   '(case
+        lambda lambda lambda lambda case-lambda case-lambda
+        lambda lambda lambda lambda case-lambda case-lambda)))

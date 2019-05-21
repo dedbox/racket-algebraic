@@ -274,6 +274,82 @@ value is a syntax list.
   ]
 }
 
+@defproc[(syntax-andmap [f procedure?] [xs syntax-list?] ...+) any]{
+
+  Similar to @racket[syntax-map] in the sense that @var[f] is applied to each
+  element of @var[xs], but
+
+  @margin-note{
+
+    The @racket[syntax-andmap] function is actually closer to
+    @racket[syntax-foldl] than @racket[syntax-map], since
+    @racket[syntax-andmap] doesn't produce a @tech{syntax list}. Still,
+    @racket[(syntax-andmap f (syntax-list x y z))] is equivalent to
+    @racket[(and (f x) (f y) (f z))] in the same way that
+    @racket[(syntax-map f (syntax-list x y z))] is equivalent to
+    @racket[(syntax-list (f x) (f y) (f z))].
+
+  }
+
+  @itemlist[
+
+    @item{the result is @racket[#f] if any application of @var[f] produces
+      @racket[#f], in which case @var[f] is not applied to later elements of
+      @var[xs]s; and}
+
+    @item{the result is that of @var[f] applied to the last element of the
+      @var[xs]s; more specifically, the application of @var[f] to the last
+      elements in the @var[xs]s is in tail position with respect to the
+      @racket[syntax-andmap] call.}
+
+  ]
+
+  If the @var[xs]s are empty, then @racket[#t] is returned.
+
+  Examples:
+  @example[
+    (syntax-andmap (.. positive? syntax-e) #'(1 2 3))
+    (eval:error (syntax-andmap (.. positive? syntax-e) #'(1 2 a)))
+    (syntax-andmap (.. positive? syntax-e) #'(1 -2 a))
+    (syntax-andmap (λ xs ($ + (map syntax-e xs))) #'(1 2 3) #'(4 5 6))
+  ]
+}
+
+@defproc[(syntax-ormap [f procedure?] [xs syntax-list?] ...+) any]{
+
+  Similar to @racket[syntax-map] in the sense that @var[f] is applied to each
+  element of @var[xs], but
+
+  @margin-note{
+
+    To continue the @racket[syntax-andmap] note above, @racket[(syntax-ormap f
+    (syntax-list x y z))] is equivalent to @racket[(or (f x) (f y) (f z))].
+
+  }
+
+  @itemlist[
+
+    @item{the result is @racket[#f] if every application of @var[f] produces
+    @racket[#f]; and}
+
+    @item{the result is that of the first application of @var[f] producing a
+      value other than @racket[#f], in which case @var[f] is not applied to
+      the later elements of the @var[xs]s; the application of @var[f] to the
+      last elements of the @var[xs]s is in tail position with respect to the
+      @racket[syntax-ormap] call.}
+
+  ]
+
+  If the @var[xs]s are empty, then @racket[#f] is returned.
+
+  Examples:
+  @example[
+    (syntax-ormap free-identifier=? #'(a b c) #'(a b c))
+    (syntax-ormap (.. positive? syntax-e) #'(1 2 a))
+    (syntax-ormap (λ xs ($ + (map syntax-e xs))) #'(1 2 3) #'(4 5 6))
+  ]
+}
+
 @defproc[(syntax-foldr [f procedure?] [init syntax?] [xs syntax-list?] ...+) syntax?]{
 
   Like @racket[syntax-foldl], but the @tech{syntax lists} are traversed from
@@ -293,7 +369,33 @@ value is a syntax list.
 
 @; =============================================================================
 
+@section[#:tag "stxlist:list-filtering"]{Syntax List Filtering}
+
+@defproc[(syntax-filter [pred procedure?] [xs syntax-list?]) syntax-list?]{
+
+  Returns a @tech{syntax list} with the elements of @var[xs] for which
+  @var[pred] produces a true value. The @var[pred] function is applied to each
+  element from first to last.
+
+  Example:
+  @example[
+    (syntax-filter (.. positive? syntax-e) #'(1 -2 3 4 -5))
+  ]
+}
+
+@; =============================================================================
+
 @section[#:tag "stxlist:pair-accessors"]{Syntax Pair Accessor Shorthands}
+
+@defproc[(syntax-cadr [x (syntax/c (cons/c any/c? pair?))]) syntax?]{
+
+  Returns @racket[(syntax-car (syntax-cdr #,(var x)))].
+
+  Example:
+  @example[
+    (syntax-cadr #'(2 1))
+  ]
+}
 
 @defproc[(syntax-cddr [x (syntax/c (cons/c any/c? pair?))]) syntax?]{
 

@@ -1,8 +1,10 @@
 #lang racket/base
 
 (require algebraic/data
+         algebraic/private
          racket/contract/base
          racket/match
+         racket/pretty
          (for-syntax algebraic/private
                      racket/base
                      racket/struct-info
@@ -21,7 +23,10 @@
   [(define (write-proc F port mode)
      (case mode
        [(#t #f) (fprintf port "#<function>")]
-       [else (display (syntax->datum (fun-def F)) port)]))])
+       ;; [else (display (syntax->datum (fun-def F)) port)]
+       [else (parameterize ([pretty-print-current-style-table
+                             algebraic-pretty-print-style-table])
+               ((current-print) (syntax->datum (fun-def F))))]))])
 
 (define function? fun?)
 

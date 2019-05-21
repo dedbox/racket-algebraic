@@ -12,6 +12,7 @@
 @include-section{./algebraic-prelude.scrbl}
 @include-section{./algebraic-syntax.scrbl}
 @include-section{./algebraic-syntax-list.scrbl}
+@include-section{./algebraic-class.scrbl}
 @include-section{./algebraic-tutorial.scrbl}
 
 @bibliography[

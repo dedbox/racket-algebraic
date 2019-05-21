@@ -34,10 +34,17 @@
   ;; Syntax List Iteration
 
   [syntax-map (-> procedure? syntax-list? ... syntax-list?)]
+  [syntax-andmap (-> procedure? syntax-list? syntax-list? ... any)]
+  [syntax-ormap (-> procedure? syntax-list? syntax-list? ... any)]
   [syntax-foldr (-> procedure? syntax? syntax-list? ... syntax?)]
+
+  ;; Syntax List Filtering
+
+  [syntax-filter (-> procedure? syntax-list? syntax-list?)]
 
   ;; Syntax Pair Accessor Shorthands
 
+  [syntax-cadr (-> (syntax/c (cons/c any/c pair?)) syntax?)]
   [syntax-cddr (-> (syntax/c (cons/c any/c pair?)) syntax?)]))
 
 ;;; Syntax Pair Constructors and Selectors
@@ -82,11 +89,23 @@
 
 (define syntax-map fmap)
 
+(define (syntax-andmap f . xss)
+  ($ (>> andmap f) (map syntax-e xss)))
+
+(define (syntax-ormap f . xss)
+  ($ (>> ormap f) (map syntax-e xss)))
+
 (define (syntax-foldr f init . xss)
   ($ foldr f init (map syntax-e xss)))
 
+;;; Syntax List Filtering
+
+(define (syntax-filter pred xs)
+  (bind (λ xs* ($ syntax-list (filter pred xs*))) xs))
+
 ;;; Syntax Pair Accessor Shorthands
 
+(define syntax-cadr (.. syntax-car syntax-cdr))
 (define syntax-cddr (twice syntax-cdr))
 
 ;;; ----------------------------------------------------------------------------
@@ -202,10 +221,41 @@
   (test-case "syntax-map"
     (check-syntax (syntax-map (>> syntax-cons #'!) #'(1 2 3)) '((! . 1) (! . 2) (! . 3))))
 
+  (test-case "syntax-andmap"
+    (check-true (syntax-andmap syntax-null? #'()))
+    (check-true (syntax-andmap syntax-null? #'(())))
+    (check-true (syntax-andmap syntax-null? #'(() ())))
+    (check-true (syntax-andmap syntax-null? #'(() () ())))
+    (check-false (syntax-andmap syntax-null? #'(() () 1 ())))
+    (check-false (syntax-andmap syntax-null? #'(1 2 () 3))))
+
+  (test-case "syntax-ormap"
+    (check-true (syntax-ormap syntax-null? #'(() () ())))
+    (check-true (syntax-ormap syntax-null? #'(() ())))
+    (check-true (syntax-ormap syntax-null? #'(())))
+    (check-false (syntax-ormap syntax-null? #'()))
+    (check-false (syntax-ormap syntax-null? #'(1)))
+    (check-false (syntax-ormap syntax-null? #'(1 2)))
+    (check-false (syntax-ormap syntax-null? #'(1 2 3)))
+    (check-true (syntax-ormap syntax-null? #'(1 2 3 ())))
+    (check-true (syntax-ormap syntax-null? #'(1 2 () 3)))
+    (check-true (syntax-ormap syntax-null? #'(1 () 2 3)))
+    (check-true (syntax-ormap syntax-null? #'(() 1 2 3))))
+
   (test-case "syntax-foldr"
     (check-syntax (syntax-foldr (>> syntax-list* #'!) syntax-null #'(1 2 3)) '(! 1 ! 2 ! 3)))
 
+  ;; Syntax List Filtering
+
+  (test-case "syntax-filter"
+    (check-syntax (syntax-filter (.. number? syntax-e) #'(x 1 y 2 3 z w 4 v)) '(1 2 3 4)))
+
   ;; Syntax Pair Accessor Shorthands
+
+  (test-case "syntax-cadr"
+    (check-syntax (syntax-cadr #'(1 2)) 2)
+    (check-syntax (syntax-cadr #'(1 2 . 3)) 2)
+    (check-syntax (syntax-cadr #'(1 2 3)) 2))
 
   (test-case "syntax-cddr"
     (check-syntax (syntax-cddr #'(1 2)) null)
