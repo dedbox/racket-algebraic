@@ -108,7 +108,14 @@
     (...
      (λ (stx)
        (syntax-case stx ()
-         [(_ expr ...) #'(examples #:eval -eval #:label #f expr ...)])))))
+         [(_ expr ...) #'(examples #:eval -eval #:label #f expr ...)]))))
+
+  (define-syntax-rule (algebraic-example/locations -eval)
+    (...
+     (λ (stx)
+       (syntax-case stx ()
+         [(_ expr ...) #'(examples #:eval -eval #:label #f
+                                   #:preserve-source-locations expr ...)])))))
 
 ; -----------------------------------------------------------------------------
 ; algebraic eval

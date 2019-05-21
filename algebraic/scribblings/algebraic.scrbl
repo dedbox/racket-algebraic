@@ -10,6 +10,7 @@
 
 @include-section{./algebraic-racket.scrbl}
 @include-section{./algebraic-prelude.scrbl}
+@include-section{./algebraic-syntax.scrbl}
 @include-section{./algebraic-syntax-list.scrbl}
 @include-section{./algebraic-tutorial.scrbl}
 

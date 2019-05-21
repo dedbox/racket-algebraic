@@ -1,6 +1,6 @@
 #lang scribble/manual
 
-@title[#:tag "stxlist"]{Syntax Pairs and Lists}
+@title[#:tag "stxlist" #:style 'quiet]{Syntax Pairs and Lists}
 
 @require{./algebraic-includes.rkt}
 
@@ -213,7 +213,7 @@ value is a syntax list.
 
   Returns the @tech{syntax list} after the first @var[pos] elements of
   @var[x]. If the @tech{syntax list} has fewer than @var[pos] elements, then
-  the @var[exn:fail:contract] exception is raised.
+  the @racket[exn:fail:contract] exception is raised.
 
   The @var[x] argument need not actually be a @tech{syntax list}; @var[x] must
   merely start with a chain of at least @var[pos] @tech{syntax pairs}.

@@ -5,6 +5,7 @@
          racket/contract/base)
 
 (provide
+ syntax-list?
  (contract-out
 
   ;; Syntax Pair Constructors and Selectors
@@ -15,7 +16,6 @@
   [syntax-car (-> syntax-pair? syntax?)]
   [syntax-cdr (-> syntax-pair? syntax?)]
   [syntax-null syntax-null?]
-  [syntax-list? (-> syntax? boolean?)]
   [syntax-list (-> syntax? ... syntax-list?)]
   [syntax-list* (-> syntax? ... syntax? syntax?)]
   [build-syntax-list (-> exact-nonnegative-integer?
@@ -49,10 +49,10 @@
   (syntax-list* a b))
 
 (define syntax-car (.. car syntax-e))
-(define syntax-cdr (.. (>> $ id) syntax-e pure cdr syntax-e))
+(define syntax-cdr (.. (>> $ id) syntax-e return cdr syntax-e))
 (define syntax-null mempty)
-(define syntax-list? (.. list? syntax-e))
-(define syntax-list pure)
+;;; syntax-list? comes from the syntax module
+(define syntax-list return)
 
 (define (syntax-list* . xs)
   (datum->syntax (car xs) ($ list* xs) (car xs)))
@@ -76,7 +76,7 @@
         [else ys]))
 
 (define syntax-append mappend)
-(define syntax-reverse (.. (>> $ id) syntax-e pure reverse syntax-e))
+(define syntax-reverse (.. (>> $ id) syntax-e return reverse syntax-e))
 
 ;;; Syntax List Iteration
 

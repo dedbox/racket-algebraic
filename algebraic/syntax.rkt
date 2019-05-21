@@ -1,15 +1,5 @@
 #lang racket/base
 
-;;; Context-preserving Syntax Transformations
-
-;;; A /context-preserving syntax transformer/ is a syntax transformer that
-;;; derives the lexical context and source locations of its result from its
-;;; argument.
-;;;
-;;; The class of syntax lists together with all context-preserving syntax
-;;; transformers between them (as morphisms), where the composition of
-;;; morphisms is the usual function composition, forms a category.
-
 (require algebraic/prelude
          racket/contract/base
          (for-syntax algebraic/prelude
@@ -18,7 +8,7 @@
 (provide
  do
  (contract-out
-  [syntax->values (-> syntax? any)]
+  [->syntax (-> (or/c syntax? #f) any/c syntax?)]
   [syntax-list? predicate/c]
   [bind (-> (-> any/c ... syntax-list?) syntax-list? syntax-list?)]
   [return (-> any/c ... syntax-list?)]
@@ -29,13 +19,23 @@
   [mempty syntax-list?]
   [mappend (-> syntax-list? ... syntax-list?)]))
 
-(define (syntax->values xs)
-  ($ id (syntax-e xs)))
+(define (->syntax ctx stx)
+  (datum->syntax ctx stx ctx))
 
 (define syntax-list? (.. list? syntax-e))
 
+(module+ test
+  (require rackunit)
+
+  (define-simple-check (check-syntax stx want)
+    (equal? (syntax->datum stx) want)))
+
+;;; ----------------------------------------------------------------------------
+;;; Helpers
+
 (define (leftmost-context x)
-  (cond [(syntax? x) x]
+  (cond [(and (syntax? x)
+              (not (null? (hash-ref (syntax-debug-info x) 'context null)))) x]
         [(pair? x) (or (leftmost-context (car x))
                        (leftmost-context (cdr x)))]
         [else #f]))
@@ -45,12 +45,6 @@
 
 (define singleton? (&& pair? (.. null? cdr)))
 
-(module+ test
-  (require rackunit)
-
-  (define-simple-check (check-syntax stx want)
-    (equal? (syntax->datum stx) want)))
-
 ;;; ----------------------------------------------------------------------------
 ;;; Monad
 
@@ -58,8 +52,7 @@
   ($ f (syntax-e xs)))
 
 (define (return . vs)
-  (let ([ctx (leftmost-context vs)])
-    (datum->syntax ctx vs ctx)))
+  (->syntax (leftmost-context vs) vs))
 
 ;;; syntax-list -> values
 (define (join xs)
@@ -74,10 +67,12 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Applicative Functor
 
-(define pure return)
+(define (pure . vs)
+  (->syntax #f vs))
 
 (define (ap f . xss)
-  ($ fmap (join f) xss))
+  (->syntax (leftmost-context (:: f xss))
+            (bind (λ xss ($ map (join f) (map syntax-e xss))) ($ pure xss))))
 
 (module+ test
   (check-syntax (ap (pure ::) #'(1) #'(2)) '((1 . 2)))
@@ -89,11 +84,9 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Functor
 
-;;; maps f along the elements of the xss, taking an argument from each
 (define (fmap f . xss)
-  (define ctx (leftmost-context xss))
-  (datum->syntax ctx (bind (λ xss ($ map f (map syntax-e xss))) ($ return xss))
-                 ctx))
+  (->syntax (leftmost-context xss)
+            (bind (λ xss ($ map f (map syntax-e xss))) ($ return xss))))
 
 (module+ test
   (check-syntax (fmap :: #'(1) #'(2)) '((1 . 2)))
@@ -105,7 +98,7 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Monoid
 
-(define mempty (return))
+(define mempty (pure))
 
 (define (mappend . xss)
   ($ return ($ ++ (map syntax-e xss))))
@@ -149,6 +142,6 @@
 (module+ test
   (check-syntax (do xs <- #'(1 2)
                     (y z) <- #'(3 4)
-                    (w . vs) <- #'(5 6 7)
-                    ($ pure (++ xs (list y z) (list* w vs))))
-                '(1 2 3 4 5 6 7)))
+                    (w v . us) <- #'(5 6 7 8 9)
+                    ($ return (++ xs (list y z) (list* w v us))))
+                '(1 2 3 4 5 6 7 8 9)))
