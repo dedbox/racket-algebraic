@@ -139,7 +139,7 @@
         [Π1 (product-identifier? #'Π1) #`(? (λ (Π2) (equal? Π2 Π1)))]
         [(Π . _)
          (product-identifier? #'Π)
-         #`(instance
+         #`(product-instance
             #,(argument #'Π)
             #,(if (list? arg*)
                   #`(list #,@(map argument (cdr arg*)))
@@ -422,7 +422,7 @@
   ;;     (check equal? Y y)
   ;;     (check equal? Z z)))
 
-  (test-case "instance"
+  (test-case "product-instance"
     (check-OK ((φ (X) OK) (X)))
     (check-OK ((φ (Y) OK) (Y)))
     (check-OK ((φ (Z) OK) (Z)))

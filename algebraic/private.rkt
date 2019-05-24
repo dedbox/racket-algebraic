@@ -4,7 +4,7 @@
          racket/pretty
          racket/struct-info
          racket/syntax
-         (for-template algebraic/data/product
+         (for-template algebraic/product
                        racket/base))
 
 (provide
@@ -13,7 +13,7 @@
   [quote-pattern? predicate/c]
   [quasiquote-pattern? predicate/c]
   [unquote-pattern? predicate/c]
-  [instance-pattern? predicate/c]
+  [product-instance-pattern? predicate/c]
   [regexp-pattern? predicate/c]
   [condition-pattern? predicate/c]
   [alias-pattern? predicate/c]
@@ -56,7 +56,7 @@
     [(unquote _) #t]
     [_ #f]))
 
-(define (instance-pattern? arg*)
+(define (product-instance-pattern? arg*)
   (and (pair? arg*) (product-identifier? (car arg*))))
 
 (define (regexp-pattern? arg*)

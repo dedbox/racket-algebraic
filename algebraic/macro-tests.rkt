@@ -198,7 +198,7 @@
   ;;     (check-OK (μ Y OK) y)
   ;;     (check-OK (μ Z OK) z)))
 
-  (test-case "instance"
+  (test-case "product-instance"
     (check-OK (μ (X) OK) (X))
     (check-OK (μ (Y) OK) (Y))
     (check-OK (μ (Z) OK) (Z))

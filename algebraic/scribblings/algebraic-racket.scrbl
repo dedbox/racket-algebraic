@@ -22,11 +22,11 @@ for all @tech{function} and @tech{macro} forms.
 
 @subsubsub*section{Transparent, Lexically Scoped Data}
 
-Algebraic data @tech{constructors} are like type tags. When applied to an
-argument list, they produce an @tech{instance}---a list of unnamed fields with
-the @tech{constructor} at its head. They are easy to print and easy to parse,
-just like @rtech{prefab} structs, except algebraic @tech{constructors} are
-lexically scoped and have a natural ordering.
+Algebraic data constructors are like type tags. When applied to an argument
+list, they produce an @tech[#:key "product instance"]{instance}---a list of
+unnamed fields with the constructor at its head. They are easy to print and
+easy to parse, just like @rtech{prefab} structs, except algebraic data is
+lexically scoped and has a natural ordering.
 
 @; #############################################################################
 

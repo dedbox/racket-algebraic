@@ -268,7 +268,7 @@ code.
       (data Ss (S))
       (define-syntax swap (μ (a b) (b a)))
       (swap (0 S))
-      (instance? (swap (0 S)))
+      (product-instance? (swap (0 S)))
     ]
   }
 

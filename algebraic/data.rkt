@@ -1,18 +1,18 @@
 #lang racket/base
 
-(require algebraic/data/product
-         algebraic/data/sum
+(require algebraic/product
+         algebraic/sum
          racket/contract/base
-         (for-syntax algebraic/data/product
-                     algebraic/data/sum
+         (for-syntax algebraic/product
+                     algebraic/sum
                      racket/base
                      racket/list
                      racket/syntax)
          (for-meta 2 racket/base))
 
 (provide
- (all-from-out algebraic/data/product
-               algebraic/data/sum)
+ (all-from-out algebraic/product
+               algebraic/sum)
  data
  ;; let-data with-data
  (contract-out
@@ -55,12 +55,13 @@
 (define ((sum-pred Σ) x)
   (cond [(sum? x) (equal? x Σ)]
         [(product? x) (equal? (product-sum x) Σ)]
-        [(instance? x) (equal? (product-sum (instance-product x)) Σ)]
+        [(product-instance? x)
+         (equal? (product-sum (product-instance-product x)) Σ)]
         [else #f]))
 
 (define ((product-pred Π) x)
   (cond [(product? x) (equal? x Π)]
-        [(instance? x) (equal? (instance-product x) Π)]
+        [(product-instance? x) (equal? (product-instance-product x) Π)]
         [else #f]))
 
 ;; (define-syntax (let-data stx)
@@ -175,7 +176,8 @@
 
 (define (data->list a)
   (cond [(sum? a) (map eval-syntax (sum-product-ids a))]
-        [(instance? a) (cons (instance-product a) (instance-arguments a))]
+        [(product-instance? a) (cons (product-instance-product a)
+                                     (product-instance-arguments a))]
         [else (list a)]))
 
 ;;; ----------------------------------------------------------------------------
@@ -249,19 +251,19 @@
     (check-false (equal? (product-sum Unit) (sum Maybe)))
     (check-false ((sum Maybe?) Unit)))
 
-  ;; Instances
+  ;; Product Instances
 
   (test-case "Just is a product"
     (check-pred product? Just))
 
-  (test-case "Just is not an instance"
-    (check-false (instance? Just)))
+  (test-case "Just is not a product instance"
+    (check-false (product-instance? Just)))
 
-  (test-case "(Just) is an instance"
-    (check-pred instance? (Just)))
+  (test-case "(Just) is a product instance"
+    (check-pred product-instance? (Just)))
 
-  (test-case "(Just 123) is an instance"
-    (check-pred instance? (Just 123)))
+  (test-case "(Just 123) is an product instance"
+    (check-pred product-instance? (Just 123)))
 
   ;; Idempotence
 
@@ -273,7 +275,7 @@
     (check equal? Just Just)
     (check equal? (~v Just) "Just"))
 
-  (test-case "The (Just) instance evaluates to itself"
+  (test-case "The (Just) product instance evaluates to itself"
     (check equal? (Just) (Just))
     (check equal? (~v (Just)) "(Just)"))
 
@@ -298,7 +300,7 @@
       (check-false (equal? J Nothing))
       (check-false (equal? Nothing J))))
 
-  (test-case "Structurally equivalent instances are equivalent"
+  (test-case "Structurally equivalent product instances are equal"
     (check equal? (Just) (Just))
     (check equal? (Just 123) (Just 123))
     (check equal? (Just 1 2 3) (Just 1 2 3)))

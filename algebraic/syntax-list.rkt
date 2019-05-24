@@ -1,11 +1,9 @@
 #lang racket/base
 
 (require algebraic/prelude
-         algebraic/syntax
          racket/contract/base)
 
 (provide
- syntax-list?
  (contract-out
 
   ;; Syntax Pair Constructors and Selectors
@@ -16,9 +14,11 @@
   [syntax-car (-> syntax-pair? syntax?)]
   [syntax-cdr (-> syntax-pair? syntax?)]
   [syntax-null syntax-null?]
+  [syntax-list? predicate/c]
   [syntax-list (-> syntax? ... syntax-list?)]
   [syntax-list* (-> syntax? ... syntax? syntax?)]
-  [build-syntax-list (-> exact-nonnegative-integer?
+  [build-syntax-list (-> (or/c syntax? #f)
+                         exact-nonnegative-integer?
                          (-> exact-nonnegative-integer? syntax?)
                          syntax-list?)]
 
@@ -52,48 +52,65 @@
 (define syntax-pair? (.. pair? syntax-e))
 (define syntax-null? (.. null? syntax-e))
 
-(define (syntax-cons a b)
-  (syntax-list* a b))
+(require syntax/srcloc syntax/location)
 
-(define syntax-car (.. car syntax-e))
-(define syntax-cdr (.. (>> $ id) syntax-e return cdr syntax-e))
-(define syntax-null mempty)
-;;; syntax-list? comes from the syntax module
-(define syntax-list return)
+(define (syntax-cons a b)
+  (datum->syntax a (cons a b) a))
+
+(define (syntax-car p)
+  (datum->syntax p (car (syntax-e p)) p))
+
+(define (syntax-cdr p)
+  (datum->syntax p (cdr (syntax-e p)) p))
+
+(define syntax-null (datum->syntax #f null #f))
+
+(define syntax-list? (.. list? syntax-e))
+
+(define (syntax-list . xs)
+  (if (null? xs)
+      syntax-null
+      (datum->syntax (car xs) xs (car xs))))
 
 (define (syntax-list* . xs)
   (datum->syntax (car xs) ($ list* xs) (car xs)))
 
-(define (build-syntax-list n f)
-  ($ return (build-list n f)))
+(define (build-syntax-list ctx n f)
+  (datum->syntax ctx (build-list n f) ctx))
 
 ;;; Syntax List Operations
 
 (define syntax-length (.. length syntax-e))
 
 (define (syntax-list-ref xs pos)
-  (list-ref (syntax-e xs) pos))
+  (datum->syntax xs (list-ref (syntax-e xs) pos) xs))
 
 (define (syntax-list-tail xs pos)
   (define ys (if ((|| syntax-list? syntax-pair?) xs)
-                  (list-tail (syntax-e xs) pos)
-                  (list-tail xs pos)))
-  (cond [(list? ys) ($ syntax-list ys)]
-        [(pair? ys) (datum->syntax (car ys) ys (car ys))]
-        [else ys]))
+                 (list-tail (syntax-e xs) pos)
+                 (list-tail xs pos)))
+  (datum->syntax xs ys xs))
 
-(define syntax-append mappend)
-(define syntax-reverse (.. (>> $ id) syntax-e return reverse syntax-e))
+(define (syntax-append . xss)
+  (if (null? xss)
+      syntax-null
+      (datum->syntax (car xss) ($ append (map syntax-e xss)) (car xss))))
+
+(define (syntax-reverse xs)
+  (datum->syntax xs (reverse (syntax-e xs)) xs))
 
 ;;; Syntax List Iteration
 
-(define syntax-map fmap)
+(define (syntax-map f . xss)
+  (if (null? xss)
+      syntax-null
+      (datum->syntax (car xss) ($ map f (map syntax-e xss)) (car xss))))
 
 (define (syntax-andmap f . xss)
-  ($ (>> andmap f) (map syntax-e xss)))
+  ($ andmap f (map syntax-e xss)))
 
 (define (syntax-ormap f . xss)
-  ($ (>> ormap f) (map syntax-e xss)))
+  ($ ormap f (map syntax-e xss)))
 
 (define (syntax-foldr f init . xss)
   ($ foldr f init (map syntax-e xss)))
@@ -101,7 +118,7 @@
 ;;; Syntax List Filtering
 
 (define (syntax-filter pred xs)
-  (bind (λ xs* ($ syntax-list (filter pred xs*))) xs))
+  (datum->syntax xs (filter pred (syntax-e xs)) xs))
 
 ;;; Syntax Pair Accessor Shorthands
 
@@ -170,19 +187,18 @@
     (check-syntax (syntax-list* #'1 #'2 #'(3 4)) '(1 2 3 4)))
 
   (test-case "build-syntax-list"
-    (check-syntax (build-syntax-list 0 error) null)
-    (check-syntax (build-syntax-list 5 (>> datum->syntax #f)) '(0 1 2 3 4)))
+    (check-syntax (build-syntax-list #f 0 error) null)
+    (check-syntax (build-syntax-list #f 5 (>> datum->syntax #f)) '(0 1 2 3 4)))
 
   ;; Syntax List Operations
 
   (test-case "syntax-length"
     (for ([i 10])
-      (check = (syntax-length (build-syntax-list i (>> datum->syntax #f))) i)))
+      (check = (syntax-length (build-syntax-list #f i (>> datum->syntax #f))) i)))
 
   (test-case "syntax-list-ref"
     (for ([i 10])
-      (check-syntax (syntax-list-ref #'(9 8 7 6 5 4 3 2 1 0) i)
-                    (- 9 i)))
+      (check-syntax (syntax-list-ref #'(9 8 7 6 5 4 3 2 1 0) i) (- 9 i)))
     (check-syntax (syntax-list-ref #'(1 2 . 3) 0) 1)
     (check-syntax (syntax-list-ref #'(1 2 . 3) 1) 2))
 
@@ -213,13 +229,15 @@
 
   (test-case "syntax-reverse"
     (for ([i 10])
-      (check-syntax (syntax-reverse (build-syntax-list i (>> datum->syntax #f)))
-                    (reverse (build-list i values)))))
+      (check-syntax
+       (syntax-reverse (build-syntax-list #f i (>> datum->syntax #f)))
+       (reverse (build-list i values)))))
 
   ;; Syntax List Iteration
 
   (test-case "syntax-map"
-    (check-syntax (syntax-map (>> syntax-cons #'!) #'(1 2 3)) '((! . 1) (! . 2) (! . 3))))
+    (check-syntax (syntax-map (>> syntax-cons #'!) #'(1 2 3))
+                  '((! . 1) (! . 2) (! . 3))))
 
   (test-case "syntax-andmap"
     (check-true (syntax-andmap syntax-null? #'()))
@@ -243,12 +261,16 @@
     (check-true (syntax-ormap syntax-null? #'(() 1 2 3))))
 
   (test-case "syntax-foldr"
-    (check-syntax (syntax-foldr (>> syntax-list* #'!) syntax-null #'(1 2 3)) '(! 1 ! 2 ! 3)))
+    (check-syntax
+     (syntax-foldr (>> syntax-list* #'!) syntax-null #'(1 2 3))
+     '(! 1 ! 2 ! 3)))
 
   ;; Syntax List Filtering
 
   (test-case "syntax-filter"
-    (check-syntax (syntax-filter (.. number? syntax-e) #'(x 1 y 2 3 z w 4 v)) '(1 2 3 4)))
+    (check-syntax
+     (syntax-filter (.. number? syntax-e) #'(x 1 y 2 3 z w 4 v))
+     '(1 2 3 4)))
 
   ;; Syntax Pair Accessor Shorthands
 
@@ -260,4 +282,5 @@
   (test-case "syntax-cddr"
     (check-syntax (syntax-cddr #'(1 2)) null)
     (check-syntax (syntax-cddr #'(1 2 . 3)) 3)
-    (check-syntax (syntax-cddr #'(1 2 3)) '(3))))
+    (check-syntax (syntax-cddr #'(1 2 3)) '(3)))
+  )

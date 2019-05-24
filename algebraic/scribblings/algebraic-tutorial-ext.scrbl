@@ -761,9 +761,10 @@ back into ordinary lists.
       [a (list (show a))]))
 }
 
-The @id[app->list] @tech{function} takes a two-argument @tech{instance} of @TApp
-(or @PApp) and @racket[cons]es the left sub-term (or sub-pattern) onto the
-result of recursively applying itself to the right sub-term (or sub-pattern).
+The @id[app->list] @tech{function} takes a two-argument @tech[#:key "product
+instance"]{instance} of @TApp (or @PApp) and @racket[cons]es the left sub-term
+(or sub-pattern) onto the result of recursively applying itself to the right
+sub-term (or sub-pattern).
 
 The @id[seq->list] @tech{function} does the same thing for @TSeqs and @PSeqs.
 

@@ -16,7 +16,6 @@
   (require racket/contract/base)
 
   (provide
-   ;; sum
    (contract-out
     [sum-introducer (-> syntax? 'add syntax?)]
     [struct sum-transformer ([id identifier?]
@@ -34,13 +33,7 @@
       (with-syntax ([(Σ Π ...) (cons id (sum-transformer-product-ids S))]
                     [hash1 (datum->syntax id (sum-transformer-hash1 S))]
                     [hash2 (datum->syntax id (sum-transformer-hash2 S))])
-        #'(make-sum #'Σ (list #'Π ...) hash1 hash2))))
-
-  ;; (define-syntax (sum stx)
-  ;;   (syntax-case stx ()
-  ;;     [(_ id) (identifier? #'id) #'(syntax-local-value (sum-introducer #'id 'add))]))
-
-  )
+        #'(make-sum #'Σ (list #'Π ...) hash1 hash2)))))
 
 (define-syntax (sum stx)
   (syntax-case stx ()

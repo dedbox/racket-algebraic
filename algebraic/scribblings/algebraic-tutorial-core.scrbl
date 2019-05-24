@@ -999,8 +999,9 @@ When assembled, the rules define a complete @id[step] @tech{function}.
     [redM (TApp (TSeq (TMac x t) v12) v2) (alt-step ((TMac x t) v2) (v12 v2))])
 }
 
-The rules @id[appM] and @id[appF] differ by a single @tech{constructor}. Their
-different behaviors are a consequence of the intervening rule @id[app2].
+The rules @id[appM] and @id[appF] differ by a single @tech{product}
+constructor. Their different behaviors are a consequence of the intervening
+rule @id[app2].
 
 @; =============================================================================
 
@@ -1364,8 +1365,8 @@ The number 3, for example, is encoded as @code{(Succ (Succ (Succ Zero)))}.
 By definition, @Zero is not the successor of any other Peano number, and @Succ
 is an injective function from one Peano number to another. Whereas every Peano
 number is a member of the @Peano @tech{sum}, the converse is not true in
-general. Proving that an @tech{instance} of @Peano really is a Peano number
-takes some work:
+general. Proving that an @tech[#:key "product instance"]{instance} of @Peano
+really is a Peano number takes some work:
 
 @example[
   (define peano? (function [Zero #t] [(Succ n) (peano? n)] [_ #f]))

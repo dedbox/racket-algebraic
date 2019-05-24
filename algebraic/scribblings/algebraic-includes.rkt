@@ -101,7 +101,7 @@
        (make-base-eval #:lang mod-name)))))
 
 (define-syntax-rule (algebraic-evaluator)
-  (module-language-evaluator 'algebraic/racket/base/lang))
+  (module-language-evaluator 'algebraic/racket/base))
 
 (begin-for-syntax
   (define-syntax-rule (algebraic-example -eval)
@@ -151,7 +151,7 @@
          ([sandbox-output 'string]
           [sandbox-error-output 'string])
        (make-base-eval
-        #:lang 'algebraic/racket/base/lang
+        #:lang 'algebraic/racket/base
         '(require (except-in algebraic/model/core
                              #%app #%datum #%module-begin #%top-interaction)
                   racket/format

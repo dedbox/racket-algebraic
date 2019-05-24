@@ -23,10 +23,11 @@
 
 The bindings documented in this section are provided by
 @racketmodname[algebraic/prelude] and @racketmodname[algebraic/racket/base].
+These functions and function aliases add consistency to the functional Racket
+programming experience and encourage compact code. They are used extensively
+throughout the collection.
 
-This small collection of simple functions and function aliases adds
-consistency to the functional programming experience in Racket and encourages
-more compact code. They are used extensively throughout the collection.
+This module re-provides the @racket[const] function.
 
 @defform[(values-> f expr)]{
 
@@ -74,7 +75,7 @@ more compact code. They are used extensively throughout the collection.
 
   Returns a left-curried version of @var[f].
 
-  The @racket[>>] function, unlike @racket[curry], is not self-curried.
+  The @racket[>>] function does not self-curry. Use @racket[>>*] to 
 
   Example:
   @example[
@@ -91,6 +92,28 @@ more compact code. They are used extensively throughout the collection.
   Example:
   @example[
     ((<< list 1 2) (list 3 4) 5 6)
+  ]
+}
+
+@defproc[(>>* [f procedure?]) (-> any/c ... procedure?)]{
+
+  Explicit self-@racket[curry].
+
+  Equivalent to @racket[(curry f)].
+
+  Example:
+  @example[
+    (((>>* list) 1 2) 3 4)
+  ]
+}
+
+@defproc[(<<* [f procedure?]) (-> any/c ... procedure?)]{
+
+  Explicit self-@racket[curryr]. Equivalent to @racket[(curryr f)].
+
+  Example:
+  @example[
+    (((<<* list) 1 2) 3 4)
   ]
 }
 

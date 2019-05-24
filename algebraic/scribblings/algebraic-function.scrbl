@@ -258,7 +258,7 @@ arguments, and the number of arguments for each clause can vary.
 
   @specsubform[product-id]{
 
-    Matches a @tech{product} @tech{constructor} named @var[product-id].
+    Matches a @tech{product} constructor named @var[product-id].
 
     Example:
     @example[
@@ -275,8 +275,8 @@ arguments, and the number of arguments for each clause can vary.
      (product-id patt ... . patt)]
   ]{
 
-    Matches an @tech{instance} of the @tech{product} bound to @var[product-id]
-    with @tech{fields} that match @var[patt]s.
+    Matches an @tech[#:key "product instance"]{instance} of the @tech{product}
+    bound to @var[product-id] with @tech{fields} that match @var[patt]s.
 
     Example:
     @example[

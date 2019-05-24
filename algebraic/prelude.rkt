@@ -7,13 +7,16 @@
                      racket/base))
 
 (provide
+ const
  values-> id :: ::* ++ .. && || $
  (contract-out
   [thunk<- (-> any/c ... (-> any))]
   [flip (-> procedure? procedure?)]
   [twice (-> procedure? procedure?)]
   [>> (-> procedure? any/c ... procedure?)]
-  [<< (-> procedure? any/c ... procedure?)]))
+  [<< (-> procedure? any/c ... procedure?)]
+  [>>* (-> procedure? (-> any/c ... procedure?))]
+  [<<* (-> procedure? (-> any/c ... procedure?))]))
 
 (define-syntax values-> (μ* (f xs) (call-with-values (λ () xs) f)))
 
@@ -28,13 +31,19 @@
 (define (twice f)
   (.. f f))
 
-;;; curry
+;;; left curry
 (define ((>> f . xs) . ys)
   ($ f (++ xs ys)))
 
-;;; curryr
+;;; right curry
 (define ((<< f . xs) . ys)
   ($ f (++ ys xs)))
+
+;;; partial left-curry
+(define (>>* f) (.. (>> $ >> f) list))
+
+;;; partial right-curry
+(define (<<* f) (.. (>> $ << f) list))
 
 ;;; Function Aliases
 

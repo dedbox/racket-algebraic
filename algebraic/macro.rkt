@@ -5,7 +5,7 @@
          racket/syntax
          syntax/parse
          (for-template racket/base)
-         (for-syntax algebraic/data/product
+         (for-syntax algebraic/product
                      algebraic/private
                      racket/base
                      syntax/parse)
@@ -89,32 +89,29 @@
       (with-syntax ([patt (maker (car clause*))]
                     [(alias-patt ...) (map maker (aliases tail))])
         #`[(~and patt alias-patt ...)
-           #,@(do-blocks (blocks tail))
-           #,@(side-conditions (consequents tail) (premises tail))
-           #,@(post-conditions (conditions tail))
-           #,(singleton (body tail))])))
+           #,@(make-directives tail) #,(singleton (body tail))])))
 
-  (define (do-blocks blocks)
-    (if (null? blocks)
-        null
-        (with-syntax ([block (car blocks)])
-          (list* #'#:do #'block (do-blocks (cdr blocks))))))
+  (define (make-directives tail)
+    (cond [(or (null? tail) (not (keyword-syntax? (car tail)))) null]
+          [(keyword-syntax=? (car tail) "do") (do-directive (cdr tail))]
+          [(keyword-syntax=? (car tail) "if") (if-directive (cdr tail))]
+          [(keyword-syntax=? (car tail) "with") (with-directive (cdr tail))]
+          [else null]))
 
-  (define (side-conditions consequents premises)
-    (if (null? premises)
-        null
-        (with-syntax ([patt (argument (car consequents))]
-                      [expr (car premises)])
-          (list* #'#:with #'patt #'expr
-                 (side-conditions (cdr consequents) (cdr premises))))))
+  (define (do-directive tail)
+    (with-syntax ([block (car tail)])
+      (list* #'#:do #'block (make-directives (cdr tail)))))
 
-  (define (post-conditions cond-patts)
-    (if (null? cond-patts)
-        null
-        (with-syntax ([patt (car cond-patts)])
-          (list* #'#:post
-                 #'(~fail #:unless patt (format "condition failed: ~a" 'patt))
-                 (post-conditions (cdr cond-patts))))))
+  (define (if-directive tail)
+    (with-syntax ([patt (car tail)])
+      (list* #'#:post
+             #'(~fail #:unless patt (format "condition failed: ~a" 'patt))
+             (make-directives (cdr tail)))))
+
+  (define (with-directive tail)
+    (with-syntax ([patt (argument (car tail))]
+                  [expr (cadr tail)])
+      (list* #'#:with #'patt #'expr (make-directives (cddr tail)))))
 
   (define (singleton xs)
     (datum->syntax

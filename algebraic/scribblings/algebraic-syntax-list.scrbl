@@ -7,7 +7,7 @@
 @require[
   @for-label[
     algebraic/racket/base
-    algebraic/syntax/list
+    algebraic/syntax-list
     racket/contract/base
   ]
 ]
@@ -15,11 +15,11 @@
 @define[syntax-list-eval (algebraic-evaluator)]
 @define-syntax[example (algebraic-example syntax-list-eval)]
 
-@example[#:hidden (require algebraic/syntax/list)]
+@example[#:hidden (require algebraic/syntax-list)]
 
 @; #############################################################################
 
-@defmodule[algebraic/syntax/list]
+@defmodule[algebraic/syntax-list]
 
 Operations on @secref["pairs" #:doc '(lib
 "scribblings/reference/reference.scrbl")] embedded in syntax objects.
@@ -66,8 +66,9 @@ value is a syntax list.
 
 @defproc[(syntax-cons [a syntax?] [b syntax?]) syntax-pair?]{
 
-  Returns a newly allocated @tech{syntax pair} with the lexical context of
-  @var[a] whose first element is @var[a] and second element is @var[d].
+  Returns a newly allocated @tech{syntax pair} with the lexical context and
+  source location of @var[a] whose first element is @var[a] and second element
+  is @var[d].
 
   Examples:
   @example[
@@ -150,20 +151,22 @@ value is a syntax list.
 }
 
 @defproc[
-  (build-syntax-list [n exact-nonnegative-integer?]
+  (build-syntax-list [ctx (or/c syntax? #f)]
+                     [n exact-nonnegative-integer?]
                      [f (-> exact-nonnegative-integer? syntax?)])
   syntax-list?
 ]{
 
-  Creates a @tech{syntax list} of @var[n] elements by applying @var[f] to the
-  integers from @racket[0] to @racket[(sub1 #,(var n))] in order. If @var[x]
-  is the resulting @tech{syntax list}, then @racket[(syntax-list-ref #,(var x)
-  #,(var i))] is the value produced by @racket[(f #,(var i))].
+  Creates a @tech{syntax list} with lexical context @var[ctx] of @var[n]
+  elements by applying @var[f] to the integers from @racket[0] to
+  @racket[(sub1 #,(var n))] in order. If @var[x] is the resulting @tech{syntax
+  list}, then @racket[(syntax-list-ref #,(var x) #,(var i))] is the value
+  produced by @racket[(f #,(var i))].
 
   Examples:
   @example[
-    (build-syntax-list 10 (>> datum->syntax #f))
-    (build-syntax-list 5 (φ x (datum->syntax #f (* x x))))
+    (build-syntax-list #f 10 (>> datum->syntax #f))
+    (build-syntax-list #'here 5 (φ x (datum->syntax #f (* x x))))
   ]
 }
 

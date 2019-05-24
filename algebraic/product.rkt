@@ -1,6 +1,6 @@
 #lang racket/base
 
-(require algebraic/data/sum
+(require algebraic/sum
          racket/contract/base
          racket/format
          (for-syntax racket/base))
@@ -15,8 +15,8 @@
     #:omit-constructor]
   [make-product (-> identifier? sum? exact-nonnegative-integer? fixnum? fixnum?
                     product?)]
-  [struct instance ([product product?]
-                    [arguments list?])]))
+  [struct product-instance ([product product?]
+                            [arguments list?])]))
 
 (begin-for-syntax
   (require racket/contract/base)
@@ -36,7 +36,8 @@
     #:property prop:procedure
     (λ (P stx)
       (syntax-case stx ()
-        [(_ arg ...) #`(instance #,(product-transform P) (list arg ...))]
+        [(_ arg ...)
+         #`(product-instance #,(product-transform P) (list arg ...))]
         [_ (product-transform P)])))
 
   (define (product-transform P)
@@ -51,7 +52,7 @@
   #:transparent
   #:name data:product
   #:constructor-name make-product
-  #:property prop:procedure (λ (Π . args) (instance Π args))
+  #:property prop:procedure (λ (Π . args) (product-instance Π args))
 
   #:methods gen:equal+hash
 
@@ -79,14 +80,15 @@
                          (syntax->datum (sum-id (product-sum Π))))]
        [else (display (syntax->datum (product-id Π)) port)]))])
 
-(struct instance (product arguments)
+(struct product-instance (product arguments)
   #:transparent
   #:methods gen:custom-write
   [(define (write-proc I port mode)
-     (let ([Π (syntax->datum (product-id (instance-product I)))])
+     (let ([Π (syntax->datum (product-id (product-instance-product I)))])
        (case mode
-         [(#t #f) (write (list* Π (instance-arguments I)) port)]
-         [else (display (list* Π (map ~v (instance-arguments I))) port)])))])
+         [(#t #f) (write (list* Π (product-instance-arguments I)) port)]
+         [else (display (list* Π (map ~v (product-instance-arguments I)))
+                        port)])))])
 
 ;;; ----------------------------------------------------------------------------
 
@@ -112,12 +114,12 @@
 ;;         (check equal? (format "~v" Π) "Π")
 ;;         (check equal? (format "~a" Π) "#<product:0:1:2 Π∈Σ>"))))
 
-;;   (test-case "instance"
+;;   (test-case "product-instance"
 ;;     (let-syntax ([Σ (sum-transformer #'Σ (list #'Π1 #'Π2) 1 2)])
 ;;       (let-syntax ([Π1 (product-transformer #'Π1 #'Σ 0 1 2)]
 ;;                    [Π2 (product-transformer #'Π2 #'Σ 1 2 3)])
-;;         (check-pred instance? (Π1))
-;;         ;; (check-pred instance? (Π 1 2 3))
+;;         (check-pred product-instance? (Π1))
+;;         ;; (check-pred product-instance? (Π 1 2 3))
 ;;         (check equal? (Π1 1 2 3) (Π1 1 2 3))
 ;;         (check-false (equal? (Π1 1 2 3) (Π1 4 5 6)))
 ;;         (check-false (equal? (Π1 1 2 3) (Π2 1 2 3)))

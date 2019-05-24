@@ -33,18 +33,18 @@ A @deftech{product} identifies a family of structures comprising a list of
 In this example, @racket[Peano] is a @tech{sum} of the @tech{products}
 @racket[Zero] and @racket[Succ].
 
-Each @tech{product} name is bound to a @deftech{constructor}, a function that
-creates @tech{instances} of the named @tech{product}. An @deftech{instance} is
-a concrete expression of the @tech{product} as a tagged tuple of run-time
-values or expansion-time syntax fragments.
+Each @tech{product} name is bound to a constructor function that creates
+@tech[#:key "product instance"]{instances} of the named @tech{product}. A
+@deftech{product instance} is a concrete expression of the @tech{product} as a
+tagged tuple of run-time values or expansion-time syntax fragments.
 
 @example[
   (Succ Zero)
-  (instance? (Succ Zero))
+  (product-instance? (Succ Zero))
 ]
 
-Equality is decided structurally for @tech{constructors} and their
-@tech{instances}.
+Equality is decided structurally for @tech{products} and their @tech[#:key
+"product instance"]{instances}.
 
 @example[
   (equal? Succ Succ)
@@ -91,8 +91,8 @@ to add the appropriate @rtech{scope} to an identifier.
 
     @item{@var[sum-id]@tt{?}, for each @var[sum-id]; a predicate that returns
       @racket[#t] for the @tech{sum} bound to @var[sum-id], its
-      @tech{constructors} or their @tech{instances}, and @racket[#f] for any
-      other value.}
+      @tech{products} or their @tech[#:key "product instance"]{instances}, and
+      @racket[#f] for any other value.}
 
     @item{for each @var[product-id]:
       @itemlist[
@@ -100,15 +100,16 @@ to add the appropriate @rtech{scope} to an identifier.
         @item{a @rtech{transformer} binding that encapsulates information
           about the @tech{product} declaration.}
 
-        @item{a @tech{constructor} that takes any number of arguments and
-          returns a new @tech{instance} of the @tech{product}.}
+        @item{a @tech{product} constructor that takes any number of arguments
+          and returns a new @tech[#:key "product instance"]{instance} of the
+          @tech{product}.}
 
       ]
     }
 
     @item{@var[product-id]@tt{?}, for each @var[product-id]; a predicate that
-      returns @racket[#t] for the @tech{constructor} bound to @var[product-id]
-      or its instances and @racket[#f] for any other value.}
+      returns @racket[#t] for the @tech{product} constructor bound to
+      @var[product-id] or its instances and @racket[#f] for any other value.}
 
   ]
 
@@ -163,7 +164,7 @@ to add the appropriate @rtech{scope} to an identifier.
   If @var[arg] is a @tech{sum}, returns its @tech{products} in the order they
   were defined.
 
-  If @var[arg] is an @tech{instance}, returns its @tech{constructor} followed
+  If @var[arg] is an @tech{product instance}, returns its constructor followed
   by its @tech{fields}.
 
   Any other @var[arg] is returned as a singleton list.
@@ -184,12 +185,12 @@ to add the appropriate @rtech{scope} to an identifier.
 
 @defproc[(product? [v any/c]) boolean?]{
 
-  Returns @racket[#t] if @var[v] is a @tech{constructor}.
+  Returns @racket[#t] if @var[v] is a @tech{product} constructor.
 
 }
 
-@defproc[(instance? [v any/c]) boolean?]{
+@defproc[(product-instance? [v any/c]) boolean?]{
 
-  Returns @racket[#t] if @var[v] is an @tech{instance}.
+  Returns @racket[#t] if @var[v] is a @tech{product instance}.
 
 }
