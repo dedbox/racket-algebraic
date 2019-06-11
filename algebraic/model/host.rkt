@@ -160,10 +160,8 @@
 
 (define-syntax algebraic (μ t (show (interpret (parse 't)))))
 
-(define interpret
-  (function
-    [v #:if (value? v) v]
-    [t (interpret (or (step t) (error 'interpret "stuck at ~v" (show t))))]))
+(define-interpreter (interpret t) value?
+  (step t))
 
 (define (value? t)
   (or (equal? TUni t) ((or/c φ? μ? data? literal?) t)))

@@ -67,10 +67,9 @@
            (:: #'curry    '>>)
            (:: #'curryr   '<<))))
 
-  (define-syntax warn
-    (μ* (ctx msg v ...)
-      (with-handlers ([exn? print-warning])
-        (raise-syntax-error 'linter (format msg v ...) ctx))))
+  (define (warn ctx msg . vs)
+    (with-handlers ([exn? print-warning])
+      (raise-syntax-error 'linter ($ format msg vs) ctx)))
 
   (define (print-warning ex)
     (display (exn->string (exn:fail:syntax (exn-message ex)

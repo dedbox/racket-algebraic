@@ -102,18 +102,18 @@
 (define-syntax algebraic (μ t (show (interpret (parse 't)))))
 
 (define-syntax define-interpreter
-  (μ* ((name:id t:id) step-expr ...+)
+  (μ* ((name:id t:id) value-pred step-expr ...+)
     (define name
       (function
-        [v #:if (value? v) v]
+        [v #:if (value-pred v) v]
         [t (name
             (or (begin step-expr ...)
                 (error 'name "stuck at ~v" (show t))))]))))
 
-(define-interpreter (interpret t)
+(define-interpreter (interpret t) value?
   (step t))
 
-(define-interpreter (trace t)
+(define-interpreter (trace t) value?
   (writeln (show t))
   (step t))
 

@@ -42,7 +42,7 @@
   (instance Monad
     extends (ListApplicative)
     [>>= (λ (xs f) ($ ++ (map f xs)))]
-    [return (<< :: null)]
+    [return list]
     [>>M *>]
     [fail (const null)]))
 

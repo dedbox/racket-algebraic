@@ -1,6 +1,6 @@
 #lang scribble/manual
 
-@title[#:style 'no-sidebar]{The Algebraic Collection}
+@title[#:style 'no-sidebar]{The Algebraic Racket Collection}
 
 @author{@author+email["Eric Griffis" "dedbox@gmail.com"]}
 

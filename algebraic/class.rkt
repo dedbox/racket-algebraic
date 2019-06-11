@@ -175,20 +175,15 @@
 (define-syntax with-instance
   (macro*
     [(instance-id:id expr ...+)
-     #,(replace-context
-        this-syntax
-        #'(with-instance [|| instance-id] expr ...))]
-
+     #,(replace-context this-syntax #'(with-instance [|| instance-id] expr ...))]
     [([prefix:id instance-id:id] expr ...+)
      #:if (instance-id? #'instance-id)
      #:do [(define members (instance-members #'instance-id))
            (define ids (map car members))
-           (define defs (map cadr members))
-           (define prefix-ids (map (prepend this-syntax #'prefix) ids))
-           (define scope-Δ (>> replace-context this-syntax))]
-     #:with (id ...) (map scope-Δ ids)
-     #:with (id/prefix ...) prefix-ids
-     #:with (def ...) (map scope-Δ defs)
+           (define re-context (>> replace-context this-syntax))]
+     #:with (id ...) (map re-context ids)
+     #:with (id/prefix ...) (map (prepend this-syntax #'prefix) ids)
+     #:with (def ...) (map (.. re-context cadr) members)
      (letrec-values
          ([(id/prefix ...)
            (letrec-syntax ([id (make-variable-like-transformer #'def)] ...)
@@ -243,7 +238,7 @@
             ($ ++ (map instance-members base-instance-ids)))))
     (free-id-table-map base-members list)))
 
-;;; ------------------------g----------------------------------------------------
+;;; ----------------------------------------------------------------------------
 
 (module+ test
   (require rackunit
