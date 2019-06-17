@@ -14,10 +14,6 @@
 @define[class-eval (algebraic-evaluator)]
 @define-syntax[example (algebraic-example/locations class-eval)]
 
-@; @example[#:hidden
-@;   (require algebraic/class)
-@; ]
-
 @; #############################################################################
 
 A @deftech{class} is an abstract collection of names with optional default
@@ -197,6 +193,21 @@ multiple instances.
   @example[
     (with-instance CurrentContinuation
       (call (λ () (abort 1 2) 3)))
+  ]
+}
+
+@defform*[((instantiate instance-id)
+           (instantiate prefix instance-id))]{
+
+  Defines the members of @var[instance-id] with optional @var[prefix] for the
+  remainder of the containing module or top level.
+
+  Example:
+  @example[
+    (instantiate E: EscapeContinuation)
+    (instantiate C: CurrentContinuation)
+    (E:call (λ () (E:abort 'ESC)))
+    (C:call (λ () (C:abort 'CALL)))
   ]
 }
 

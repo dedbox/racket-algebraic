@@ -190,6 +190,18 @@
              (values id ...))])
        expr ...)]))
 
+(define-syntax instantiate
+  (macro*
+    [(instance-id:id)
+     #,(replace-context this-syntax #'(instantiate || instance-id))]
+    [(prefix:id instance-id:id)
+     #:do [(define ids (map car (instance-members #'instance-id)))]
+     #:with (id/prefix ...) (map (prepend this-syntax #'prefix) ids)
+     #,(replace-context
+        this-syntax
+        #'(define-values (id/prefix ...)
+            (with-instance [prefix instance-id] (values id/prefix ...))))]))
+
 (begin-for-syntax
 
   (define (instance-id? stx)
@@ -335,4 +347,25 @@
       (check S:/= "A" "Z")
       (check S:/= "Z" "A")
       (check-false (S:/= "A" "A"))
-      (check-false (S:/= "Z" "Z")))))
+      (check-false (S:/= "Z" "Z"))))
+
+  (instantiate E: EqEq)
+  (instantiate S: StringEq)
+
+  (test-case "instantiate"
+    (check E:== + +)
+    (check E:== - -)
+    (check E:/= + -)
+    (check E:/= - +)
+    (check-false (E:== + -))
+    (check-false (E:== - +))
+    (check-false (E:/= + +))
+    (check-false (E:/= - -))
+    (check S:== "A" "A")
+    (check S:== "Z" "Z")
+    (check-false (S:== "A" "Z"))
+    (check-false (S:== "Z" "A"))
+    (check S:/= "A" "Z")
+    (check S:/= "Z" "A")
+    (check-false (S:/= "A" "A"))
+    (check-false (S:/= "Z" "Z"))))
