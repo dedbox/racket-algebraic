@@ -2,6 +2,7 @@
 
 (require algebraic/private
          racket/contract/base
+         racket/pretty
          racket/syntax
          syntax/parse
          (for-template racket/base)
@@ -19,11 +20,19 @@
 (struct mac (def impl)
   #:reflection-name 'macro
   #:property prop:procedure (λ (M . args) (apply (mac-impl M) args))
+
   #:methods gen:custom-write
+
   [(define (write-proc M port mode)
      (case mode
        [(#t #f) (fprintf port "#<macro>")]
-       [else (display (syntax->datum (mac-def M)) port)]))])
+       [else (parameterize ([pretty-print-current-style-table
+                             algebraic-pretty-print-style-table])
+               (print (syntax->datum (mac-def M)) port 1))
+
+             ;; (display (syntax->datum (mac-def M)) port)
+
+             ]))])
 
 (define macro? mac?)
 
