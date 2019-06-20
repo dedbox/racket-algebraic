@@ -5,6 +5,7 @@
          racket/pretty
          racket/syntax
          syntax/parse
+         syntax/transformer
          (for-template racket/base)
          (for-syntax algebraic/product
                      algebraic/private
@@ -13,7 +14,7 @@
          (for-meta 2 racket/base))
 
 (provide
- μ mu macro μ* mu* macro* var ...+
+ μ0 mu0 μ mu macro μ* mu* macro* var ...+
  (contract-out
   [macro? predicate/c]))
 
@@ -224,6 +225,20 @@
     (if (pair? arg*)
         (cons (argument (car arg*)) (rest-args (cdr arg*)))
         (argument arg*))))
+
+(define-syntax (μ0 stx)
+  (syntax-case stx ()
+    [(_ expr) #`(mac (quote-syntax #,stx) (make-variable-like-transformer #'expr))]
+    [(_ expr . exprs)
+     #`(mac (quote-syntax #,stx)
+            (make-variable-like-transformer #'(begin expr . exprs)))]))
+
+(define-syntax (mu0 stx)
+  (syntax-case stx ()
+    [(_ expr) #'(mac (quote-syntax #,stx) (make-variable-like-transformer #'expr))]
+    [(_ expr . exprs)
+     #`(mac (quote-syntax #,stx)
+            (make-variable-like-transformer #'(begin expr . exprs)))]))
 
 (define-syntax (μ stx)
   (syntax-case stx (...)

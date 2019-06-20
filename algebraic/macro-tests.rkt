@@ -31,6 +31,12 @@
       (let-syntax ([m def])
         (check-exn rx-or-pred (λ () (convert-syntax-error (m arg)))))))
 
+  (test-case "μ0 / mu0"
+    (check eq? (let-syntax ([ok (μ0 OK)]) ok) OK)
+    (check eq? (let-syntax ([ok (mu0 OK)]) ok) OK)
+    (check = (let-syntax ([ab (μ0 1 2)]) ab) 2)
+    (check = (let-syntax ([ab (mu0 1 2)]) ab) 2))
+
   (test-case "boolean"
     (check-OK (μ #t OK) #t)
     (check-OK (μ #f OK) #f)

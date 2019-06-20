@@ -8,6 +8,7 @@
   @for-label[
     algebraic/racket/base
     racket/contract/base
+    syntax/transformer
   ]
 ]
 
@@ -104,6 +105,24 @@ code.
 ]
 
 @; -----------------------------------------------------------------------------
+
+@deftogether[(
+@defform[(μ0 expr ...+)]
+@defform[(mu0 expr ...+)]
+)]{
+
+  Creates an identifier @tech{macro} that behaves like a
+  @racket[make-variable-like-transformer]. If multiple @var[expr]s are given,
+  they are implicitly wrapped with @racket[begin].
+
+  Examples:
+  @example[
+    (define-syntax juicy-cons (μ0 (println 'POW!) ::))
+    (begin-for-syntax
+      (println (syntax-local-value #'juicy-cons)))
+    (juicy-cons 1 (juicy-cons 2 3))
+  ]
+}
 
 @deftogether[(
 @defform[(μ parse-option ... mac-patt mac-directive ... body ...+)]

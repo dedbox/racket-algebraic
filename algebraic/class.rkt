@@ -186,7 +186,7 @@
      #:with (def ...) (map (.. re-context cadr) members)
      (letrec-values
          ([(id/prefix ...)
-           (letrec-syntax ([id (make-variable-like-transformer #'def)] ...)
+           (letrec-syntax ([id (μ0 def)] ...)
              (values id ...))])
        expr ...)]))
 
