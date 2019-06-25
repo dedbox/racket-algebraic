@@ -2,6 +2,7 @@
 
 (require racket/contract/base
          racket/pretty
+         racket/set
          racket/struct-info
          racket/syntax
          (for-template algebraic/product
@@ -36,6 +37,7 @@
   [keyword-syntax=? (-> syntax? string? boolean?)]
   [maybe-quote/ids (-> any/c any/c)]
   [struct-field-names (-> identifier? (listof symbol?))]
+  [pattern-variables (-> syntax? (listof identifier?))]
   ;; Pretty Printing
   [algebraic-pretty-print-style-table pretty-print-style-table?]))
 
@@ -170,6 +172,63 @@
      (cadr (regexp-match rx (symbol->string (syntax->datum id))))))
   (map field-name
        (cadddr (extract-struct-info (syntax-local-value struct-id)))))
+
+(define (pattern-variables stx)
+  (define stx* (syntax-e stx))
+  (define vars
+    (syntax-case stx (quote quasiquote void)
+      [_ (literal-data? stx) null]
+      [(quote _) null]
+
+      [(quasiquote datum)
+       (let quasi ([stx** #'datum])
+         (if (identifier? #'stx**)
+             null
+             (syntax-case #'stx** ()
+               [(unquote patt) (pattern-variables #'patt)]
+               [(patt1 . patt2) (append (quasi #'patt1) (quasi #'patt2))]
+               [() null]
+               [_ null])))]
+
+      [_ (wildcard? stx) null]
+      [_ (variable? stx) (list stx)]
+
+      [_ (vector? stx*)
+         (apply append (map pattern-variables (vector->list stx*)))]
+      [_ (box? stx*) (pattern-variables (unbox stx*))]
+      [_ (hash? stx*)
+         (apply append (map pattern-variables (hash-values stx*)))]
+
+      [Π (product-identifier? #'Π) null]
+      [(Π x ...) (product-identifier? #'Π)
+                 (apply append (map pattern-variables (syntax-e #'(x ...))))]
+
+      [(patt1 #:as patt2) (append (pattern-variables #'patt1)
+                                  (pattern-variables #'patt2))]
+
+      [(patt #:if _) (pattern-variables #'patt)]
+
+      [_ (regexp? stx*) null]
+      [(rx x ...) (regexp? (syntax-e #'rx))
+                  (apply append (map pattern-variables (syntax-e #'(x ...))))]
+
+      [(S [field-id x] ...)
+       (and (struct-identifier? #'S)
+            (member (syntax->datum (car (syntax-e #'(field-id ...))))
+                    (struct-field-names #'S)))
+       (apply append (map pattern-variables (syntax-e #'(x ...))))]
+
+      [(S x ...) (struct-identifier? #'S)
+                 (apply append (map pattern-variables (syntax-e #'(x ...))))]
+
+      [(void) null]
+
+      [(_ ...) (apply append (map pattern-variables stx*))]
+      [(_ . _) (append (pattern-variables (car stx*))
+                       (pattern-variables (cdr stx*)))]
+
+      [_ (raise-syntax-error #f "invalid pattern" stx)]))
+  (set->list (apply set vars)))
 
 ;;; Pretty Printing
 
