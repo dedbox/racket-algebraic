@@ -29,6 +29,8 @@ throughout the collection.
 
 This module re-provides the @racket[const] function.
 
+@section[#:tag "prelude:functions"]{Functions}
+
 @defform[(values-> f expr)]{
 
   Applies @var[f] to the values produced by @var[expr].
@@ -131,3 +133,33 @@ This module re-provides the @racket[const] function.
   Short names for common functions.
 
 }
+
+@section[#:tag "prelude:lists"]{Lists}
+
+@defproc[(member-of [v any/c] ...) (-> any/c (or/c list? #f))]{
+
+  Returns a unary function that locates the first element of @racket[(#,(var
+  v) ...)] that is @racket[equal?] to its argument. If such an element exists,
+  the tail of @racket[(#,(var v) ...)] starting with that element is returned.
+  Otherwise, the result is @racket[#f].
+
+  Examples:
+  @example[
+    ((member-of 1 2 3 4) 2)
+    ((member-of 1 2 3 4) 9)
+  ]
+}
+
+@defproc[(free-member-of [x identifier?] ...) (-> identifier? (or/c list? #f))]{
+
+  Like @racket[member-of], but finds an element using
+  @racket[free-identifier=?].
+
+  Examples:
+  @example[
+    ((free-member-of #'x #'y) #'x)
+    ((free-member-of #'x #'y) #'a)
+  ]
+}
+
+

@@ -10,13 +10,17 @@
  const
  values-> id :: ::* ++ .. && || $
  (contract-out
+  ;; Functions
   [thunk<- (-> any/c ... (-> any))]
   [flip (-> procedure? procedure?)]
   [twice (-> procedure? procedure?)]
   [>> (-> procedure? any/c ... procedure?)]
   [<< (-> procedure? any/c ... procedure?)]
   [>>* (-> procedure? (-> any/c ... procedure?))]
-  [<<* (-> procedure? (-> any/c ... procedure?))]))
+  [<<* (-> procedure? (-> any/c ... procedure?))]
+  ;; Lists
+  [member-of (-> any/c ... (-> any/c (or/c list? #f)))]
+  [free-member-of (-> identifier? ... (-> identifier? (or/c list? #f)))]))
 
 (define-syntax values-> (μ* (f xs) (call-with-values (λ () xs) f)))
 
@@ -55,3 +59,10 @@
 (define && conjoin)
 (define || disjoin)
 (define $ apply)
+
+;;; Lists
+
+(define member-of (.. (<<* member) list))
+
+(define (free-member-of . xs)
+  (<< member xs free-identifier=?))
