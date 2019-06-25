@@ -3,6 +3,7 @@
 (require algebraic/prelude
          algebraic/pretty
          racket/pretty
+         algebraic/syntax-list
          (for-syntax algebraic/macro
                      (except-in algebraic/prelude id)
                      algebraic/syntax-list
@@ -20,6 +21,7 @@
                    syntax/strip-context))
 
 (provide (all-defined-out)
+         (all-from-out algebraic/syntax-list)
          (for-syntax (all-defined-out)))
 
 ;;; ----------------------------------------------------------------------------
@@ -116,10 +118,20 @@
                                #'(base-id ...)
                                #'(member-id ...)
                                #'(member-def ...)))]
+
       [(class-id:id [member-id:id member-def] ...)
        #,(replace-context
           this-syntax
-          #'(instance class-id extends () [member-id member-def] ...))]))
+          #'(let ([C (syntax-local-value #'class-id)])
+              (unless (or (syntax-null? (class-transformer-min-ids C))
+                          (syntax-ormap (has-min-ids? #'(member-id ...))
+                                        (class-transformer-min-ids C)))
+                (raise-syntax-error
+                 #f "does not satisfy a minimal definition" #'#,this-syntax))
+              (instance-transformer #'class-id
+                                    #'()
+                                    #'(member-id ...)
+                                    #'(member-def ...))))]))
 
   (define ((has-min-ids? member-ids) ids)
     (syntax-andmap (<< member (syntax-e member-ids) free-identifier=?) ids))

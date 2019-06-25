@@ -229,17 +229,19 @@
 
 (define-syntax (μ0 stx)
   (syntax-case stx ()
-    [(_ expr) #`(mac (quote-syntax #,stx) (make-variable-like-transformer #'expr))]
-    [(_ expr . exprs)
-     #`(mac (quote-syntax #,stx)
-            (make-variable-like-transformer #'(begin expr . exprs)))]))
+    [(_ expr)
+     (with-syntax ([(stx*) (generate-temporaries (list stx))])
+       #`(mac (quote-syntax #,stx)
+              (...
+               (λ (stx*)
+                 (syntax-case stx* ()
+                   [id (identifier? #'id) #'expr]
+                   [(_ x ...) #'(expr x ...)])))))]
+    [(_ expr exprs ...) #'(μ0 (begin expr exprs ...))]))
 
 (define-syntax (mu0 stx)
   (syntax-case stx ()
-    [(_ expr) #'(mac (quote-syntax #,stx) (make-variable-like-transformer #'expr))]
-    [(_ expr . exprs)
-     #`(mac (quote-syntax #,stx)
-            (make-variable-like-transformer #'(begin expr . exprs)))]))
+    [(_ expr exprs ...) #'(μ0 expr exprs ...)]))
 
 (define-syntax (μ stx)
   (syntax-case stx (...)
