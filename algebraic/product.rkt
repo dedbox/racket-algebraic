@@ -1,8 +1,10 @@
 #lang racket/base
 
-(require algebraic/sum
+(require algebraic/pretty
+         algebraic/sum
          racket/contract/base
          racket/format
+         racket/pretty
          (for-syntax racket/base))
 
 (provide
@@ -82,13 +84,17 @@
 
 (struct product-instance (product arguments)
   #:transparent
+
   #:methods gen:custom-write
+
   [(define (write-proc I port mode)
      (let ([Π (syntax->datum (product-id (product-instance-product I)))])
        (case mode
          [(#t #f) (write (list* Π (product-instance-arguments I)) port)]
-         [else (display (list* Π (map ~v (product-instance-arguments I)))
-                        port)])))])
+         [else (parameterize ([pretty-print-current-style-table
+                               algebraic-pretty-print-style-table])
+                 (print (list* Π (product-instance-arguments I))
+                        port 1))])))])
 
 ;;; ----------------------------------------------------------------------------
 

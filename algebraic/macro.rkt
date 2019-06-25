@@ -1,6 +1,7 @@
 #lang racket/base
 
-(require algebraic/private
+(require algebraic/pretty
+         algebraic/private
          racket/contract/base
          racket/pretty
          racket/syntax

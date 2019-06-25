@@ -1,6 +1,8 @@
 #lang racket/base
 
-(require racket/contract/base
+(require algebraic/pretty
+         racket/contract/base
+         racket/pretty
          (for-syntax racket/base)
          (for-meta 2 racket/base))
 
@@ -66,9 +68,11 @@
                          (sum-hash1 Σ)
                          (sum-hash2 Σ)
                          (syntax->datum (sum-id Σ)))]
-       [else (display `(data ,(syntax->datum (sum-id Σ))
+       [else (parameterize ([pretty-print-current-style-table
+                             algebraic-pretty-print-style-table])
+               (print `(data ,(syntax->datum (sum-id Σ))
                              (,@(map syntax->datum (sum-product-ids Σ))))
-                      port)]))])
+                      port 1))]))])
 
 ;;; ----------------------------------------------------------------------------
 

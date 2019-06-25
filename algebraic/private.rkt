@@ -1,7 +1,6 @@
 #lang racket/base
 
 (require racket/contract/base
-         racket/pretty
          racket/set
          racket/struct-info
          racket/syntax
@@ -37,9 +36,7 @@
   [keyword-syntax=? (-> syntax? string? boolean?)]
   [maybe-quote/ids (-> any/c any/c)]
   [struct-field-names (-> identifier? (listof symbol?))]
-  [pattern-variables (-> syntax? (listof identifier?))]
-  ;; Pretty Printing
-  [algebraic-pretty-print-style-table pretty-print-style-table?]))
+  [pattern-variables (-> syntax? (listof identifier?))]))
 
 ;;; Syntax Lists
 
@@ -229,15 +226,3 @@
 
       [_ (raise-syntax-error #f "invalid pattern" stx)]))
   (set->list (apply set vars)))
-
-;;; Pretty Printing
-
-(define algebraic-pretty-print-style-table
-  (pretty-print-extend-style-table
-   (pretty-print-current-style-table)
-   '(class
-      φ phi φ* phi* function function*
-      μ mu μ* mu* macro macro*)
-   '(case
-        lambda lambda lambda lambda case-lambda case-lambda
-        lambda lambda lambda lambda case-lambda case-lambda)))

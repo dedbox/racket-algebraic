@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require algebraic/data
+         algebraic/pretty
          algebraic/private
          racket/contract/base
          racket/match

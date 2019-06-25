@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require algebraic/prelude
-         algebraic/private
+         algebraic/pretty
          racket/pretty
          (for-syntax algebraic/macro
                      (except-in algebraic/prelude id)
