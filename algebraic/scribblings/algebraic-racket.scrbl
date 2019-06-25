@@ -33,3 +33,4 @@ lexically scoped and has a natural ordering.
 @include-section{./algebraic-data.scrbl}
 @include-section{./algebraic-function.scrbl}
 @include-section{./algebraic-macro.scrbl}
+@include-section{./algebraic-forms.scrbl}
