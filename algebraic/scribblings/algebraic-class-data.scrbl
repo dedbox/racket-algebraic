@@ -13,10 +13,11 @@
     algebraic/class/monoid
     algebraic/class/semigroup
     algebraic/data/box
+    algebraic/data/event
     algebraic/data/list
     algebraic/data/maybe
     algebraic/data/values
-    (except-in algebraic/racket/base do)
+    (except-in algebraic/racket/base do #%module-begin)
     racket/contract/base
   ]
 ]
@@ -31,6 +32,7 @@
            algebraic/class/monoid
            algebraic/class/semigroup
            algebraic/data/box
+           algebraic/data/event
            algebraic/data/list
            algebraic/data/maybe
            algebraic/data/values)]
@@ -254,6 +256,58 @@
 
   Example:
   @example[(with-instance ValuesFunctor (fmap list (λ () (id 1 2 3))))]
+}
+
+@; -----------------------------------------------------------------------------
+
+@section[#:tag "class:data:event"]{Event}
+
+@defmodule[algebraic/data/event]
+
+@definstance[EventFunctor]{
+  @defmembers[[fmap procedure?]]
+
+  Examples:
+  @example[
+    (with-instance EventFunctor
+      (sync (fmap (λ _ (id 1 2 3)) always-evt)))
+  ]
+}
+
+@; .............................................................................
+
+@definstance[EventMonad]{
+
+  extends @racket[EventFunctor]
+
+  @defmembers[
+    [>>= procedure?]
+    [return procedure?]
+  ]
+
+  Examples:
+  @example[(with-instance EventMonad
+             (sync (>>= (return 1 2 3) (.. return +))))]
+}
+
+@; .............................................................................
+
+@definstance[EventApplicative]{
+
+  extends @racket[EventMonad]
+
+  @defmembers[
+    [pure procedure?]
+    [liftA2 procedure?]
+  ]
+
+  Examples:
+  @example[(with-instance EventApplicative (sync (pure 1 2 3)))]
+
+  @example[
+    (with-instance EventApplicative
+      (sync (liftA2 list (pure 1 2) (pure 3 4))))
+  ]
 }
 
 @; -----------------------------------------------------------------------------

@@ -8,7 +8,8 @@
   @for-label[
     (except-in algebraic/racket/base
                λ lambda case-lambda let let* letrec let-values let*-values
-               letrec-values case define define-values)
+               letrec-values case define define-values
+               #%module-begin)
     algebraic/racket/base/forms
     racket/contract/base
     syntax/transformer

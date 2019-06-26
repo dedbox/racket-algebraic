@@ -6,7 +6,7 @@
 @require[
   texmath
   @for-label[
-    algebraic/racket/base
+    (except-in algebraic/racket/base #%module-begin)
   ]
 ]
 

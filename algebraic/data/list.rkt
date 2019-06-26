@@ -15,12 +15,11 @@
 
 ;; stimesList :: Integral b => b -> [a] -> [a]
 (define-syntax stimesList
-  (class-helper
-   (function*
-     [(n _) #:if (< n 0) (error "stimes: list, negative multiplier")]
-     [(0 _) null]
-     [(n x) (letrec ([rep (function [0 null] [i (++ x (rep (- i 1)))])])
-              (rep n))])))
+  (μ0 (function*
+        [(n _) #:if (< n 0) (error "stimes: list, negative multiplier")]
+        [(0 _) null]
+        [(n x) (letrec ([rep (function [0 null] [i (++ x (rep (- i 1)))])])
+                 (rep n))])))
 
 (define-syntax ListMonoid
   (instance Monoid
@@ -53,7 +52,8 @@
 
   (test-case "ListSemigroup"
     (with-instance ListSemigroup
-      (check equal? (<> '(1 2) '(3 4)) '(1 2 3 4))))
+      (check equal? (<> '(1 2) '(3 4)) '(1 2 3 4))
+      (check equal? (stimes 3 '(1 2)) '(1 2 1 2 1 2))))
 
   (test-case "ListMonoid"
     (with-instance ListMonoid

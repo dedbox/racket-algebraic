@@ -3,8 +3,7 @@
 (require (except-in racket/function curry curryr)
          racket/contract/base
          racket/list
-         (for-syntax algebraic/macro
-                     racket/base))
+         (for-syntax racket/base))
 
 (provide
  const
@@ -22,7 +21,9 @@
   [member-of (-> any/c ... (-> any/c (or/c list? #f)))]
   [free-member-of (-> identifier? ... (-> identifier? (or/c list? #f)))]))
 
-(define-syntax values-> (μ* (f xs) (call-with-values (λ () xs) f)))
+(define-syntax (values-> stx)
+  (syntax-case stx ()
+    [(_ f xs) #'(call-with-values (λ () xs) f)]))
 
 ;;; Functions
 

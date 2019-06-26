@@ -4,6 +4,7 @@
 
 (provide (all-defined-out))
 
+;;; ----------------------------------------------------------------------------
 ;; The class of monoids (types with an associative binary operation that has
 ;; an identity).
 ;; 
@@ -23,7 +24,6 @@
 ;; Some types can be viewed as a monoid in more than one way, e.g. both
 ;; addition and multiplication on numbers. In such cases we often define
 ;; newtypes and make those instances of Monoid, e.g. Sum and Product.
-
 (class Monoid
 
   ;; Identity of mappend

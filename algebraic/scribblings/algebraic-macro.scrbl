@@ -6,7 +6,7 @@
 
 @require[
   @for-label[
-    algebraic/racket/base
+    (except-in algebraic/racket/base #%module-begin)
     racket/contract/base
     syntax/transformer
   ]
@@ -129,7 +129,7 @@ code.
 @defform[(mu parse-option ... mac-patt mac-directive ... body ...+)]
 @defform/subs[
   #:literals (void quasiquote unquote)
-  (macro parse-option [mac-patt mac-directive ... body ...+] ...+)
+  (macro parse-option ... [mac-patt mac-directive ... body ...+] ...+)
   [(mac-patt literal-data
              (quasiquote #,(var qmp))
              wildcard-id
@@ -381,6 +381,33 @@ code.
   with @var[mac-patt]s instead of @var[patt]s. When multiple clauses are
   given, they are attempted in the order specified.
 
+}
+
+@deftogether[(
+@defform[(μ-parser parse-option ... mac-patt mac-directive ... body ...+)]
+@defform[(mu-parser parse-option ... mac-patt mac-directive ... body ...+)]
+@defform[(μ*-parser parse-option ... mac-formals mac-directive ... body ...+)]
+@defform[(mu*-parser parse-option ... mac-formals mac-directive ... body ...+)]
+@defform[(macro-parser parse-option ... [mac-patt mac-directive ... body ...+] ...+)]
+@defform[(macro*-parser parse-option ... [mac-formals mac-directive ... body ...+] ...+)]
+)]{
+
+  Like @racket[μ], @racket[mu], @racket[μ*], @racket[mu*], @racket[macro], or
+  @racket[macro*], but produces a matching procedure and the @var[body]s are
+  not implicitly quasiquoted.
+
+  Examples:
+  @example[
+    ((μ-parser x (+ (syntax-e #'x) 1))
+     #'2)
+  ]
+
+  @example[
+    ((macro*-parser
+       [(x y) (list #'x #'y)]
+       [(x y . z) (list #'x #'y #'z)])
+     #'(1 2 3 4 5))
+  ]
 }
 
 @defform[(var id)]{

@@ -6,13 +6,13 @@
 @require[
   texmath
   @for-label[
-    algebraic/racket/base
+    (except-in algebraic/racket/base #%module-begin)
     racket/function
   ]
 ]
 
-@define[core-eval (module-language-evaluator 'algebraic/model/core)]
-@define[ext-eval (module-language-evaluator 'algebraic/model/ext)]
+@define[core-eval (module-language-evaluator* 'algebraic/model/core)]
+@define[ext-eval (module-language-evaluator* 'algebraic/model/ext)]
 @define-syntax[core-example (algebraic-example core-eval)]
 @define-syntax[ext-example (algebraic-example ext-eval)]
 

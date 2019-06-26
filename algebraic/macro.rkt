@@ -11,62 +11,96 @@
          (for-syntax algebraic/product
                      algebraic/private
                      racket/base
-                     syntax/parse)
+                     syntax/parse
+                     syntax/strip-context
+                     syntax/transformer)
          (for-meta 2 racket/base))
 
 (provide
- μ0 mu0 μ mu macro μ* mu* macro* var ...+
+ μ0 mu0 μ mu macro μ* mu* macro* μ-parser mu-parser μ*-parser mu*-parser
+ macro-parser macro*-parser var ...+
+ make-variable-like-transformer
  (contract-out
   [macro? predicate/c]))
 
 (struct mac (def impl)
   #:reflection-name 'macro
   #:property prop:procedure (λ (M . args) (apply (mac-impl M) args))
-
   #:methods gen:custom-write
-
   [(define (write-proc M port mode)
      (case mode
        [(#t #f) (fprintf port "#<macro>")]
        [else (parameterize ([pretty-print-current-style-table
                              algebraic-pretty-print-style-table])
-               (print (syntax->datum (mac-def M)) port 1))
-
-             ;; (display (syntax->datum (mac-def M)) port)
-
-             ]))])
+               (if (pretty-printing)
+                   (pretty-print (syntax->datum (mac-def M)) port 1)
+                   (print (syntax->datum (mac-def M)) port 1)))]))])
 
 (define macro? mac?)
 
 (begin-for-syntax
-  (define (make-μ type options+clause)
+  (define (make-μ options+clause)
     (let ([options+clause* (syntax-e options+clause)])
       (let ([options (skip-clauses options+clause*)]
             [clause (datum->syntax options+clause (skip-options options+clause*))])
         #`(syntax-parser
             #,@options
-            #,((make-clause (λ (a) #`(_ #,(argument a)))) clause)))))
+            #,((make-clause (λ (a) #`(_ #,(argument a))) quasi-singleton)
+               clause)))))
 
-  (define (make-μ* type options+clause)
+  (define (make-μ-parser options+clause)
     (let ([options+clause* (syntax-e options+clause)])
       (let ([options (skip-clauses options+clause*)]
             [clause (datum->syntax options+clause (skip-options options+clause*))])
-        (with-syntax ([clause ((make-clause formals) clause)])
+        #`(syntax-parser
+            #,@options
+            #,((make-clause argument singleton) clause)))))
+
+  (define (make-μ* options+clause)
+    (let ([options+clause* (syntax-e options+clause)])
+      (let ([options (skip-clauses options+clause*)]
+            [clause (datum->syntax options+clause (skip-options options+clause*))])
+        (with-syntax ([clause ((make-clause formals quasi-singleton) clause)])
           #`(syntax-parser #,@options clause)))))
 
-  (define (make-macro type options+clauses)
+  (define (make-μ*-parser options+clause)
+    (let ([options+clause* (syntax-e options+clause)])
+      (let ([options (skip-clauses options+clause*)]
+            [clause (datum->syntax options+clause (skip-options options+clause*))])
+        (with-syntax ([clause ((make-clause parser-formals singleton) clause)])
+          #`(syntax-parser #,@options clause)))))
+
+  (define (make-macro options+clauses)
     (let ([options+clauses* (syntax-e options+clauses)])
       (let ([options (skip-clauses options+clauses*)]
             [clauses (skip-options options+clauses*)])
         #`(syntax-parser
             #,@options
-            #,@(map (make-clause (λ (a) #`(_ #,(argument a)))) clauses)))))
+            #,@(map (make-clause (λ (a) #`(_ #,(argument a))) quasi-singleton)
+                    clauses)))))
 
-  (define (make-macro* type options+clauses)
+  (define (make-macro-parser options+clauses)
     (let ([options+clauses* (syntax-e options+clauses)])
       (let ([options (skip-clauses options+clauses*)]
             [clauses (skip-options options+clauses*)])
-        (with-syntax ([(clause ...) (map (make-clause formals) clauses)])
+        #`(syntax-parser
+            #,@options
+            #,@(map (make-clause argument singleton) clauses)))))
+
+  (define (make-macro* options+clauses)
+    (let ([options+clauses* (syntax-e options+clauses)])
+      (let ([options (skip-clauses options+clauses*)]
+            [clauses (skip-options options+clauses*)])
+        (with-syntax ([(clause ...)
+                       (map (make-clause formals quasi-singleton) clauses)])
+          #`(syntax-parser #,@options clause ...)))))
+
+  (define (make-macro*-parser options+clauses)
+    (let ([options+clauses* (syntax-e options+clauses)])
+      (let ([options (skip-clauses options+clauses*)]
+            [clauses (skip-options options+clauses*)])
+        (with-syntax ([(clause ...)
+                       (map (make-clause parser-formals singleton) clauses)])
           #`(syntax-parser #,@options clause ...)))))
 
   (define (skip-clauses options+clauses*)
@@ -94,13 +128,13 @@
                   (cddr options+clauses*))]
            [else #f])))
 
-  (define ((make-clause maker) clause)
+  (define ((make-clause patt-maker body-maker) clause)
     (let* ([clause* (syntax-e clause)]
            [tail (cdr clause*)])
-      (with-syntax ([patt (maker (car clause*))]
-                    [(alias-patt ...) (map maker (aliases tail))])
+      (with-syntax ([patt (patt-maker (car clause*))]
+                    [(alias-patt ...) (map patt-maker (aliases tail))])
         #`[(~and patt alias-patt ...)
-           #,@(make-directives tail) #,(singleton (body tail))])))
+           #,@(make-directives tail) #,(body-maker (body tail))])))
 
   (define (make-directives tail)
     (cond [(or (null? tail) (not (keyword-syntax? (car tail)))) null]
@@ -124,13 +158,20 @@
                   [expr (cadr tail)])
       (list* #'#:with #'patt #'expr (make-directives (cddr tail)))))
 
-  (define (singleton xs)
+  (define (quasi-singleton xs)
     (datum->syntax
      (car xs)
      (list #'quasisyntax
            (if (null? (cdr xs))
                (car xs)
                (datum->syntax (car xs) (list* #'begin xs))))))
+
+  (define (singleton xs)
+    (datum->syntax
+     (car xs)
+     (if (null? (cdr xs))
+         (car xs)
+         (datum->syntax (car xs) (list* #'begin xs)))))
 
   (define (formals args)
     (syntax-case args ()
@@ -141,6 +182,17 @@
        (with-syntax ([(patt ...) (map argument (syntax-e #'(head ...)))]
                      [rest-patt (argument #'tail)])
          #'(_ patt ... . rest-patt))]
+      [_ (raise-syntax-error #f "invalid formals syntax" args)]))
+
+  (define (parser-formals args)
+    (syntax-case args ()
+      [id (wildcard? #'id) #'_]
+      [id (variable? #'id) #'(_ . id)]
+      [(_ ...) (map argument (syntax-e args))]
+      [(head ... . tail)
+       (with-syntax ([(patt ...) (map argument (syntax-e #'(head ...)))]
+                     [rest-patt (argument #'tail)])
+         #'(patt ... . rest-patt))]
       [_ (raise-syntax-error #f "invalid formals syntax" args)]))
 
   (define (argument arg)
@@ -229,49 +281,85 @@
 
 (define-syntax (μ0 stx)
   (syntax-case stx ()
-    [(_ expr)
-     (with-syntax ([(stx*) (generate-temporaries (list stx))])
-       #`(mac (quote-syntax #,stx)
-              (...
-               (λ (stx*)
-                 (syntax-case stx* ()
-                   [id (identifier? #'id) #'expr]
-                   [(_ x ...) #'(expr x ...)])))))]
-    [(_ expr exprs ...) #'(μ0 (begin expr exprs ...))]))
+    [(_ expr) #'(... (syntax-parser
+                       [:id #`expr]
+                       [(:id x ...) #`((#%expression expr) x ...)]))]
+    [(_ expr exprs ...) (replace-context stx #'(μ0 (begin expr exprs ...)))]))
 
 (define-syntax (mu0 stx)
   (syntax-case stx ()
-    [(_ expr exprs ...) #'(μ0 expr exprs ...)]))
+    [(_ expr exprs ...) (replace-context stx #'(μ0 expr exprs ...))]))
+
+;;; ----------------------------------------------------------------------------
+;;; Uni-Clausal Macros
+
+;;; Univariate
 
 (define-syntax (μ stx)
-  (syntax-case stx (...)
+  (syntax-case stx ()
     [(_ . options+clause)
-     #`(mac (quote-syntax #,stx) #,(make-μ 'μ #'options+clause))]))
+     #`(mac (quote-syntax #,stx) #,(make-μ #'options+clause))]))
 
 (define-syntax (mu stx)
   (syntax-case stx ()
     [(_ . options+clause)
-     #`(mac (quote-syntax #,stx) #,(make-μ 'mu #'options+clause))]))
+     #`(mac (quote-syntax #,stx) #,(make-μ #'options+clause))]))
 
-(define-syntax (macro stx)
+(define-syntax (μ-parser stx)
   (syntax-case stx ()
-    [(_ . options+clauses)
-     #`(mac (quote-syntax #,stx) #,(make-macro 'macro #'options+clauses))]))
+    [(_ . options+clause) #`#,(make-μ-parser #'options+clause)]))
+
+(define-syntax (mu-parser stx)
+  (syntax-case stx ()
+    [(_ . options+clause) #`#,(make-μ-parser #'options+clause)]))
+
+;;; Multivariate
 
 (define-syntax (μ* stx)
   (syntax-case stx ()
     [(_ . options+clause)
-     #`(mac (quote-syntax #,stx) #,(make-μ* 'μ* #'options+clause))]))
+     #`(mac (quote-syntax #,stx) #,(make-μ* #'options+clause))]))
 
 (define-syntax (mu* stx)
   (syntax-case stx ()
     [(_ . options+clause)
-     #`(mac (quote-syntax #,stx) #,(make-μ* 'mu* #'options+clause))]))
+     #`(mac (quote-syntax #,stx) #,(make-μ* #'options+clause))]))
+
+(define-syntax (μ*-parser stx)
+  (syntax-case stx ()
+    [(_ . options+clause) #`#,(make-μ*-parser #'options+clause)]))
+
+(define-syntax (mu*-parser stx)
+  (syntax-case stx ()
+    [(_ . options+clause) #`#,(make-μ*-parser #'options+clause)]))
+
+;;; ----------------------------------------------------------------------------
+;;; Multi-clausal Macros
+
+;;; Univariate
+
+(define-syntax (macro stx)
+  (syntax-case stx ()
+    [(_ . options+clauses)
+     #`(mac (quote-syntax #,stx) #,(make-macro #'options+clauses))]))
+
+(define-syntax (macro-parser stx)
+  (syntax-case stx ()
+    [(_ . options+clauses) #`#,(make-macro-parser #'options+clauses)]))
+
+;;; Multivariate
 
 (define-syntax (macro* stx)
   (syntax-case stx ()
     [(_ . options+clauses)
-     #`(mac (quote-syntax #,stx) #,(make-macro* 'macro* #'options+clauses))]))
+     #`(mac (quote-syntax #,stx) #,(make-macro* #'options+clauses))]))
+
+(define-syntax (macro*-parser stx)
+  (syntax-case stx ()
+    [(_ . options+clauses) #`#,(make-macro*-parser #'options+clauses)]))
+
+;;; ----------------------------------------------------------------------------
+;;; Helpers
 
 (define-syntax-rule (var id)
   (syntax-local-eval #'id))

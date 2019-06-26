@@ -1,14 +1,17 @@
 #lang algebraic/racket/base
 
+(require algebraic/syntax)
+
 (provide (all-defined-out))
 
+;;; ----------------------------------------------------------------------------
 ;; The Functor class is used for types that can be mapped over. Instances of
 ;; Functor should satisfy the following laws:
 ;;
 ;;  * fmap id  ==  id
 ;;  * fmap (f . g)  ==  fmap f . fmap g
-
 (class Functor
+
   ;; fmap :: (a -> b) -> f a -> f b
   [fmap]
 
@@ -22,6 +25,7 @@
   minimal ([fmap]))
 
 ;;; ----------------------------------------------------------------------------
+;;; Helpers
 
 ;; An infix synonym for fmap.
 ;;
@@ -61,7 +65,7 @@
 ;; (2,True)
 
 ;; (<$>) :: Functor f => (a -> b) -> f a -> f b
-(define-syntax <$> (class-helper fmap))
+(define-syntax <$> (μ0 #,(#%rewrite fmap)))
 
 ;; A lazy variant of <$>.
-(define-syntax <$>~ (class-helper (λ (f x) (fmap (>>* f) x))))
+(define-syntax <$>~ (μ0 #,(#%rewrite (λ (f x) (fmap (>>* f) x)))))

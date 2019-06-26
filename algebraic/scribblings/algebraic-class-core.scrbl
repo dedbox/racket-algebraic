@@ -6,13 +6,17 @@
 
 @require[
   @for-label[
-    algebraic/racket/base
+    (except-in algebraic/racket/base #%module-begin)
     racket/contract/base
   ]
 ]
 
 @define[class-eval (algebraic-evaluator)]
 @define-syntax[example (algebraic-example/locations class-eval)]
+
+@example[#:hidden
+  (require algebraic/class)
+]
 
 @; #############################################################################
 
@@ -196,6 +200,31 @@ multiple instances.
   ]
 }
 
+@deftogether[(
+@defidform[splicing-with-instance]
+@defidform[splicing-with-instances]
+)]{
+
+  Like @racket[with-instance] and @racket[with-instances], except that in a
+  definition context, the body forms are spliced into the enclosing definition
+  context (in the same way as for @racket[begin]).
+
+  Examples:
+  @example[
+    (splicing-with-instance EscapeContinuation
+      (define (f x)
+        (call (λ () (abort `(ESC ,x))))))
+    (f 1)
+  ]
+  
+  @example[
+    (splicing-with-instance [C: CurrentContinuation]
+      (define (g x)
+        (C:call (λ () (C:abort `(ABORT ,x))))))
+    (g 2)
+  ]
+}
+
 @defform*[((instantiate instance-id)
            (instantiate prefix instance-id))]{
 
@@ -204,29 +233,17 @@ multiple instances.
 
   Example:
   @example[
-    (instantiate E: EscapeContinuation)
-    (instantiate C: CurrentContinuation)
-    (E:call (λ () (E:abort 'ESC)))
-    (C:call (λ () (C:abort 'CALL)))
-  ]
-}
-
-@defform[(class-helper expr)]{
-
-  Produces a @rtech{syntax transformer} that injects the @var[expr] into the
-  caller's lexical context such that any @tech{class} members it contains can
-  be resolved at run time.
-
-  Example:
-  @example[
-    (define-syntax return (class-helper abort))
-  ]
-
-  @example[
-    (with-instance EscapeContinuation
-      (call (λ ()
-              (for ([i (in-naturals)])
-                (when (and (> i 10) (even? i))
-                  (return i))))))
+    (module esc+cur algebraic/racket/base
+      (class Eq
+        [== (.. not /=)]
+        [/= (.. not ==)]
+        minimal ([==] [/=]))
+      (define-syntax EqEq (instance Eq [== eq?]))
+      (define-syntax StringEq (instance Eq [== string=?]))
+      (instantiate EqEq)
+      (instantiate S: StringEq)
+      (== 'a 'a)
+      (S:/= "A" "B"))
+    (require 'esc+cur)
   ]
 }

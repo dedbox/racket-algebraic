@@ -11,7 +11,7 @@
     algebraic/class/monad
     algebraic/class/monoid
     algebraic/class/semigroup
-    (except-in algebraic/racket/base do)
+    (except-in algebraic/racket/base do #%module-begin)
     racket/contract/base
   ]
 ]
@@ -25,7 +25,8 @@
            algebraic/class/monad
            algebraic/data/box
            algebraic/data/list
-           algebraic/data/values)]
+           algebraic/data/values)
+]
 
 @; #############################################################################
 

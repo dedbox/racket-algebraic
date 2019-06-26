@@ -60,7 +60,7 @@
       (check = (unbox (<**> (pure 2) (pure add1))) 3)))
 
   (test-case "BoxMonad"
-    (with-instances (BoxApplicative BoxMonad)
+    (with-instances (BoxApplicative BoxFunctor BoxMonad)
       (check = (unbox (>>= #&1 (.. return add1))) 2)
       (check = (unbox (return 1)) 1)
       (check = (unbox (>>M (return 1) (return 2))) 2)

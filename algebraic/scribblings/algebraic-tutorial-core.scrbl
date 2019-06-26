@@ -7,13 +7,24 @@
 @require[
   texmath
   @for-label[
-    algebraic/racket/base
+    (except-in algebraic/racket/base #%module-begin)
     racket/contract/base
   ]
 ]
 
-@define[core-eval (module-language-evaluator 'algebraic/model/core)]
+@define[core-eval (module-language-evaluator* 'algebraic/model/core)]
 @define-syntax[core-example (algebraic-example core-eval)]
+
+@define[core-mod-eval (algebraic-evaluator)]
+@define-syntax[core-mod-example (algebraic-example/locations core-mod-eval)]
+
+@core-mod-example[
+  #:hidden
+  (require (except-in algebraic/model/core
+                      #%app #%datum #%module-begin #%top-interaction)
+           racket/format
+           racket/set)
+]
 
 @; #############################################################################
 
@@ -467,27 +478,27 @@ The printer's job is to translate the members of @Term back into
 s-expressions. The printer has the same structure as the parser, but the roles
 of pattern and body are swapped.
 
-@algebraic-code{
-  (define (show t)
-    (define term
-      (function
-        [(TApp t1 t2) `(  ,(term t1) ,(term t2))]
-        [(TSeq t1 t2) `($ ,(term t1) ,(term t2))]
-        [(TFun p1 t2) `(φ ,(patt p1) ,(term t2))]
-        [(TMac p1 t2) `(μ ,(patt p1) ,(term t2))]
-        [(TVar x1) (α-restore x1)]
-        [(TCon δ1) δ1]
-        [TUni '◊]))
-    (define patt
-      (function
-        [(PApp p1 p2) `(  ,(patt p1) ,(patt p2))]
-        [(PSeq p1 p2) `($ ,(patt p1) ,(patt p2))]
-        [(PVar x1) (α-restore x1)]
-        [(PCon δ1) δ1]
-        [PWil '_]
-        [PUni '◊]))
-    (term t))
-}
+@; @algebraic-code{
+@;   (define (show t)
+@;     (define term
+@;       (function
+@;         [(TApp t1 t2) `(  ,(term t1) ,(term t2))]
+@;         [(TSeq t1 t2) `($ ,(term t1) ,(term t2))]
+@;         [(TFun p1 t2) `(φ ,(patt p1) ,(term t2))]
+@;         [(TMac p1 t2) `(μ ,(patt p1) ,(term t2))]
+@;         [(TVar x1) (α-restore x1)]
+@;         [(TCon δ1) δ1]
+@;         [TUni '◊]))
+@;     (define patt
+@;       (function
+@;         [(PApp p1 p2) `(  ,(patt p1) ,(patt p2))]
+@;         [(PSeq p1 p2) `($ ,(patt p1) ,(patt p2))]
+@;         [(PVar x1) (α-restore x1)]
+@;         [(PCon δ1) δ1]
+@;         [PWil '_]
+@;         [PUni '◊]))
+@;     (term t))
+@; }
 
 The @id[show] function is also defined as a pair of @id[term] / @id[patt]
 combinators. This time, each @racket[function] pattern deconstructs a member
@@ -579,24 +590,24 @@ Every interpreter in the tutorial series provides a ``top level'' evaluator
 
 ]
 
-@algebraic-code{
-  (define-syntax algebraic (μ t (show (interpret (parse 't)))))
-}
+@; @algebraic-code{
+@;   (define-syntax algebraic (μ t (show (interpret (parse 't)))))
+@; }
 
 The @id[interpret] @tech{function} will drive the computation of @id[t] in a
 tight loop that calls another @tech{function} named @id[step] until it returns
 a @id[value?].
 
-@algebraic-code{
-  (define interpret
-    (function
-      [v #:if (value? v) v]
-      [t
-       ;; (writeln (show t))
-       (interpret
-        (or (step t)
-            (error 'interpret "stuck at ~v" (show t))))]))
-}
+@; @algebraic-code{
+@;   (define interpret
+@;     (function
+@;       [v #:if (value? v) v]
+@;       [t
+@;        ;; (writeln (show t))
+@;        (interpret
+@;         (or (step t)
+@;             (error 'interpret "stuck at ~v" (show t))))]))
+@; }
 
 The @id[step] @tech{function} will take a @id[Term] for the current step of a
 computation and return the next step or @racket[#f] if stuck.
@@ -614,16 +625,16 @@ capture with a @tech{macro}.
 
 }
 
-@algebraic-code{
-  (define-syntax define-interpreter
-    (μ* ((name:id t:id) step-expr ...+)
-      (define name
-        (function
-          [v #:if (value? v) v]
-          [t (name
-              (or (begin step-expr ...)
-                  (error 'name "stuck at ~v" (show t))))]))))
-}
+@; @algebraic-code{
+@;   (define-syntax define-interpreter
+@;     (μ* ((name:id t:id) step-expr ...+)
+@;       (define name
+@;         (function
+@;           [v #:if (value? v) v]
+@;           [t (name
+@;               (or (begin step-expr ...)
+@;                   (error 'name "stuck at ~v" (show t))))]))))
+@; }
 
 A @id[define-interpreter] form looks like the @racket[define] shorthand for a
 unary function. Its argument receives the current step of the computation and
@@ -632,14 +643,14 @@ its body calculates the next step.
 With @id[define-interpreter], we can cleanly define the @id[interpret]
 @tech{function} alongside a more verbose @id[trace] variant.
 
-@algebraic-code{
-  (define-interpreter (interpret t)
-    (step t))
+@; @algebraic-code{
+@;   (define-interpreter (interpret t)
+@;     (step t))
 
-  (define-interpreter (trace t)
-    (writeln (show t))
-    (step t))
-}
+@;   (define-interpreter (trace t)
+@;     (writeln (show t))
+@;     (step t))
+@; }
 
 We still need a @id[step] @tech{function}. Its job is to implement the
 semantics of our language. The core model consists of ten inference rules
@@ -1241,10 +1252,10 @@ symbol for printing.
 
 We now have a complete @id[algebraic] form for evaluating core terms.
 
-@core-mod-example[
-  (algebraic ◊)
-  (algebraic ((φ x x) (φ y y)))
-]
+@; @core-mod-example[
+@;   (algebraic ◊)
+@;   (algebraic ((φ x x) (φ y y)))
+@; ]
 
 This is good enough for unit testing, but it's still a little clunky in
 interactive sessions. We won't need to embed every term in an @id[algebraic]
@@ -1266,15 +1277,15 @@ we should be able to enter a @id[.rkt] file with the first line set to
 @hash-lang[algebraic/model/core] (or wherever your module is installed) and
 interact with the interpreter directly.
 
-@algebraic-code{
-  (define-syntax core-module-begin
-    (μ* (form ...)
-      (#%module-begin (algebraic form) ...)))
+@; @algebraic-code{
+@;   (define-syntax core-module-begin
+@;     (μ* (form ...)
+@;       (#%module-begin (algebraic form) ...)))
 
-  (define-syntax core-top-interaction
-    (μ* form
-      (#%top-interaction . (algebraic form))))
-}
+@;   (define-syntax core-top-interaction
+@;     (μ* form
+@;       (#%top-interaction . (algebraic form))))
+@; }
 
 The default @racket[#%module-begin] form wraps non-interactive top-level
 expressions, ``to print non-@seclink["void+undefined" #:doc '(lib
@@ -1529,21 +1540,21 @@ and point Racket at the file.
 We can even turn it into a unit test inside the
 @racketmodname[algebraic/model/core] module:
 
-@algebraic-code{
-  (module+ test
-    (require rackunit)
-    (check equal?
-           (algebraic
-            ((φ fix
-               ((φ add
-                  (add ((Succ Zero) (Succ (Succ Zero)))))
-                (fix (φ add ($ (φ (a Zero) a)
-                               (φ (a (Succ b)) (Succ (add (a b)))))))))
-             (φ f
-               ((φ x (f (φ y ((x x) y))))
-                (φ x (f (φ y ((x x) y)))))))
-          '(Succ (Succ (Succ Zero))))))
-}
+@; @algebraic-code{
+@;   (module+ test
+@;     (require rackunit)
+@;     (check equal?
+@;            (algebraic
+@;             ((φ fix
+@;                ((φ add
+@;                   (add ((Succ Zero) (Succ (Succ Zero)))))
+@;                 (fix (φ add ($ (φ (a Zero) a)
+@;                                (φ (a (Succ b)) (Succ (add (a b)))))))))
+@;              (φ f
+@;                ((φ x (f (φ y ((x x) y))))
+@;                 (φ x (f (φ y ((x x) y)))))))
+@;           '(Succ (Succ (Succ Zero))))))
+@; }
 
 By similar treatment, we can transform the hypothetical program:
 

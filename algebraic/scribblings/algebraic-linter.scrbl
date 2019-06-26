@@ -5,27 +5,13 @@
 @require{./algebraic-includes.rkt}
 
 @require[
-  racket/sandbox
-  scribble/examples
   @for-label[
-    algebraic/racket/base
-    @; racket/contract/base
+    (except-in algebraic/racket/base #%module-begin)
   ]
 ]
 
-@(define linter-eval
-   (call-with-trusted-sandbox-configuration
-    (λ ()
-      (parameterize ([sandbox-output 'string]
-                     [sandbox-error-output 'string])
-        (make-evaluator 'algebraic/racket/base/linted)))))
-
-@(define-syntax-rule (example expr ...)
-   (examples #:eval linter-eval #:label #f expr ...))
-
-@; @example[#:hidden
-@;   (require racket/function)
-@; ]
+@define[linter-eval (module-language-evaluator 'algebraic/racket/base/linted)]
+@define-syntax[example (algebraic-example linter-eval)]
 
 @; #############################################################################
 

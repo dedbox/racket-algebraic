@@ -6,7 +6,7 @@
 
 @require[
   @for-label[
-    algebraic/racket/base
+    (except-in algebraic/racket/base #%module-begin)
     algebraic/syntax-list
     racket/contract/base
   ]
