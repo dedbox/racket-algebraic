@@ -233,7 +233,7 @@ multiple instances.
 
   Example:
   @example[
-    (module esc+cur algebraic/racket/base
+    (module inst algebraic/racket/base
       (class Eq
         [== (.. not /=)]
         [/= (.. not ==)]
@@ -242,8 +242,8 @@ multiple instances.
       (define-syntax StringEq (instance Eq [== string=?]))
       (instantiate EqEq)
       (instantiate S: StringEq)
-      (== 'a 'a)
-      (S:/= "A" "B"))
-    (require 'esc+cur)
+      (== 'A 'A)
+      (S:/= "a" "b"))
+    (require 'inst)
   ]
 }

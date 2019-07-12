@@ -1,14 +1,9 @@
-#lang racket/base
-
-(require (for-syntax algebraic/macro
-                     racket/base)
-         (for-meta 2 racket/base))
-
+#lang algebraic/racket/base
 (module+ test
   (require algebraic/data
            rackunit
            syntax/macro-testing)
-
+  
   (define-for-syntax OK (string->uninterned-symbol "OK"))
   (define OK (let-syntax ([go (λ (stx) #`'#,(datum->syntax stx OK))]) go))
 

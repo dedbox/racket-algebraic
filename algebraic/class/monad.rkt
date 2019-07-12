@@ -1,7 +1,7 @@
 #lang algebraic/racket/base
 
 (require algebraic/class/applicative
-         algebraic/syntax)
+         (for-syntax algebraic/syntax))
 
 (provide (all-defined-out))
 
@@ -74,18 +74,61 @@
 ;; the outer level.
 ;;
 ;; join :: (Monad m) => m (m a) -> m a
-(define-syntax join (μ0 #,(#%rewrite (λ (xs) (>>= xs id)))))
+(define-syntax join (class-helper (λ (xs) (>>= xs id))))
 
 ;; Same as >>=, but with the arguments interchanged.
 ;;
 ;; (=<<) :: Monad m => (a -> m b) -> m a -> m b
-(define-syntax =<< (μ0 #,(#%rewrite (λ (f x) (>>= x f)))))
+(define-syntax =<< (class-helper (λ (f x) (>>= x f))))
 
+;;; Eager do-notation
 (define-syntax do
   (macro*
-    #:literals (let)
+    #:literals (let let-values)
     #:datum-literals (<-)
-    [(formals <- x block ...) #,(#%rewrite (>>= x (φ* formals (do block ...))))]
-    [(let a x block ...) #,(#%rewrite (let ([a x]) (do block ...)))]
-    [(x) x]
-    [(x block ...) #,(#%rewrite (>>M x (do block ...)))]))
+    [(formals <- v block ...)
+     #,(#%rewrite this-syntax `(>>= ,#'v (φ* ,#'formals (do . ,#'(block ...)))))]
+    [(let patt expr block ...)
+     #,(#%rewrite this-syntax `((φ ,#'patt (do . ,#'(block ...))) ,#'expr))]
+    [(let-values formals expr block ...)
+     #,(#%rewrite this-syntax
+         `(values-> (φ* ,#'formals (do . ,#'(block ...))) ,#'expr))]
+    [(expr block ...+)
+     #,(#%rewrite this-syntax `(>>M ,#'expr (do . ,#'(block ...))))]
+    [(v) v]))
+
+;;; Quasi-lazy do-notations
+(define-syntax do~
+  (macro*
+    #:literals (let let-values)
+    #:datum-literals (<-)
+    [(formals <- expr~ block ...)
+     #,(#%rewrite this-syntax
+         `(>>= ,#'expr~ (φ* ,#'formals (do~ . ,#'(block ...)))))]
+    [(let x expr block ...)
+     #,(#%rewrite this-syntax `(λ () ((φ ,#'x ((do~ . ,#'(block ...)))) ,#'expr)))]
+    [(let-values formals expr block ...)
+     #,(#%rewrite this-syntax
+         `(λ () (values-> (φ* ,#'formals ((do~ . ,#'(block ...)))) ,#'expr)))]
+    [(expr~ block ...+)
+     #,(#%rewrite this-syntax `(>>M ,#'expr~ (do~ . ,#'(block ...))))]
+    [(expr~) expr~]))
+
+;;; Lazy do-notation
+(define-syntax lazy-do
+  (macro*
+    #:literals (let let-values)
+    #:datum-literals (<-)
+    [(formals <- expr block ...)
+     #,(#%rewrite this-syntax
+         `((do~ ,#'formals <- (λ () ,#'expr) (lazy-do . ,#'(block ...)))))]
+    [(let patt expr block ...)
+     #,(#%rewrite this-syntax
+         `((do~ let ,#'patt ,#'expr (lazy-do . ,#'(block ...)))))]
+    [(let-values formals expr block ...)
+     #,(#%rewrite this-syntax
+         `((do~ let-values ,#'formals ,#'expr (lazy-do . ,#'(block ...)))))]
+    [(expr block ...+)
+     #,(#%rewrite this-syntax
+         `((do~ (λ () ,#'expr) (λ () (lazy-do . ,#'(block ...))))))]
+    [(expr) expr]))

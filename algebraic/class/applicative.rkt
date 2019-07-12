@@ -1,10 +1,8 @@
 #lang algebraic/racket/base
 
-(require algebraic/class/functor
-         algebraic/syntax)
+(require algebraic/class/functor)
 
-(provide (all-defined-out)
-         (for-syntax (all-defined-out)))
+(provide (all-defined-out))
 
 ;;; ----------------------------------------------------------------------------
 ;; A functor with application, providing operations to
@@ -125,7 +123,7 @@
 ;; A variant of <*> with the arguments reversed.
 ;;
 ;; (<**>) :: Applicative f => f a -> f (a -> b) -> f b
-(define-syntax <**> (μ0 #,(#%rewrite (>> liftA2 (λ (a f) (f a))))))
+(define-syntax <**> (class-helper (>> liftA2 (λ (a f) (f a)))))
 
 ;; A lazy variant of <*>.
 ;;
@@ -148,7 +146,7 @@
 ;;
 ;;   (<*> (<*>~ (pure +) (pure 1)) (pure 2))
 ;;   (<*> (<*> (<*> (pure (>>* (>>* +))) (pure 1)) (pure 2)) (pure 3))
-(define-syntax <*>~ (μ0 #,(#%rewrite (>> liftA2 (λ (f a) ((>>* f) a))))))
+(define-syntax <*>~ (class-helper (>> liftA2 (λ (f a) ((>>* f) a)))))
 
 ;;; A lazy variant of <**>.
-(define-syntax <**>~ (μ0 #,(#%rewrite (>> liftA2 (λ (a f) ((>>* f) a))))))
+(define-syntax <**>~ (class-helper (>> liftA2 (λ (a f) ((>>* f) a)))))

@@ -11,8 +11,14 @@
     algebraic/class/monad
     algebraic/class/monoid
     algebraic/class/semigroup
+    algebraic/data/box
+    algebraic/data/list
+    algebraic/data/maybe
+    algebraic/data/truthy
+    algebraic/data/values
     (except-in algebraic/racket/base do #%module-begin)
     racket/contract/base
+    racket/format
   ]
 ]
 
@@ -25,171 +31,15 @@
            algebraic/class/monad
            algebraic/data/box
            algebraic/data/list
-           algebraic/data/values)
+           algebraic/data/maybe
+           algebraic/data/truthy
+           algebraic/data/values
+           racket/format)
 ]
 
 @; #############################################################################
 
 @table-of-contents[]
-
-@section[#:tag "class:base:monad"]{Monad}
-
-@defmodule[algebraic/class/monad]
-
-Basic operations on monads, and a generic do-notation.
-
-@defidform[#:kind "class" Monad]{
-
-  Instances of @racket[Monad] should satisfy the following laws:
-
-  @itemlist[
-
-    @item{@racket[(>>= (return a) k)] = @racket[(k a)]}
-
-    @item{@racket[(>>= m return)] = @racket[m]}
-
-    @item{@racket[(>>= m (φ x (>>= (k x) h)))] = @racket[(>>= (>>= m k) h)]}
-
-  ]
-
-  Monads and Applicatives should relate as follows:
-
-  @itemlist[
-
-    @item{@racket[pure] = @racket[return]}
-
-    @item{@racket[<*>] = @racket[ap]}
-
-  ]
-
-  The above laws imply:
-
-  @itemlist[
-
-    @item{@racket[(fmap f xs)] = @racket[(>>= xs (.. return f))]}
-
-    @item{@racket[>>] = @racket[*>]}
-
-  ]
-
-  and that @racket[pure] and @racket[<*>] satisfy the applicative functor laws.
-}
-
-@; .............................................................................
-
-@subsection[#:tag "class:base:monad:members"]{Members}
-
-Minimal instance: @racket[>>=]
-
-@defproc[(>>= [m Monad] [k (-> any/c ... Monad)]) Monad]{
-
-  Sequentially compose two actions, passing any value produced by the first as
-  an argument to the second.
-
-}
-
-@defproc[(>>M [m Monad] [k (-> any/c ... Monad)]) Monad]{
-
-  Sequentially compose two actions, discarding any value produced by the
-  first, like sequencing operators (such as the semicolon) in imperative
-  languages.
-
-}
-
-@defproc[(return [a any/c] ...) Monad]{
-
-  Inject values into the monadic type.
-
-}
-
-@defproc[(fail [msg string?]) Monad]{
-
-  Fail with a message. This operation is not part of the mathematical
-  definition of a monad.
-  @; , but it is invoked on pattern-match failure in a do
-  @; expression.
-
-}
-
-@; .............................................................................
-
-@subsection[#:tag "class:base:monad:helpers"]{Helpers}
-
-@defproc[(join [m Monad]) Monad]{
-
-  The conventional monad join operator. It is used to remove one level of
-  monadic structure, projecting its bound argument into the outer level.
-
-}
-
-@defproc[(=<< [k (-> any/c ... Monad)] [m Monad]) Monad]{
-
-  Same as @racket[>>=], but with the arguments interchanged.
-
-}
-
-@defform[
-  (do do-expr ... expr)
-  #:grammar [(do-expr (code:line formals <- monad-expr)
-                      (code:line let id expr)
-                      monad-expr)]
-]{
-
-  A do-notation for @racket[Monad]ic composition.
-
-  De-sugars a series of @var[do-exprs] into a series of @racket[>>=]s and
-  @racket[>>M]s. A final @var[expr] determines its result.
-
-  A @var[do-expr] has one of the following forms:
-
-  @specsubform[(code:line rest-id #,(racketparenfont "<-") monad-expr)]{
-
-    Evaluates the @racket[monad-expr] and binds the @racket[Monad]'s contents
-    according to @var[formals] for the remainder of the @racket[do] block.
-
-    Examples:
-    @example[
-      (with-instance ListMonad
-        (do (x) <- '(1 2 3 4)
-            (return (add1 x))))
-    ]
-
-    @example[
-      (with-instance ValuesMonad
-        (do (x y . zs) <- (λ () (return 1 2 3 4))
-            (list x y zs)))
-    ]
-
-    @example[
-      (with-instance ListMonad
-        (do (`(? ,x ,y)) <- '((? 1 2) (? 3 4) (? 5 6))
-            (return `(! ,(+ x y)))))
-    ]
-  }
-
-  @specsubform[(code:line #,(racketparenfont "let") id expr)]{
-
-    Evaluates the @racket[expr] and binds the result to @var[id] for the
-    remainder of the @racket[do] block.
-
-    Example:
-    @example[
-      (with-instance ListMonad
-        (do let x (+ 1 2)
-            x))
-    ]
-  }
-
-  @specsubform[monad-expr]{
-
-    Evaluates the @var[monad-expr] and discards the result.
-
-    Example:
-    @example[
-      (with-instance BoxMonad (do #&1 2))
-    ]
-  }
-}
 
 @; -----------------------------------------------------------------------------
 
@@ -434,12 +284,12 @@ Minimal instance: @racket[fmap]
 
   @bold{Examples:}
 
-@; Convert from a Maybe Int to a Maybe String using show:
+  Convert from a Maybe Int to a Maybe String using ~a:
 
-@;  > show <$> Nothing
-@;  Nothing
-@;  > show <$> Just 3
-@;  Just "3"
+  @example[
+    (with-instance MaybeFunctor (<$> ~a Nothing))
+    (with-instance MaybeFunctor (<$> ~a (Just 3)))
+  ]
 
 @; Convert from an Either Int Int to an Either Int String using show:
 
@@ -463,6 +313,197 @@ Minimal instance: @racket[fmap]
 
   A lazy variant of @racket[<$>].
 
+}
+
+@; -----------------------------------------------------------------------------
+
+@section[#:tag "class:base:monad"]{Monad}
+
+@defmodule[algebraic/class/monad]
+
+Basic operations on monads, and a generic do-notation.
+
+@defidform[#:kind "class" Monad]{
+
+  Instances of @racket[Monad] should satisfy the following laws:
+
+  @itemlist[
+
+    @item{@racket[(>>= (return a) k)] = @racket[(k a)]}
+
+    @item{@racket[(>>= m return)] = @racket[m]}
+
+    @item{@racket[(>>= m (φ x (>>= (k x) h)))] = @racket[(>>= (>>= m k) h)]}
+
+  ]
+
+  Monads and Applicatives should relate as follows:
+
+  @itemlist[
+
+    @item{@racket[pure] = @racket[return]}
+
+    @item{@racket[<*>] = @racket[ap]}
+
+  ]
+
+  The above laws imply:
+
+  @itemlist[
+
+    @item{@racket[(fmap f xs)] = @racket[(>>= xs (.. return f))]}
+
+    @item{@racket[>>] = @racket[*>]}
+
+  ]
+
+  and that @racket[pure] and @racket[<*>] satisfy the applicative functor laws.
+}
+
+@; .............................................................................
+
+@subsection[#:tag "class:base:monad:members"]{Members}
+
+Minimal instance: @racket[>>=]
+
+@defproc[(>>= [m Monad] [k (-> any/c ... Monad)]) Monad]{
+
+  Sequentially compose two actions, passing any value produced by the first as
+  an argument to the second.
+
+}
+
+@defproc[(>>M [m Monad] [k (-> any/c ... Monad)]) Monad]{
+
+  Sequentially compose two actions, discarding any value produced by the
+  first, like sequencing operators (such as the semicolon) in imperative
+  languages.
+
+}
+
+@defproc[(return [a any/c] ...) Monad]{
+
+  Inject values into the monadic type.
+
+}
+
+@defproc[(fail [msg string?]) Monad]{
+
+  Fail with a message. This operation is not part of the mathematical
+  definition of a monad.
+  @; , but it is invoked on pattern-match failure in a do
+  @; expression.
+
+}
+
+@; .............................................................................
+
+@subsection[#:tag "class:base:monad:helpers"]{Helpers}
+
+@defproc[(join [m Monad]) Monad]{
+
+  The conventional monad join operator. It is used to remove one level of
+  monadic structure, projecting its bound argument into the outer level.
+
+}
+
+@defproc[(=<< [k (-> any/c ... Monad)] [m Monad]) Monad]{
+
+  Same as @racket[>>=], but with the arguments interchanged.
+
+}
+
+@; .............................................................................
+
+@subsection[#:tag "class:base:monad:do-notations"]{Do-Notations}
+
+@deftogether[(
+@defform[(do do-expr ... expr)]
+@defform[#:literals (let let-values <-)
+         (do~ do-expr ... expr)
+         #:grammar [(do-expr (code:line formals <- monad-expr)
+                             (code:line let id expr)
+                             (code:line let-values formals expr)
+                             monad-expr)]]
+)]{
+
+  Eager (@racket[do]) and lazy (@racket[do~]) notations for monadic
+  composition.
+
+  @racket[do] composes a seies of @var[do-expr]s with a final @var[expr] to
+  determine its result.
+
+  @racket[do~] is similar, except it expects each @var[do-expr] to be warpped
+  in a thunk, and it produces a thunk.
+
+  A @var[do-expr] has one of the following forms:
+
+  @specsubform[#:literals (<-) (code:line formals <- monad-expr)]{
+
+    Evaluates the @racket[monad-expr] and binds the @racket[Monad]'s contents
+    according to @var[formals].
+
+    Examples:
+    @example[
+      (with-instance ListMonad
+        (do (x) <- '(1 2 3 4)
+            (return (add1 x))))
+    ]
+
+    @; @example[
+    @;   (with-instance TruthyMonad
+    @;     ((do~ (x y . zs) <- (return 1 2 3 4)
+    @;           (return x y zs))))
+    @; ]
+  }
+
+  @specsubform[#:literals (let) (code:line let id expr)]{
+
+    Evaluates the @racket[expr] and binds the result to @var[id].
+
+    Example:
+    @; @example[
+    @;   (with-instance ListMonad
+    @;     (do let x (+ 1 2)
+    @;         (return x)))
+    @; ]
+
+    @example[
+      (with-instance TruthyMonad
+        ((do~ let `(a . ,b) '(a 1 2 3)
+              (return b))))
+    ]
+  }
+
+  @specsubform[#:literals (let-values) (code:line let-values formals expr)]{
+
+    Evaluates the @racket[expr] and binds the result according to
+    @var[formals].
+
+    Example:
+    @; @example[
+    @;   (with-instance TruthyMonad
+    @;     ((do~ let-values xs '(1 2 3)
+    @;           (return ($ + xs)))))
+    @; ]
+  }
+
+  @specsubform[monad-expr]{
+
+    Evaluates the @var[monad-expr] and discards the result.
+
+    Examples:
+    @example[
+      (with-instance BoxMonad (do #&1 (return 2)))
+    ]
+
+    Examples:
+    @; @example[
+    @;   (with-instance TruthyMonad
+    @;     ((do~ (return 1 2)
+    @;           (return 3 4))))
+    @; ]
+  }
 }
 
 @; -----------------------------------------------------------------------------

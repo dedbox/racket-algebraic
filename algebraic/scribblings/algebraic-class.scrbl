@@ -8,7 +8,7 @@
 
 @defmodule[algebraic/class]
 
-This module provides a simple dynamic dispatch mechanism for run-time
+This module provides a simple dynamic dispatch mechanism for ad hoc
 polymorphism.
 
 @table-of-contents[]

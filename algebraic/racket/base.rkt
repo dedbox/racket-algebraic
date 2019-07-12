@@ -4,8 +4,10 @@
          algebraic/data
          algebraic/function
          algebraic/prelude
+         racket/base
          (for-syntax algebraic/macro
                      algebraic/prelude
+                     algebraic/syntax
                      racket/base)
          (for-meta 2 racket/base))
 
@@ -16,36 +18,46 @@
          (except-out (all-from-out racket/base) #%module-begin)
          (for-syntax (all-from-out algebraic/macro
                                    algebraic/prelude
+                                   algebraic/syntax
                                    racket/base))
          (for-meta 2 (all-from-out racket/base))
          (rename-out [module-begin #%module-begin]))
 
 ;;; ----------------------------------------------------------------------------
 
-(require (for-syntax algebraic/syntax
-                     (except-in syntax/parse id)
-                     (rename-in syntax/parse [id id~])))
+(require (for-syntax debug-scopes))
 
 (define-syntax module-begin
-  (μ* (form ...+)
+  (μ* (form ...)
     #:with (form* ...) (do-instantiate #'(form ...))
     (#%module-begin form* ...)))
 
-(define-for-syntax (do-instantiate forms)
-  (syntax-parse forms
-    #:literals (instantiate)
-    [((instantiate prefix:id~ instance-id:id~) form0 form ...)
-     (with-syntax ([(form* ...) (do-instantiate #'(form0 form ...))])
-       (#%rewrite ((splicing-with-instance [prefix instance-id] form* ...))))]
-    [((instantiate instance-id:id~) form0 form ...)
-     (with-syntax ([(form* ...) (do-instantiate #'(form0 form ...))])
-       (#%rewrite ((splicing-with-instance instance-id form* ...))))]
-    [((instantiate _ ...))
-     (raise-syntax-error #f "Cannot be the last form of a module" this-syntax)]
-    [(form0 form ...)
-     (with-syntax ([(form* ...) (do-instantiate #'(form ...))])
-       (#%rewrite (form0 form* ...)))]
-    [() (#%rewrite ())]))
+(define-for-syntax do-instantiate
+  (macro-parser
+   #:literals (instantiate)
+
+   [((instantiate prefix instance-id) form ...+)
+    #:with (form* ...) (do-instantiate #'(form ...))
+    (#%rewrite this-syntax
+      (map (λ (form*)
+             `(splicing-with-instance [,#'prefix ,#'instance-id] ,form*))
+           (syntax-e #'(form* ...))))]
+
+   [((instantiate instance-id) form ...+)
+    #:with (form* ...) (do-instantiate #'(form ...))
+    (#%rewrite this-syntax
+      (map (λ (form*) `(splicing-with-instance ,#'instance-id ,form*))
+           (syntax-e #'(form* ...))))]
+
+   [((instantiate _ ...)) #'()]
+
+   [(form0 form ...)
+    #:with (form* ...) (do-instantiate #'(form ...))
+    #'(form0 form* ...)]
+
+   [() #'()]
+
+   [_ (println `(XXX ,this-syntax)) #'()]))
 
 ;;; ----------------------------------------------------------------------------
 

@@ -25,7 +25,7 @@
 
 (provide class? class with-instance with-instances splicing-with-instance
          splicing-with-instances instantiate instantiate-out
-         (for-syntax class-id? instance instance-id?))
+         (for-syntax class-id? class-helper instance instance-id?))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Class
@@ -47,7 +47,9 @@
            (raise-syntax-error
             #f (format "no instance for ~a" 'class-id) stx)))
        ...)]
-    [(class-id:id x ...) #,(#%rewrite (class class-id x ... minimal ()))]))
+    [(class-id:id x ...)
+     #,(let ([xs (syntax-e #'(x ...))])
+         (#%rewrite this-syntax `(class ,#'class-id ,@xs minimal ())))]))
 
 (define-for-syntax null-or-singleton?
   (|| syntax-null? (.. syntax-null? syntax-cdr)))
@@ -91,6 +93,23 @@
        (class-transformer? (syntax-local-value stx (λ _ #f)))))
 
 ;;; ----------------------------------------------------------------------------
+;;; Class Helper
+
+(begin-for-syntax
+  (define-syntax class-helper
+    (μ expr
+      (... (λ (stx)
+             (syntax-parse stx
+               [:id (#%rewrite stx 'expr)]
+               [(f:id x ...)
+                (#%rewrite stx `((#%expression ,#'f) . ,#'(x ...)))])))))
+
+  ;; (define-syntax class-expr
+  ;;   (μ expr (#%rewrite this-syntax `expr)))
+
+  )
+
+;;; ----------------------------------------------------------------------------
 ;;; Instance
 
 (begin-for-syntax
@@ -118,7 +137,9 @@
                                    #'(id (... ...))
                                    #'(def (... ...))))))]
       [(class-id:id [member-id:id member-def] ...)
-       (instance class-id extends () [member-id member-def] ...)])))
+       #,(#%rewrite this-syntax
+           `(instance ,#'class-id extends ()
+                      . ,#'([member-id member-def] ...)))])))
 
 (define-for-syntax (minimal-instance? min-ids member-ids instance-ids)
   (define ext-members (extended-members (syntax-e instance-ids)))
@@ -222,33 +243,40 @@
 (define-syntax with-instance
   (macro*
     [(instance-id:id body ...+)
-     #,(#%rewrite (with-instance [|| instance-id] body ...))]
+     #,(#%rewrite this-syntax
+         `(with-instance [|| ,#'instance-id] . ,#'(body ...)))]
     [([prefix:id instance-id:id] body ...+)
      #:if (instance-id? #'instance-id)
      #:do [(define I (syntax-local-value #'instance-id))]
      #:with (id ...) (instance-transformer-ids I)
      #:with (def ...) (instance-transformer-defs I)
-     #:with (id/prefix ...) (syntax-map (prepend this-syntax #'prefix) #'(id ...))
+     #:with (id/prefix ...) (syntax-map (prepend #'prefix #'prefix) #'(id ...))
      (let-values ([(id/prefix ...) (syntax-parameterize ([id (μ0 def)] ...)
                                      (values id ...))])
        body ...)]))
 
 (define-syntax with-instances
   (macro*
-    [((spec) body ...+) #,(#%rewrite (with-instance spec body ...))]
+    [((spec) body ...+)
+     #,(#%rewrite this-syntax `(with-instance ,#'spec . ,#'(body ...)))]
     [((spec0 spec ...+) body ...+)
-     #,(#%rewrite (with-instance spec0 (with-instances (spec ...) body ...)))]))
+     #,(#%rewrite this-syntax
+         `(with-instance ,#'spec0
+            (with-instances ,#'(spec ...) . ,#'(body ...))))]))
+
+(require (for-syntax debug-scopes))
 
 (define-syntax splicing-with-instance
   (macro*
     [(instance-id:id body ...+)
-     #,(#%rewrite (splicing-with-instance [|| instance-id] body ...))]
+     #,(#%rewrite #'instance-id
+         `(splicing-with-instance [|| ,#'instance-id] . ,#'(body ...)))]
     [([prefix:id instance-id:id] body ...+)
      #:if (instance-id? #'instance-id)
      #:do [(define I (syntax-local-value #'instance-id))]
      #:with (id ...) (instance-transformer-ids I)
      #:with (def ...) (instance-transformer-defs I)
-     #:with (id/prefix ...) (syntax-map (prepend this-syntax #'prefix) #'(id ...))
+     #:with (id/prefix ...) (syntax-map (prepend #'prefix #'prefix) #'(id ...))
      (splicing-let-values ([(id/prefix ...)
                             (syntax-parameterize ([id (μ0 def)] ...)
                               (values id ...))])
@@ -256,13 +284,30 @@
 
 (define-syntax splicing-with-instances
   (macro*
-    [((spec) body ...+) #,(#%rewrite (splicing-with-instance spec body ...))]
+    [((spec) body ...+)
+     #,(#%rewrite this-syntax `(splicing-with-instance ,#'spec . #'(body ...)))]
     [((spec0 spec ...+) body ...+)
-     #,(#%rewrite (splicing-with-instance spec0
-                    (splicing-with-instances (spec ...) body ...)))]))
+     #,(#%rewrite this-syntax
+         `(splicing-with-instance ,#'spec0
+            (splicing-with-instances ,#'(spec ...) . ,#'(body ...))))]))
 
 (define-syntax instantiate
-  (λ (stx) (raise-syntax-error #f "Not in a module" stx)))
+  (macro*
+    [(instance-id:id)
+     #:if (eq? (syntax-local-context) 'top-level)
+     #,(#%rewrite this-syntax `(instantiate || ,#'instance-id))]
+    [(prefix:id instance-id:id)
+     #:if (eq? (syntax-local-context) 'top-level)
+     #:if (instance-id? #'instance-id)
+     #:do [(define I (syntax-local-value #'instance-id))]
+     #:with (id ...) (instance-transformer-ids I)
+     #:with (def ...) (instance-transformer-ids I)
+     #:with (id/prefix ...) (syntax-map (prepend this-syntax #'prefix) #'(id ...))
+     (define-values (id/prefix ...)
+       (with-instance instance-id (values id ...)))]
+    [_ #,(raise-syntax-error
+          #f (format "Not in a top-level context (~a)" (syntax-local-context))
+          this-syntax)]))
 
 (define-for-syntax ((prepend ctx prefix) id)
   (format-id ctx "~a~a" (syntax->datum prefix) (syntax->datum id)))
@@ -289,7 +334,7 @@
      #:if (instance-id? #'instance-id)
      #:do [(define I (syntax-local-value #'instance-id))
            (define ids (syntax-e (instance-transformer-ids I)))]
-     #:with (id/prefix ...) (map (prepend this-syntax #'prefix) ids)
+     #:with (id/prefix ...) (map (prepend #'prefix #'prefix) ids)
      (provide id/prefix ...)]
     [(instance-id:id)
      #:if (instance-id? #'instance-id)

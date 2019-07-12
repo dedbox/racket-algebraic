@@ -13,6 +13,7 @@
   [thunk<- (-> any/c ... (-> any))]
   [flip (-> procedure? procedure?)]
   [twice (-> procedure? procedure?)]
+  [$$ (-> procedure? any/c ... any)]
   [>> (-> procedure? any/c ... procedure?)]
   [<< (-> procedure? any/c ... procedure?)]
   [>>* (-> procedure? (-> any/c ... procedure?))]
@@ -35,6 +36,10 @@
 
 (define (twice f)
   (.. f f))
+
+;;; apply head to tail
+(define ($$ f . xs)
+  ($ f xs))
 
 ;;; left curry
 (define ((>> f . xs) . ys)

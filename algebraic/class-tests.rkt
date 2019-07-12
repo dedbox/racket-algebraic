@@ -1,24 +1,13 @@
 #lang algebraic/racket/base
 
-(class Eq
-  [== (.. not /=)]
-  [/= (.. not ==)]
-  minimal ([==] [/=]))
-
-(define-syntax EqEq (instance Eq [== eq?]))
-(define-syntax StringEq (instance Eq [== string=?]))
-
-(class Frob [**] [*** (λ xs ($ ** ($ ** xs)))])
-
-(define-syntax ListFrob (instance Frob [** ++]))
-
-(instantiate ListFrob)
-(instantiate E: EqEq)
-(instantiate S: StringEq)
-
 (module+ test
   (require rackunit
            syntax/macro-testing)
+
+  (class Eq
+    [== (.. not /=)]
+    [/= (.. not ==)]
+    minimal ([==] [/=]))
 
   (test-case "class"
     (check-pred class? Eq)
@@ -31,6 +20,9 @@
     (check-true (phase1-eval (instance-id? #'StringEq)))
     (check-exn exn:fail:syntax? (λ () (convert-compile-time-error ==)))
     (check-exn exn:fail:syntax? (λ () (convert-compile-time-error /=))))
+
+  (define-syntax EqEq (instance Eq [== eq?]))
+  (define-syntax StringEq (instance Eq [== string=?]))
 
   (test-case "with-instance"
     (with-instance [|| EqEq]
@@ -105,10 +97,19 @@
       (check-false (S:/= "A" "A"))
       (check-false (S:/= "Z" "Z"))))
 
+  (class Frob [**] [*** (λ xs ($ ** ($ ** xs)))])
+
+  (define-syntax ListFrob (instance Frob [** ++]))
+
+  (instantiate ListFrob)
+
   (test-case "instantiate"
     (check equal? (** '(1 2 3) '(4 5 6)) '(1 2 3 4 5 6))
     (check equal? (*** '((1 2) (3 4))
                        '((5 6) (7 8))) '(1 2 3 4 5 6 7 8)))
+
+  (instantiate E: EqEq)
+  (instantiate S: StringEq)
 
   (test-case "instantiate prefix"
     (check E:== + +)

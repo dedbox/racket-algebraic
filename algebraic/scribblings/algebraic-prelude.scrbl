@@ -73,6 +73,18 @@ This module re-provides the @racket[const] function.
   ]
 }
 
+@defproc[($$ [f procedure?] [x any/c] ...) any]{
+
+  Applies @var[f] to the @racket[x]s.
+
+  Equivalent to @racket[(λ (f x ...) ($ f (list x ...)))].
+
+  Example:
+  @example[
+    ($$ + 1 2 3)
+  ]
+}
+
 @defproc[(>> [f procedure?] [x any/c] ...) procedure?]{
 
   Returns a left-curried version of @var[f].
@@ -111,7 +123,9 @@ This module re-provides the @racket[const] function.
 
 @defproc[(<<* [f procedure?]) (-> any/c ... procedure?)]{
 
-  Explicit self-@racket[curryr]. Equivalent to @racket[(curryr f)].
+  Explicit self-@racket[curryr].
+
+  Equivalent to @racket[(curryr f)].
 
   Example:
   @example[

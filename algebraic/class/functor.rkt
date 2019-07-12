@@ -1,7 +1,5 @@
 #lang algebraic/racket/base
 
-(require algebraic/syntax)
-
 (provide (all-defined-out))
 
 ;;; ----------------------------------------------------------------------------
@@ -20,7 +18,7 @@
   ;; efficient version.
   ;;
   ;; (<$) :: a -> f b -> f a
-  [<$ (λ (a f-b) (fmap (const a) f-b))]
+  [<$ (λ (x y) (fmap (const x) y))]
 
   minimal ([fmap]))
 
@@ -65,7 +63,7 @@
 ;; (2,True)
 
 ;; (<$>) :: Functor f => (a -> b) -> f a -> f b
-(define-syntax <$> (μ0 #,(#%rewrite fmap)))
+(define-syntax <$> (class-helper fmap))
 
 ;; A lazy variant of <$>.
-(define-syntax <$>~ (μ0 #,(#%rewrite (λ (f x) (fmap (>>* f) x)))))
+;; (define-syntax <$>~ (μ0 (λ (f x) (fmap (>>* f) x))))

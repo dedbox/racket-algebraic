@@ -1,11 +1,11 @@
 #lang racket/base
 
 (require (only-in syntax/parse this-syntax)
-         syntax/strip-context
          (for-syntax racket/base))
 
-(provide #%rewrite)
+(provide #%rewrite this-syntax)
 
 (define-syntax (#%rewrite stx)
   (syntax-case stx ()
-    [(_ expr) #'(replace-context this-syntax #'expr)]))
+    [(_ src expr)
+     (datum->syntax stx #'(datum->syntax src expr src src) stx stx)]))

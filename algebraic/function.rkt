@@ -49,22 +49,24 @@
                              (syntax-span     #'ctx)))))]))
 
 (begin-for-syntax
-  (define (make-function type clauses)
+  (define (make-function src type clauses)
     (let ([clauses* (syntax-e clauses)])
       (with-syntax ([ctx (datum->syntax (car clauses*) 'ctx (car clauses*))]
                     [(clause ...) (map (make-clause type argument) clauses*)])
-        #`(match-lambda
+        (syntax/loc src
+          (match-lambda
             clause ...
-            [val (algebraic-match-error val '#,type ctx)]))))
+            [val (algebraic-match-error val '#,type ctx)])))))
 
-  (define (make-function* type clauses)
+  (define (make-function* src type clauses)
     (let ([clauses* (syntax-e clauses)])
       (with-syntax ([ctx (datum->syntax (car clauses*) 'ctx (car clauses*))]
                     [(clause ...) (map (make-clause type formals) clauses*)])
-        #`(λ args
+        (syntax/loc src
+          (λ args
             (match args
               clause ...
-              [val (algebraic-match-error val '#,type ctx)])))))
+              [val (algebraic-match-error val '#,type ctx)]))))))
 
   (define ((make-clause type maker) clause)
     (let* ([clause* (syntax-e clause)]
@@ -212,27 +214,27 @@
 
 (define-syntax (φ stx)
   (syntax-case stx ()
-    [(_ . clause) #`(fun #'#,stx #,(make-function 'φ #'(clause)))]))
+    [(_ . clause) #`(fun #'#,stx #,(make-function stx 'φ #'(clause)))]))
 
 (define-syntax (phi stx)
   (syntax-case stx ()
-    [(_ . clause) #`(fun #'#,stx #,(make-function 'phi #'(clause)))]))
+    [(_ . clause) #`(fun #'#,stx #,(make-function stx 'phi #'(clause)))]))
 
 (define-syntax (function stx)
   (syntax-case stx ()
-    [(_ . clauses) #`(fun #'#,stx #,(make-function 'function #'clauses))]))
+    [(_ . clauses) #`(fun #'#,stx #,(make-function stx 'function #'clauses))]))
 
 (define-syntax (φ* stx)
   (syntax-case stx ()
-    [(_ . clause) #`(fun #'#,stx #,(make-function* 'φ* #'(clause)))]))
+    [(_ . clause) #`(fun #'#,stx #,(make-function* stx 'φ* #'(clause)))]))
 
 (define-syntax (phi* stx)
   (syntax-case stx ()
-    [(_ . clause) #`(fun #'#,stx #,(make-function* 'phi* #'(clause)))]))
+    [(_ . clause) #`(fun #'#,stx #,(make-function* stx 'phi* #'(clause)))]))
 
 (define-syntax (function* stx)
   (syntax-case stx ()
-    [(_ . clauses) #`(fun #'#,stx #,(make-function* 'function* #'clauses))]))
+    [(_ . clauses) #`(fun #'#,stx #,(make-function* stx 'function* #'clauses))]))
 
 ;;; -----------------------------------------------------------------------------
 

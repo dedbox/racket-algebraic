@@ -10,6 +10,7 @@
          (for-template racket/base)
          (for-syntax algebraic/product
                      algebraic/private
+                     algebraic/syntax
                      racket/base
                      syntax/parse
                      syntax/strip-context
@@ -279,16 +280,22 @@
         (cons (argument (car arg*)) (rest-args (cdr arg*)))
         (argument arg*))))
 
+;;; ----------------------------------------------------------------------------
+;;; Macro Expressions
+
 (define-syntax (μ0 stx)
   (syntax-case stx ()
-    [(_ expr) #'(... (syntax-parser
-                       [:id #`expr]
-                       [(:id x ...) #`((#%expression expr) x ...)]))]
-    [(_ expr exprs ...) (replace-context stx #'(μ0 (begin expr exprs ...)))]))
+    [(_ expr) (syntax/loc stx
+                (...
+                 (syntax-parser
+                   [:id #`expr]
+                   [(:id x ...) #`((#%expression expr) x ...)])))]
+    [(_ expr exprs ...)
+     (#%rewrite stx `(μ0 (begin . ,#'(expr exprs ...))))]))
 
 (define-syntax (mu0 stx)
   (syntax-case stx ()
-    [(_ expr exprs ...) (replace-context stx #'(μ0 expr exprs ...))]))
+    [(_ expr exprs ...) (#%rewrite stx `(μ0 . ,#'(expr exprs ...)))]))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Uni-Clausal Macros
@@ -298,12 +305,12 @@
 (define-syntax (μ stx)
   (syntax-case stx ()
     [(_ . options+clause)
-     #`(mac (quote-syntax #,stx) #,(make-μ #'options+clause))]))
+     #`(mac (quote-syntax #,stx #:local) #,(make-μ #'options+clause))]))
 
 (define-syntax (mu stx)
   (syntax-case stx ()
     [(_ . options+clause)
-     #`(mac (quote-syntax #,stx) #,(make-μ #'options+clause))]))
+     #`(mac (quote-syntax #,stx #:local) #,(make-μ #'options+clause))]))
 
 (define-syntax (μ-parser stx)
   (syntax-case stx ()
@@ -318,12 +325,12 @@
 (define-syntax (μ* stx)
   (syntax-case stx ()
     [(_ . options+clause)
-     #`(mac (quote-syntax #,stx) #,(make-μ* #'options+clause))]))
+     #`(mac (quote-syntax #,stx #:local) #,(make-μ* #'options+clause))]))
 
 (define-syntax (mu* stx)
   (syntax-case stx ()
     [(_ . options+clause)
-     #`(mac (quote-syntax #,stx) #,(make-μ* #'options+clause))]))
+     #`(mac (quote-syntax #,stx #:local) #,(make-μ* #'options+clause))]))
 
 (define-syntax (μ*-parser stx)
   (syntax-case stx ()
@@ -341,7 +348,7 @@
 (define-syntax (macro stx)
   (syntax-case stx ()
     [(_ . options+clauses)
-     #`(mac (quote-syntax #,stx) #,(make-macro #'options+clauses))]))
+     #`(mac (quote-syntax #,stx #:local) #,(make-macro #'options+clauses))]))
 
 (define-syntax (macro-parser stx)
   (syntax-case stx ()
@@ -352,7 +359,7 @@
 (define-syntax (macro* stx)
   (syntax-case stx ()
     [(_ . options+clauses)
-     #`(mac (quote-syntax #,stx) #,(make-macro* #'options+clauses))]))
+     #`(mac (quote-syntax #,stx #:local) #,(make-macro* #'options+clauses))]))
 
 (define-syntax (macro*-parser stx)
   (syntax-case stx ()

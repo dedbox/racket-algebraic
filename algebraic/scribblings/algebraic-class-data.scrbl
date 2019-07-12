@@ -16,6 +16,7 @@
     algebraic/data/event
     algebraic/data/list
     algebraic/data/maybe
+    algebraic/data/truthy
     algebraic/data/values
     (except-in algebraic/racket/base do #%module-begin)
     racket/contract/base
@@ -35,6 +36,7 @@
            algebraic/data/event
            algebraic/data/list
            algebraic/data/maybe
+           algebraic/data/truthy
            algebraic/data/values)]
 
 @(define-syntax-rule (definstance name content ...)
@@ -64,20 +66,6 @@
 
 @defmodule[algebraic/data/box]
 
-@definstance[BoxMonad]{
-
-  extends @racket[BoxApplicative]
-
-  @defmembers[[>>= procedure?]]
-
-  Example:
-  @example[
-    (with-instance BoxMonad
-      (do (`(? ,x)) <- (box '(? 2))
-          (return `(! ,(add1 x)))))
-  ]
-}
-
 @; .............................................................................
 
 @definstance[BoxApplicative]{
@@ -102,6 +90,8 @@
   ]
 }
 
+@; .............................................................................
+
 @definstance[BoxFunctor]{
   @defmembers[[fmap procedure?]]
 
@@ -112,32 +102,81 @@
   ]
 }
 
+@; .............................................................................
+
+@definstance[BoxMonad]{
+
+  extends @racket[BoxApplicative]
+
+  @defmembers[[>>= procedure?]]
+
+  Example:
+  @example[
+    (with-instance BoxMonad
+      (do (`(? ,x)) <- (box '(? 2))
+          (return `(! ,(add1 x)))))
+  ]
+}
+
+@; -----------------------------------------------------------------------------
+
+@section[#:tag "class:data:event"]{Event}
+
+@defmodule[algebraic/data/event]
+
+@; .............................................................................
+
+@definstance[EventApplicative]{
+
+  extends @racket[EventMonad]
+
+  @defmembers[
+    [pure procedure?]
+    [liftA2 procedure?]
+  ]
+
+  Examples:
+  @example[(with-instance EventApplicative (sync (pure 1 2 3)))]
+
+  @example[
+    (with-instance EventApplicative
+      (sync (liftA2 list (pure 1 2) (pure 3 4))))
+  ]
+}
+
+@; .............................................................................
+
+@definstance[EventFunctor]{
+  @defmembers[[fmap procedure?]]
+
+  Examples:
+  @example[
+    (with-instance EventFunctor
+      (sync (fmap (λ _ (id 1 2 3)) always-evt)))
+  ]
+}
+
+@; .............................................................................
+
+@definstance[EventMonad]{
+
+  extends @racket[EventFunctor]
+
+  @defmembers[
+    [>>= procedure?]
+    [return procedure?]
+  ]
+
+  Examples:
+  @example[(with-instance EventMonad
+             (sync (>>= (return 1 2 3) (.. return +))))]
+}
+
 @; -----------------------------------------------------------------------------
 
 @section[#:tag "class:data:list"]{List}
 
 @defmodule[algebraic/data/list]
-
-@definstance[ListMonad]{
-
-  extends @racket[ListApplicative]
-
-  @defmembers[
-    [>>= procedure?]
-    [return procedure?]
-    [>>M procedure?]
-    [fail procedure?]
-  ]
-
-  Examples:
-  @example[(with-instance ListMonad (>>= (return 2) (.. return add1)))]
-
-  @example[(with-instance ListMonad (>>M (return 1) (return 2)))]
-
-  @example[(with-instance ListMonad (fail '!?))]
-
-  @example[(with-instance ListMonad (join '((1) (2))))]
-}
 
 @; .............................................................................
 
@@ -178,6 +217,29 @@
 
 @; .............................................................................
 
+@definstance[ListMonad]{
+
+  extends @racket[ListApplicative]
+
+  @defmembers[
+    [>>= procedure?]
+    [return procedure?]
+    [>>M procedure?]
+    [fail procedure?]
+  ]
+
+  Examples:
+  @example[(with-instance ListMonad (>>= (return 2) (.. return add1)))]
+
+  @example[(with-instance ListMonad (>>M (return 1) (return 2)))]
+
+  @example[(with-instance ListMonad (fail '!?))]
+
+  @example[(with-instance ListMonad (join '((1) (2))))]
+}
+
+@; .............................................................................
+
 @definstance[ListMonoid]{
 
   extends @racket[ListSemigroup]
@@ -207,111 +269,6 @@
 
 @; -----------------------------------------------------------------------------
 
-@section[#:tag "class:data:Values"]{Values}
-
-@defmodule[algebraic/data/values]
-
-@definstance[ValuesMonad]{
-
-  extends @racket[ValuesApplicative]
-
-  @defmembers[
-    [>>= procedure?]
-    [return procedure?]
-    [>>M procedure?]
-  ]
-
-  Examples:
-  @example[(with-instance ValuesMonad (>>= (λ () (return 1 2 3)) +))]
-
-  @example[(with-instance ValuesMonad (>>M (λ () 1) (λ () 2)))]
-}
-
-@; .............................................................................
-
-@definstance[ValuesApplicative]{
-
-  extends @racket[ValuesFunctor]
-
-  @defmembers[
-    [pure procedure?]
-    [liftA2 procedure?]
-  ]
-
-  Examples:
-  @example[(with-instance ValuesApplicative (pure 1 2 3))]
-
-  @example[
-    (with-instance ValuesApplicative
-      (liftA2 list
-              (λ () (pure 1 2))
-              (λ () (pure 3 4))))
-  ]
-}
-
-@; .............................................................................
-
-@definstance[ValuesFunctor]{
-  @defmembers[[fmap procedure?]]
-
-  Example:
-  @example[(with-instance ValuesFunctor (fmap list (λ () (id 1 2 3))))]
-}
-
-@; -----------------------------------------------------------------------------
-
-@section[#:tag "class:data:event"]{Event}
-
-@defmodule[algebraic/data/event]
-
-@definstance[EventFunctor]{
-  @defmembers[[fmap procedure?]]
-
-  Examples:
-  @example[
-    (with-instance EventFunctor
-      (sync (fmap (λ _ (id 1 2 3)) always-evt)))
-  ]
-}
-
-@; .............................................................................
-
-@definstance[EventMonad]{
-
-  extends @racket[EventFunctor]
-
-  @defmembers[
-    [>>= procedure?]
-    [return procedure?]
-  ]
-
-  Examples:
-  @example[(with-instance EventMonad
-             (sync (>>= (return 1 2 3) (.. return +))))]
-}
-
-@; .............................................................................
-
-@definstance[EventApplicative]{
-
-  extends @racket[EventMonad]
-
-  @defmembers[
-    [pure procedure?]
-    [liftA2 procedure?]
-  ]
-
-  Examples:
-  @example[(with-instance EventApplicative (sync (pure 1 2 3)))]
-
-  @example[
-    (with-instance EventApplicative
-      (sync (liftA2 list (pure 1 2) (pure 3 4))))
-  ]
-}
-
-@; -----------------------------------------------------------------------------
-
 @section[#:tag "class:data:maybe"]{Maybe}
 
 @defmodule[algebraic/data/maybe]
@@ -332,31 +289,6 @@ error @racket[Monad] can be built using the @racket[Either] type.
 
 @defproducts[Nothing Just]
 
-}
-
-@definstance[MaybeMonad]{
-
-  extends @racket[MaybeApplicative]
-
-  @defmembers[
-    [>>= procedure?]
-    [>>M procedure?]
-    [fail procedure?]
-  ]
-
-  Examples:
-  @example[
-    (with-instance MaybeMonad
-      (>>= (Just 2) (.. return add1)))
-  ]
-
-  @example[(with-instance MaybeMonad (>>= Nothing (.. Just add1)))]
-
-  @example[(with-instance MaybeMonad (>>M (Just 1) (Just 2)))]
-
-  @example[(with-instance MaybeMonad (>>M Nothing (Just 2)))]
-
-  @example[(with-instance MaybeMonad (fail '!!))]
 }
 
 @; .............................................................................
@@ -403,4 +335,174 @@ error @racket[Monad] can be built using the @racket[Either] type.
   @example[(with-instance MaybeFunctor (fmap add1 (Just 2)))]
 
   @example[(with-instance MaybeFunctor (fmap add1 Nothing))]
+}
+
+@; .............................................................................
+
+@definstance[MaybeMonad]{
+
+  extends @racket[MaybeApplicative]
+
+  @defmembers[
+    [>>= procedure?]
+    [>>M procedure?]
+    [fail procedure?]
+  ]
+
+  Examples:
+  @example[
+    (with-instance MaybeMonad
+      (>>= (Just 2) (.. return add1)))
+  ]
+
+  @example[(with-instance MaybeMonad (>>= Nothing (.. Just add1)))]
+
+  @example[(with-instance MaybeMonad (>>M (Just 1) (Just 2)))]
+
+  @example[(with-instance MaybeMonad (>>M Nothing (Just 2)))]
+
+  @example[(with-instance MaybeMonad (fail '!!))]
+}
+
+@; -----------------------------------------------------------------------------
+
+@section[#:tag "class:data:truthy"]{Truthy}
+
+@defmodule[algebraic/data/truthy]
+
+The @sum[Truthy] @tech{sum}, and associated operations.
+
+@defdata[Truthy]{
+
+@defproducts[Nothing Just]
+
+Functions that return @racket[#f] to indicate failure can be chained together
+with @racket[and] and @racket[or].
+
+@example[
+  (define Δ (make-hasheq))
+    (or (hash-ref Δ 'A #f)
+      (and (hash-set! Δ 'A (random 100))
+           (hash-ref  Δ 'A)))
+  Δ
+]
+
+But @racket[#f] does not always indicate failure.
+
+@example[
+  (hash-set! Δ 'B #f)
+  (or (hash-ref Δ 'B #f)
+      (and (hash-set! Δ 'B (random 100))
+           (hash-ref  Δ 'B)))
+  Δ
+]
+
+The @racket[Truthy] @racket[Monad] uses the @racket[Fail] @tech{product} as a
+failure indicator distinct from @racket[#f].
+
+@racket[Truthy] is like the @racket[Maybe] @tech{sum} if @racket[Just] were
+implicitly applied to all non-@racket[#f] values.
+
+@example[
+  (id (hash-ref Δ 'B (const Fail))
+      (hash-ref Δ 'C (const Fail)))
+]
+
+@racket[Truthy] is a lazy @racket[Monad]. With @racket[do~]-notation, several
+@racket[Truthy] expressions can be evaluated in sequence. If an expression
+evaluates to @racket[Fail], the sequence short circuits.
+
+@example[
+  (hash-set! Δ 'C #f)
+  (with-instance TruthyMonad
+    ((do~ (λ () ((function [Fail #t] [_ Fail])
+                 ((do~ (λ () (hash-ref  Δ 'C (const Fail)))))))
+          (do~ (λ () (hash-set! Δ 'C (random 100)))
+               (λ () (hash-ref  Δ 'C))))))
+  Δ
+]
+
+@example[
+  (with-instance TruthyMonad
+    ((do~ (λ () ((function [Fail #t] [_ Fail])
+                 ((do~ (λ () (hash-ref  Δ 'D (const Fail)))))))
+          (do~ (λ () (hash-set! Δ 'D (random 100)))
+               (λ () (hash-ref  Δ 'D))))))
+  Δ
+]
+
+As a convenience, @racket[truthy-and], @racket[truthy-not], and
+@racket[truthy-or] reduce the boilerplate.
+
+@example[
+  (with-instance TruthyMonad
+    (truthy-or (truthy-and (hash-ref  Δ 'C (const Fail)))
+               (truthy-and (hash-set! Δ 'C (random 100))
+                           (hash-ref  Δ 'C))))
+  Δ
+]
+
+@example[
+  (with-instance TruthyMonad
+    (truthy-or (truthy-and (hash-ref  Δ 'D (const Fail)))
+               (truthy-and (hash-set! Δ 'D (random 100))
+                           (hash-ref  Δ 'D))))
+  Δ
+]
+
+}
+
+@; -----------------------------------------------------------------------------
+
+@section[#:tag "class:data:Values"]{Values}
+
+@defmodule[algebraic/data/values]
+
+@; .............................................................................
+
+@definstance[ValuesApplicative]{
+
+  extends @racket[ValuesFunctor]
+
+  @defmembers[
+    [pure procedure?]
+    [liftA2 procedure?]
+  ]
+
+  Examples:
+  @example[(with-instance ValuesApplicative (pure 1 2 3))]
+
+  @example[
+    (with-instance ValuesApplicative
+      (liftA2 list
+              (λ () (pure 1 2))
+              (λ () (pure 3 4))))
+  ]
+}
+
+@; .............................................................................
+
+@definstance[ValuesFunctor]{
+  @defmembers[[fmap procedure?]]
+
+  Example:
+  @example[(with-instance ValuesFunctor (fmap list (λ () (id 1 2 3))))]
+}
+
+@; .............................................................................
+
+@definstance[ValuesMonad]{
+
+  extends @racket[ValuesApplicative]
+
+  @defmembers[
+    [>>= procedure?]
+    [return procedure?]
+    [>>M procedure?]
+  ]
+
+  Examples:
+  @example[(with-instance ValuesMonad (>>= (λ () (return 1 2 3)) +))]
+
+  @example[(with-instance ValuesMonad (>>M (λ () 1) (λ () 2)))]
 }

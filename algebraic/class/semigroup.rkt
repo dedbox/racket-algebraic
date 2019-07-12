@@ -1,7 +1,5 @@
 #lang algebraic/racket/base
 
-(require algebraic/syntax)
-
 (provide (all-defined-out))
 
 ;;; ----------------------------------------------------------------------------
@@ -48,16 +46,15 @@
 
 ;; stimesDefault :: (Integral b, Semigroup a) => b -> a -> a
 (define-syntax stimesDefault
-  (μ0 #,(#%rewrite
-         (function*
-           [(y _) #:if (<= y 0) (error "stimes: positive multiplier expected")]
-           [(y0 x0)
-            (define f (function*
-                        [(x y) #:if (even? y) (f (<> x x) (quotient y 2))]
-                        [(x 1) x]
-                        [(x y) (g (<> x x) (quotient y 2) x)]))
-            (define g (function*
-                        [(x y z) #:if (even? y) (g (<> x x) (quotient y 2) z)]
-                        [(x 1 z) (<> x z)]
-                        [(x y z) (g (<> x x) (quotient y 2) (<> x z))]))
-            (f y0 x0)]))))
+  (μ0 (function*
+        [(y _) #:if (<= y 0) (error "stimes: positive multiplier expected")]
+        [(y0 x0)
+         (define f (function*
+                     [(x y) #:if (even? y) (f (<> x x) (quotient y 2))]
+                     [(x 1) x]
+                     [(x y) (g (<> x x) (quotient y 2) x)]))
+         (define g (function*
+                     [(x y z) #:if (even? y) (g (<> x x) (quotient y 2) z)]
+                     [(x 1 z) (<> x z)]
+                     [(x y z) (g (<> x x) (quotient y 2) (<> x z))]))
+         (f y0 x0)])))

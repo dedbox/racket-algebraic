@@ -90,8 +90,12 @@
 
 (define-syntax algebraic-define
   (macro*
-    [((head:id patt ...) body ...+) #:if (variable? #'head)
-                                    (define head (φ* (patt ...) body ...) )]
+    [((head:id patt ...) body ...+)
+     #:if (variable? #'head)
+     (define head (φ* (patt ...) body ...) )]
+    [((head:id patt ... . patt0) body ...+)
+     #:if (variable? #'head)
+     (define head (φ* (patt ... . patt0) body ...))]
     [(patt body ...+)
      #:with (y ...) (pattern-variables #'patt)
      (define-values (y ...) ((φ patt (id y ...)) (let () body ...)))]))
