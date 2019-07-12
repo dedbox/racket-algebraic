@@ -264,8 +264,6 @@
          `(with-instance ,#'spec0
             (with-instances ,#'(spec ...) . ,#'(body ...))))]))
 
-(require (for-syntax debug-scopes))
-
 (define-syntax splicing-with-instance
   (macro*
     [(instance-id:id body ...+)

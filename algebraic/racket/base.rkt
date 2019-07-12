@@ -25,8 +25,6 @@
 
 ;;; ----------------------------------------------------------------------------
 
-(require (for-syntax debug-scopes))
-
 (define-syntax module-begin
   (μ* (form ...)
     #:with (form* ...) (do-instantiate #'(form ...))
