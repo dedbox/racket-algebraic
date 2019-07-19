@@ -283,7 +283,7 @@ is a λ-abstraction with the formal parameter generalized to a pattern.
 
 A @emph{uniform sequence} (@${t};·) is a right-hand nesting of sequences in
 which every left-hand side holds the same kind of term and every right-hand
-side, exept perhaps the last, is the same kind of uniform sequence. Uniform
+side, except perhaps the last, is the same kind of uniform sequence. Uniform
 sequences combine multiple abstractions into a single unit.
 
 A @emph{function} (φ@${p}.@${t};·) is a function clause or a uniform sequence
