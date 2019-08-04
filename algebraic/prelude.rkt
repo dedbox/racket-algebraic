@@ -6,7 +6,7 @@
          (for-syntax racket/base))
 
 (provide
- const
+ const negate
  values-> id :: ::* ++ .. && || $
  (contract-out
   ;; Functions

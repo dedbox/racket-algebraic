@@ -27,7 +27,8 @@ These functions and function aliases add consistency to the functional Racket
 programming experience and encourage compact code. They are used extensively
 throughout the collection.
 
-This module re-provides the @racket[const] function.
+In addition to the bindings documented below, this module re-provides Racket's
+@racket[const] and @racket[negate] functions.
 
 @section[#:tag "prelude:functions"]{Functions}
 
