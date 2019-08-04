@@ -24,10 +24,11 @@
   [(define (write-proc F port mode)
      (case mode
        [(#t #f) (fprintf port "#<function>")]
-       ;; [else (display (syntax->datum (fun-def F)) port)]
        [else (parameterize ([pretty-print-current-style-table
                              algebraic-pretty-print-style-table])
-               ((current-print) (syntax->datum (fun-def F))))]))])
+               (if (pretty-printing)
+                   (pretty-print (syntax->datum (fun-def F)) port 1)
+                   (print (syntax->datum (fun-def F)) port 1)))]))])
 
 (define function? fun?)
 
@@ -53,7 +54,7 @@
     (let ([clauses* (syntax-e clauses)])
       (with-syntax ([ctx (datum->syntax (car clauses*) 'ctx (car clauses*))]
                     [(clause ...) (map (make-clause type argument) clauses*)])
-        (syntax/loc src
+        (quasisyntax/loc src
           (match-lambda
             clause ...
             [val (algebraic-match-error val '#,type ctx)])))))
@@ -62,7 +63,7 @@
     (let ([clauses* (syntax-e clauses)])
       (with-syntax ([ctx (datum->syntax (car clauses*) 'ctx (car clauses*))]
                     [(clause ...) (map (make-clause type formals) clauses*)])
-        (syntax/loc src
+        (quasisyntax/loc src
           (λ args
             (match args
               clause ...
