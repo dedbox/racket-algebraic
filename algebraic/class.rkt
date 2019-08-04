@@ -25,6 +25,7 @@
 
 (provide class? class with-instance with-instances splicing-with-instance
          splicing-with-instances instantiate instantiate-out
+         define-class-helper
          (for-syntax class-id? class-helper instance instance-id?))
 
 ;;; ----------------------------------------------------------------------------
@@ -98,16 +99,18 @@
 (begin-for-syntax
   (define-syntax class-helper
     (μ expr
-      (... (λ (stx)
-             (syntax-parse stx
-               [:id (#%rewrite stx 'expr)]
-               [(f:id x ...)
-                (#%rewrite stx `((#%expression ,#'f) . ,#'(x ...)))])))))
+      (...
+       (λ (stx)
+         (syntax-parse stx
+           [:id (#%rewrite stx 'expr)]
+           [(f:id x ...)
+            (#%rewrite stx `((#%expression ,#'f) . ,#'(x ...)))]))))))
 
-  ;; (define-syntax class-expr
-  ;;   (μ expr (#%rewrite this-syntax `expr)))
-
-  )
+(define-syntax define-class-helper
+  (macro*
+    [(a:id def) (define-syntax a (class-helper def))]
+    [((f:id x ...) body ...+)
+     (define-syntax f (class-helper (λ (x ...) body ...)))]))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Instance
