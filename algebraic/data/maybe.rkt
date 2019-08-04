@@ -37,6 +37,16 @@
     [>>M *>]
     [fail (φ _ Nothing)]))
 
+(define-class-helper from-maybe
+  (function*
+    [(d Nothing) d]
+    [(_ (Just v)) v]))
+
+(define-class-helper from-maybe~
+  (function*
+    [(d Nothing) d]
+    [(_ (Just v)) (λ () v)]))
+
 ;;; ----------------------------------------------------------------------------
 
 (module+ test
