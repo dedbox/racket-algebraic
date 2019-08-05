@@ -47,7 +47,7 @@
 
 @defmodule[algebraic/class/applicative]
 
-A @racket[Functor] with application, providing operations to
+A @racket[functor] with application, providing operations to
 
 @itemlist[
 
@@ -58,7 +58,7 @@ A @racket[Functor] with application, providing operations to
 
 ]
 
-@defidform[#:kind "class" Applicative]{
+@defidform[#:kind "class" applicative]{
 
   A minimal complete definition must include implementations of pure and of
   either @racket[<*>] or @racket[liftA2]. If it defines both, then they must
@@ -101,7 +101,7 @@ A @racket[Functor] with application, providing operations to
 
   ]
 
-  As a consequence of these laws, the @racket[Functor] instance for @racket[f]
+  As a consequence of these laws, the @racket[functor] instance for @racket[f]
   will satisfy
 
   @itemlist[@item{@racket[(fmap f x)] = @racket[(<*> (pure f) x)]}]
@@ -137,19 +137,19 @@ A @racket[Functor] with application, providing operations to
 
 Minimal instance: @racket[pure], (@racket[<*>] or @racket[liftA2])
 
-@defproc[(pure [a any/c]) Applicative]{
+@defidform[#:kind "class member" pure]{
 
   Lift a value.
 
 }
 
-@defproc[(<*> [f Applicative] [a Applicative]) Applicative]{
+@defidform[#:kind "class member" <*>]{
 
   Sequential application.
 
 }
 
-@defproc[(liftA2 [f procedure?] [a Applicative] [b Applicative]) Applicative]{
+@defproc[(liftA2 [f procedure?] [a applicative] [b applicative]) applicative]{
 
   Lift a binary function to actions.
 
@@ -160,12 +160,12 @@ Minimal instance: @racket[pure], (@racket[<*>] or @racket[liftA2])
 
 }
 
-@defproc[(*> [a Applicative] [b Applicative]) Applicative]{
+@defproc[(*> [a applicative] [b applicative]) applicative]{
 
   Sequence actions, discarding the value of the first argument.
 
   This is essentially the same as @racket[(>> liftA2 (flip const))], but if
-  the @racket[Functor] instance has an optimized @racket[<$], it may be better
+  the @racket[functor] instance has an optimized @racket[<$], it may be better
   to use that instead.
 
   @; Before liftA2 became a method, this definition was strictly better, but now
@@ -176,7 +176,7 @@ Minimal instance: @racket[pure], (@racket[<*>] or @racket[liftA2])
 
 }
 
-@defproc[(<* [a Applicative] [b Applicative]) Applicative]{
+@defproc[(<* [a applicative] [b applicative]) applicative]{
 
   Sequence ations, discarding the value of the second argument.
 
@@ -186,29 +186,29 @@ Minimal instance: @racket[pure], (@racket[<*>] or @racket[liftA2])
 
 @subsection[#:tag "class:base:applicative:helpers"]{Helpers}
 
-@defproc[(<**> [a Applicative] [f Applicative] [b Applicative]) Applicative]{
+@defproc[(<**> [a applicative] [f applicative] [b applicative]) applicative]{
 
   A variant of @racket[<*>] with the first two arguments reversed.
 
 }
 
-@defproc[(<*>~ [f Applicative] [a Applicative]) Applicative]{
+@defproc[(<*>~ [f applicative] [a applicative]) applicative]{
 
   A lazay variant of @racket[<*>].
 
-  Eager @racket[Applicative] chains get noisy as they grow because Racket
+  Eager @racket[applicative] chains get noisy as they grow because Racket
   functions must be curried explicitly.
 
   Example:
   @example[
-    (with-instance BoxApplicative
+    (with-instance box-applicative
       (<*> (pure +) (pure 1))
       (<*> (<*> (pure (>>* +)) (pure 1)) (pure 2))
       (<*> (<*> (<*> (pure (>>* (>>* +))) (pure 1)) (pure 2)) (pure 3)))
   ]
 
   The function (in this case, @racket[+]) must be wrapped in one @racket[>>*]
-  for each @racket[Applicative] argument or @racket[<*>] will fail.
+  for each @racket[applicative] argument or @racket[<*>] will fail.
 
   This variant wraps the function with @racket[>>*]. Unless lazy semantics are
   desired, make the final operator in the chain eager (e.g., @racket[<*>]) to
@@ -216,14 +216,14 @@ Minimal instance: @racket[pure], (@racket[<*>] or @racket[liftA2])
 
   Example:
   @example[
-    (with-instance BoxApplicative
+    (with-instance box-applicative
       (<*> (pure +) (pure 1))
       (<*> (<*>~ (pure +) (pure 1)) (pure 2))
       (<*> (<*>~ (<*>~ (pure +) (pure 1)) (pure 2)) (pure 3)))
   ]
 }
 
-@defproc[(<**>~ [a Applicative] [f Applicative] [b Applicative]) Applicative]{
+@defproc[(<**>~ [a applicative] [f applicative] [b applicative]) applicative]{
 
   A lazay variant of @racket[<**>].
 
@@ -235,11 +235,11 @@ Minimal instance: @racket[pure], (@racket[<*>] or @racket[liftA2])
 
 @defmodule[algebraic/class/functor]
 
-The @racket[Functor] class is used for types that can be mapped over.
+The @racket[functor] class is used for types that can be mapped over.
 
-@defidform[#:kind "class" Functor]{
+@defidform[#:kind "class" functor]{
 
-  Instances of @racket[Functor] should satisfy the following laws:
+  Instances of @racket[functor] should satisfy the following laws:
 
   @itemlist[
 
@@ -256,13 +256,13 @@ The @racket[Functor] class is used for types that can be mapped over.
 
 Minimal instance: @racket[fmap]
 
-@defproc[(fmap [f procedure?] [a Functor]) Functor]{
+@defproc[(fmap [f procedure?] [a functor]) functor]{
 
-  Maps a function over a @racket[Functor].
+  Maps a function over a @racket[functor].
 
 }
 
-@defproc[(<$ [a any/c] [b Functor]) any]{
+@defproc[(<$ [a any/c] [b functor]) any]{
 
   Replace all locations in the input with the same value. The default
   definition is @racket[(λ (a f-b) (fmap (const a) f-b))], but this may be
@@ -274,21 +274,21 @@ Minimal instance: @racket[fmap]
 
 @subsection[#:tag "class:base:functor:helpers"]{Helpers}
 
-@defproc[(<$> [f procedure?] [a Functor]) Functor]{
+@defproc[(<$> [f procedure?] [a functor]) functor]{
 
   A synonym for @racket[fmap].
 
   The name of this operator is an allusion to @racket[$]. Whereas @racket[$]
   is function application, @racket[<$>] is function application lifted over
-  a @racket[Functor].
+  a @racket[functor].
 
   @bold{Examples:}
 
   Convert from a Maybe Int to a Maybe String using ~a:
 
   @example[
-    (with-instance MaybeFunctor (<$> ~a Nothing))
-    (with-instance MaybeFunctor (<$> ~a (Just 3)))
+    (with-instance maybe-functor (<$> ~a Nothing))
+    (with-instance maybe-functor (<$> ~a (Just 3)))
   ]
 
 @; Convert from an Either Int Int to an Either Int String using show:
@@ -300,7 +300,7 @@ Minimal instance: @racket[fmap]
 
   Double each element of a list:
 
-  @example[(with-instance ListFunctor (<$> (>> * 2) '(1 2 3)))]
+  @example[(with-instance list-functor (<$> (>> * 2) '(1 2 3)))]
 
 @; Apply even to the second element of a pair:
 
@@ -309,7 +309,7 @@ Minimal instance: @racket[fmap]
 
 }
 
-@defproc[(<$>~ [f procedure?] [a Functor]) Functor]{
+@defproc[(<$>~ [f procedure?] [a functor]) functor]{
 
   A lazy variant of @racket[<$>].
 
@@ -323,9 +323,9 @@ Minimal instance: @racket[fmap]
 
 Basic operations on monads, and a generic do-notation.
 
-@defidform[#:kind "class" Monad]{
+@defidform[#:kind "class" monad]{
 
-  Instances of @racket[Monad] should satisfy the following laws:
+  Instances of @racket[monad] should satisfy the following laws:
 
   @itemlist[
 
@@ -366,14 +366,14 @@ Basic operations on monads, and a generic do-notation.
 
 Minimal instance: @racket[>>=]
 
-@defproc[(>>= [m Monad] [k (-> any/c ... Monad)]) Monad]{
+@defproc[(>>= [m monad] [k (-> any/c ... monad)]) monad]{
 
   Sequentially compose two actions, passing any value produced by the first as
   an argument to the second.
 
 }
 
-@defproc[(>>M [m Monad] [k (-> any/c ... Monad)]) Monad]{
+@defproc[(>>M [m monad] [k (-> any/c ... monad)]) monad]{
 
   Sequentially compose two actions, discarding any value produced by the
   first, like sequencing operators (such as the semicolon) in imperative
@@ -381,13 +381,13 @@ Minimal instance: @racket[>>=]
 
 }
 
-@defproc[(return [a any/c] ...) Monad]{
+@defproc[(return [a any/c] ...) monad]{
 
   Inject values into the monadic type.
 
 }
 
-@defproc[(fail [msg string?]) Monad]{
+@defproc[(fail [msg string?]) monad]{
 
   Fail with a message. This operation is not part of the mathematical
   definition of a monad.
@@ -400,14 +400,14 @@ Minimal instance: @racket[>>=]
 
 @subsection[#:tag "class:base:monad:helpers"]{Helpers}
 
-@defproc[(join [m Monad]) Monad]{
+@defproc[(join [m monad]) monad]{
 
   The conventional monad join operator. It is used to remove one level of
   monadic structure, projecting its bound argument into the outer level.
 
 }
 
-@defproc[(=<< [k (-> any/c ... Monad)] [m Monad]) Monad]{
+@defproc[(=<< [k (-> any/c ... monad)] [m monad]) monad]{
 
   Same as @racket[>>=], but with the arguments interchanged.
 
@@ -440,12 +440,12 @@ Minimal instance: @racket[>>=]
 
   @specsubform[#:literals (<-) (code:line formals <- monad-expr)]{
 
-    Evaluates the @racket[monad-expr] and binds the @racket[Monad]'s contents
+    Evaluates the @racket[monad-expr] and binds the @racket[monad]'s contents
     according to @var[formals].
 
     Examples:
     @example[
-      (with-instance ListMonad
+      (with-instance list-monad
         (do (x) <- '(1 2 3 4)
             (return (add1 x))))
     ]
@@ -469,7 +469,7 @@ Minimal instance: @racket[>>=]
     @; ]
 
     @example[
-      (with-instance TruthyMonad
+      (with-instance truthy-monad
         ((do~ let `(a . ,b) '(a 1 2 3)
               (return b))))
     ]
@@ -494,7 +494,7 @@ Minimal instance: @racket[>>=]
 
     Examples:
     @example[
-      (with-instance BoxMonad (do #&1 (return 2)))
+      (with-instance box-monad (do #&1 (return 2)))
     ]
 
     Examples:
@@ -515,7 +515,7 @@ Minimal instance: @racket[>>=]
 The class of monoids (types with an associative binary operation that has an
 identity).
 
-@defidform[#:kind "class" Monoid]{
+@defidform[#:kind "class" monoid]{
 
   Instances should satisfy the following laws:
 
@@ -534,7 +534,7 @@ identity).
   The method names refer to the monoid of lists under concatenation, but there
   are many other instances.
 
-  Some types can be viewed as a @racket[Monoid] in more than one way, e.g.
+  Some types can be viewed as a @racket[monoid] in more than one way, e.g.
   both addition and multiplication on numbers.
 
   @; In such cases we often define newtypes and make those instances of Monoid,
@@ -563,7 +563,7 @@ identity).
 
 @defproc[(mconcat [as list?]) any]{
 
-  Fold a list using the @racket[Monoid].
+  Fold a list using the @racket[monoid].
 
   For most types, the default definition for @racket[mconcat] will be used,
   but the function is included in the class definition so that an optimized
@@ -580,7 +580,7 @@ identity).
 The class of semigroups (types with an associative binary operation).
 
 
-@defidform[#:kind "class" Semigroup]{
+@defidform[#:kind "class" semigroup]{
 
   Instances should satisfy the associativity law:
 
@@ -611,7 +611,7 @@ The class of semigroups (types with an associative binary operation).
 
   Repeat a value @var[n] times.
 
-  Given that this works on a @racket[Semigroup] it is allowed to fail if you
+  Given that this works on a @racket[semigroup] it is allowed to fail if you
   request 0 or fewer repetitions, and the default definition wll do so.
 
   @; By making this a member of the class, idempotent @racket[Semigroup]s and
@@ -625,7 +625,7 @@ The class of semigroups (types with an associative binary operation).
 
 @subsection[#:tag "class:base:semigroup:helpers"]{Helpers}
 
-@defproc[(stimesDefault [b exact-positive-integer?] [a Semigroup]) any]{
+@defproc[(stimes-default [b exact-positive-integer?] [a Semigroup]) any]{
 
   The default implementation of @racket[stimes].
 

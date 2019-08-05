@@ -8,38 +8,37 @@
 
 (provide (all-defined-out))
 
-(define-syntax ListSemigroup
-  (instance Semigroup
+(define-syntax list-semigroup
+  (instance semigroup
     [<> ++]
-    [stimes stimesList]))
+    [stimes stimes-list]))
 
-;; stimesList :: Integral b => b -> [a] -> [a]
-(define-syntax stimesList
+(define-syntax stimes-list
   (μ0 (function*
         [(n _) #:if (< n 0) (error "stimes: list, negative multiplier")]
         [(0 _) null]
         [(n x) (letrec ([rep (function [0 null] [i (++ x (rep (- i 1)))])])
                  (rep n))])))
 
-(define-syntax ListMonoid
-  (instance Monoid
-    extends (ListSemigroup)
+(define-syntax list-monoid
+  (instance monoid
+    extends (list-semigroup)
     [mempty null]
     [mconcat ++]))
 
-(define-syntax ListFunctor (instance Functor [fmap map]))
+(define-syntax list-functor (instance functor [fmap map]))
 
-(define-syntax ListApplicative
-  (instance Applicative
-    extends (ListFunctor)
+(define-syntax list-applicative
+  (instance applicative
+    extends (list-functor)
     [pure list]
     [<*> (λ (fs xs) (map (λ (f x) (f x)) fs xs))]
     [liftA2 (λ (f xs ys) (map (λ (x y) (f x y)) xs ys))]
     [*> (λ (xs ys) (begin xs ys))]))
 
-(define-syntax ListMonad
-  (instance Monad
-    extends (ListApplicative)
+(define-syntax list-monad
+  (instance monad
+    extends (list-applicative)
     [>>= (λ (xs f) ($ ++ (map f xs)))]
     [return list]
     [>>M *>]
@@ -50,29 +49,29 @@
 (module+ test
   (require rackunit)
 
-  (test-case "ListSemigroup"
-    (with-instance ListSemigroup
+  (test-case "list-semigroup"
+    (with-instance list-semigroup
       (check equal? (<> '(1 2) '(3 4)) '(1 2 3 4))
       (check equal? (stimes 3 '(1 2)) '(1 2 1 2 1 2))))
 
-  (test-case "ListMonoid"
-    (with-instance ListMonoid
+  (test-case "list-monoid"
+    (with-instance list-monoid
       (check equal? (mconcat '(1 2) '(3 4) '(5 6)) '(1 2 3 4 5 6))))
 
-  (test-case "ListFunctor"
-    (with-instance ListFunctor
+  (test-case "list-functor"
+    (with-instance list-functor
       (check equal? (fmap add1 '(1 2 3)) '(2 3 4))))
 
-  (test-case "ListApplicative"
-    (with-instance ListApplicative
+  (test-case "list-applicative"
+    (with-instance list-applicative
       (check equal? (pure 1) '(1))
       (check equal? (<*> (pure add1) (pure 2)) '(3))
       (check equal? (<*> (list (>> + 1) (>> + 2)) '(3 5)) '(4 7))
       (check equal? (liftA2 + (pure 1) (pure 2)) '(3))
       (check equal? (*> (pure 1) (pure 2)) '(2))))
 
-  (test-case "ListMonad"
-    (with-instance ListMonad
+  (test-case "list-monad"
+    (with-instance list-monad
       (check equal? (>>= '(1 2 3) (.. return add1)) '(2 3 4))
       (check equal? (=<< (.. return add1) '(3 2 1)) '(4 3 2))
       (check equal? (>>M (return 1) (return 2)) '(2))

@@ -7,19 +7,19 @@
 (provide (all-defined-out)
          (for-syntax (all-defined-out)))
 
-(define-syntax EventFunctor
-  (instance Functor
+(define-syntax event-functor
+  (instance functor
     [fmap (flip handle-evt)]))
 
-(define-syntax EventMonad
-  (instance Monad
-    extends (EventFunctor)
+(define-syntax event-monad
+  (instance monad
+    extends (event-functor)
     [>>= replace-evt]
     [return (λ xs (fmap (λ _ ($ id xs)) always-evt))]))
 
-(define-syntax EventApplicative
-  (instance Applicative
-    extends (EventMonad)
+(define-syntax event-applicative
+  (instance applicative
+    extends (event-monad)
     [pure return]
     [liftA2 (λ (f a b)
               (do xs <- a

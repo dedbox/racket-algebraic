@@ -17,19 +17,19 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Instances
 
-(define-syntax TruthyMonad
-  (instance Monad
+(define-syntax truthy-monad
+  (instance monad
     [>>= (λ (x~ f) (λ () (let ([x (x~)]) (if (Fail? x) x ((f x))))))]
     [return thunk<-]))
 
-(define-syntax TruthyFunctor
-  (instance Functor
-    extends (TruthyMonad)
+(define-syntax truthy-functor
+  (instance functor
+    extends (truthy-monad)
     [fmap (λ (f x~) (>>= x~ (φ x (return (f x)))))]))
 
-(define-syntax TruthyApplicative
-  (instance Applicative
-    extends (TruthyFunctor)
+(define-syntax truthy-applicative
+  (instance applicative
+    extends (truthy-functor)
     [pure return]
     [<*> (λ (f~ x~)
            (do~ (f) <- f~
@@ -39,7 +39,7 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Derived Forms
 
-(splicing-with-instance TruthyMonad
+(splicing-with-instance truthy-monad
   (define-syntax truthy-do
     (macro*
       #:datum-literals (let let-values <-)
@@ -76,8 +76,8 @@
 (module+ test
   (require rackunit)
 
-  (test-case "TruthyMonad"
-    (with-instance TruthyMonad
+  (test-case "truthy-monad"
+    (with-instance truthy-monad
       (check = ((return 0)) 0)
       (check = ((>>= (return 1) return)) 1)
       (check = ((>>M (return 2) (return 3))) 3)
@@ -90,13 +90,13 @@
                      (return (f x))))
              3)))
 
-  (test-case "TruthyFunctor"
-    (with-instance TruthyFunctor
+  (test-case "truthy-functor"
+    (with-instance truthy-functor
       (check = ((fmap add1 (λ () 2))) 3)
       (check equal? ((fmap add1 (λ () Fail))) Fail)))
 
-  (test-case "TruthyApplicative"
-    (with-instance TruthyApplicative
+  (test-case "truthy-applicative"
+    (with-instance truthy-applicative
       (check = ((pure 0)) 0)
       (check = ((<*> (pure add1) (pure 1))) 2)
       (check = ((liftA2 + (pure 3) (pure 4))) 7)
@@ -108,7 +108,7 @@
       (check equal? ((liftA2 + (λ () Fail) (λ () Fail))) Fail)))
 
   (test-case "agents example - do~"
-    (splicing-with-instance TruthyApplicative
+    (splicing-with-instance truthy-applicative
       (define agents (make-hash))
       (define next-id 1)
       (define (start-agent address)
@@ -124,7 +124,7 @@
       (check = next-id 4)))
 
   (test-case "agents example - lazy-do"
-    (splicing-with-instance TruthyApplicative
+    (splicing-with-instance truthy-applicative
       (define agents (make-hash))
       (define next-id 1)
       (define (start-agent address)
@@ -140,7 +140,7 @@
       (check = next-id 4)))
 
   (test-case "agents example - truthy-do"
-    (splicing-with-instance TruthyApplicative
+    (splicing-with-instance truthy-applicative
       (define agents (make-hash))
       (define next-id 1)
       (define (start-agent address)
@@ -156,7 +156,7 @@
       (check = next-id 4)))
 
   (test-case "agents example - truthy-*"
-    (splicing-with-instance TruthyApplicative
+    (splicing-with-instance truthy-applicative
       (define agents (make-hash))
       (define next-id 1)
       (define (start-agent address)

@@ -8,15 +8,15 @@
 
 (data Maybe (Nothing Just))
 
-(define-syntax MaybeFunctor
-  (instance Functor
+(define-syntax maybe-functor
+  (instance functor
     [fmap (function*
             [(_ Nothing) Nothing]
             [(f (Just a)) (Just (f a))])]))
 
-(define-syntax MaybeApplicative
-  (instance Applicative
-    extends (MaybeFunctor)
+(define-syntax maybe-applicative
+  (instance applicative
+    extends (maybe-functor)
     [pure Just]
     [<*> (function*
            [((Just f) m) (fmap f m)]
@@ -28,9 +28,9 @@
           [((Just _) m) m]
           [(Nothing _) Nothing])]))
 
-(define-syntax MaybeMonad
-  (instance Monad
-    extends (MaybeApplicative)
+(define-syntax maybe-monad
+  (instance monad
+    extends (maybe-applicative)
     [>>= (function*
            [((Just x) k) (k x)]
            [(Nothing _) Nothing])]
@@ -52,13 +52,13 @@
 (module+ test
   (require rackunit)
 
-  (test-case "MaybeFunctor"
-    (with-instance MaybeFunctor
+  (test-case "maybe-functor"
+    (with-instance maybe-functor
       (check equal? (fmap add1 Nothing) Nothing)
       (check equal? (fmap add1 (Just 2)) (Just 3))))
 
-  (test-case "MaybeApplicative"
-    (with-instance MaybeApplicative
+  (test-case "maybe-applicative"
+    (with-instance maybe-applicative
       (check equal? (pure 1) (Just 1))
       (check equal? (<*> (pure add1) (pure 2)) (Just 3))
       (check equal? (<*> Nothing (pure 2)) Nothing)
@@ -73,8 +73,8 @@
       (check equal? (*> (pure 1) Nothing) Nothing)
       (check equal? (*> Nothing Nothing) Nothing)))
 
-  (test-case "MaybeMonad"
-    (with-instance MaybeMonad
+  (test-case "maybe-monad"
+    (with-instance maybe-monad
       (check equal? (>>= (pure 2) (.. return add1)) (pure 3))
       (check equal? (>>= Nothing (.. return add1)) Nothing)
       (check equal? (>>M (pure 1) (pure 2)) (Just 2))
