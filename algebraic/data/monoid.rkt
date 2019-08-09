@@ -1,6 +1,6 @@
 #lang algebraic/racket/base
 
-(require algebraic/class/semigroup)
+(require algebraic/data/semigroup)
 
 (provide (all-defined-out))
 

@@ -7,15 +7,15 @@
 @require[
   (except-in algebraic/sum sum)
   @for-label[
-    algebraic/class/applicative
-    algebraic/class/functor
-    algebraic/class/monad
-    algebraic/class/monoid
-    algebraic/class/semigroup
+    algebraic/control/applicative
+    algebraic/control/monad
     algebraic/data/box
     algebraic/data/event
+    algebraic/data/functor
     algebraic/data/list
     algebraic/data/maybe
+    algebraic/data/monoid
+    algebraic/data/semigroup
     algebraic/data/truthy
     algebraic/data/values
     (except-in algebraic/racket/base do #%module-begin)
@@ -27,15 +27,15 @@
 @define-syntax[example (algebraic-example/locations class-data-eval)]
 
 @example[#:hidden
-  (require algebraic/class/applicative
-           algebraic/class/functor
-           algebraic/class/monad
-           algebraic/class/monoid
-           algebraic/class/semigroup
+  (require algebraic/control/applicative
+           algebraic/control/monad
            algebraic/data/box
            algebraic/data/event
+           algebraic/data/functor
            algebraic/data/list
            algebraic/data/maybe
+           algebraic/data/monoid
+           algebraic/data/semigroup
            algebraic/data/truthy
            algebraic/data/values)]
 

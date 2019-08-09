@@ -1,6 +1,7 @@
 #lang racket/base
 
-(require algebraic/class
+(require algebraic/base
+         algebraic/class
          algebraic/data
          algebraic/function
          algebraic/prelude
@@ -11,7 +12,8 @@
                      racket/base)
          (for-meta 2 racket/base))
 
-(provide (all-from-out algebraic/class
+(provide (all-from-out algebraic/base
+                       algebraic/class
                        algebraic/data
                        algebraic/function
                        algebraic/prelude)

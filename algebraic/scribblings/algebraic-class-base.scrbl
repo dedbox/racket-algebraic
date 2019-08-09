@@ -6,14 +6,14 @@
 
 @require[
   @for-label[
-    algebraic/class/applicative
-    algebraic/class/functor
-    algebraic/class/monad
-    algebraic/class/monoid
-    algebraic/class/semigroup
+    algebraic/control/applicative
+    algebraic/control/monad
     algebraic/data/box
+    algebraic/data/functor
     algebraic/data/list
     algebraic/data/maybe
+    algebraic/data/monoid
+    algebraic/data/semigroup
     algebraic/data/truthy
     algebraic/data/values
     (except-in algebraic/racket/base do #%module-begin)
@@ -26,10 +26,10 @@
 @define-syntax[example (algebraic-example/locations class-eval)]
 
 @example[#:hidden
-  (require algebraic/class/applicative
-           algebraic/class/functor
-           algebraic/class/monad
+  (require algebraic/control/applicative
+           algebraic/control/monad
            algebraic/data/box
+           algebraic/data/functor
            algebraic/data/list
            algebraic/data/maybe
            algebraic/data/truthy
@@ -45,7 +45,7 @@
 
 @section[#:tag "class:base:applicative"]{Applicative Functor}
 
-@defmodule[algebraic/class/applicative]
+@defmodule[algebraic/control/applicative]
 
 A @racket[functor] with application, providing operations to
 
@@ -233,7 +233,7 @@ Minimal instance: @racket[pure], (@racket[<*>] or @racket[liftA2])
 
 @section[#:tag "class:base:functor"]{Functor}
 
-@defmodule[algebraic/class/functor]
+@defmodule[algebraic/data/functor]
 
 The @racket[functor] class is used for types that can be mapped over.
 
@@ -319,7 +319,7 @@ Minimal instance: @racket[fmap]
 
 @section[#:tag "class:base:monad"]{Monad}
 
-@defmodule[algebraic/class/monad]
+@defmodule[algebraic/control/monad]
 
 Basic operations on monads, and a generic do-notation.
 
@@ -510,7 +510,7 @@ Minimal instance: @racket[>>=]
 
 @section[#:tag "class:base:monoid"]{Monoid}
 
-@defmodule[algebraic/class/monoid]
+@defmodule[algebraic/control/monoid]
 
 The class of monoids (types with an associative binary operation that has an
 identity).
@@ -575,7 +575,7 @@ identity).
 
 @section[#:tag "class:base:semigroup"]{Semigroup}
 
-@defmodule[algebraic/class/semigroup]
+@defmodule[algebraic/data/semigroup]
 
 The class of semigroups (types with an associative binary operation).
 

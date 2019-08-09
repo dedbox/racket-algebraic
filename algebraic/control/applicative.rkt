@@ -1,6 +1,6 @@
 #lang algebraic/racket/base
 
-(require algebraic/class/functor)
+(require algebraic/data/functor)
 
 (provide (all-defined-out))
 

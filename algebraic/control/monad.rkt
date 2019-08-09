@@ -1,6 +1,6 @@
 #lang algebraic/racket/base
 
-(require algebraic/class/applicative
+(require algebraic/control/applicative
          (for-syntax algebraic/syntax))
 
 (provide (all-defined-out))

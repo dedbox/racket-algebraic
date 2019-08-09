@@ -1,10 +1,10 @@
 #lang algebraic/racket/base
 
-(require algebraic/class/applicative
-         algebraic/class/functor
-         algebraic/class/monoid
-         algebraic/class/monad
-         algebraic/class/semigroup)
+(require algebraic/control/applicative
+         algebraic/control/monad
+         algebraic/data/functor
+         algebraic/data/monoid
+         algebraic/data/semigroup)
 
 (provide (all-defined-out))
 

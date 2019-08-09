@@ -1,8 +1,8 @@
 #lang algebraic/racket/base
 
-(require algebraic/class/applicative
-         algebraic/class/functor
-         algebraic/class/monad
+(require algebraic/control/applicative
+         algebraic/control/monad
+         algebraic/data/functor
          (for-syntax algebraic/syntax))
 
 (provide (all-defined-out))

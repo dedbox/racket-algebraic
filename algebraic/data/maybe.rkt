@@ -1,18 +1,63 @@
 #lang algebraic/racket/base
 
-(require algebraic/class/applicative
-         algebraic/class/functor
-         algebraic/class/monad)
+(require algebraic/control/applicative
+         algebraic/control/monad
+         algebraic/data/functor
+         algebraic/data/monoid
+         algebraic/data/semigroup
+         (prefix-in algebraic- algebraic/racket/base/forms))
 
 (provide (all-defined-out))
 
-(data Maybe (Nothing Just))
+;;; ----------------------------------------------------------------------------
+
+(define maybe
+  (function*
+    [(n _ Nothing) n]
+    [(_ f (Just x)) (f x)]))
+
+(define from-maybe
+  (function*
+    [(d Nothing) d]
+    [(_ (Just v)) v]))
+
+(define from-maybe~
+  (function*
+    [(d Nothing) d]
+    [(_ (Just v)) (λ () v)]))
+
+;;; ----------------------------------------------------------------------------
+
+(define-syntax maybe-semigroup
+  (instance semigroup
+    [<> (function*
+          [(Nothing b) b]
+          [(a Nothing) a]
+          [((Just a) (Just b)) (Just (<> a b))])]
+    [stimes stimes-maybe]))
+
+(define-class-helper stimes-maybe
+  (function*
+    [(_ Nothing) Nothing]
+    [(n (Just a)) (algebraic-case (compare n 0)
+                    [LT (error "stimes: Maybe, negative multiplier")]
+                    [EQ Nothing]
+                    [GT (Just (stimes n a))])]))
+
+;;; ----------------------------------------------------------------------------
+
+(define-syntax maybe-monoid
+  (instance monoid extends (maybe-semigroup) [mempty Nothing]))
+
+;;; ----------------------------------------------------------------------------
 
 (define-syntax maybe-functor
   (instance functor
     [fmap (function*
             [(_ Nothing) Nothing]
             [(f (Just a)) (Just (f a))])]))
+
+;;; ----------------------------------------------------------------------------
 
 (define-syntax maybe-applicative
   (instance applicative
@@ -28,6 +73,8 @@
           [((Just _) m) m]
           [(Nothing _) Nothing])]))
 
+;;; ----------------------------------------------------------------------------
+
 (define-syntax maybe-monad
   (instance monad
     extends (maybe-applicative)
@@ -36,16 +83,6 @@
            [(Nothing _) Nothing])]
     [>>M *>]
     [fail (φ _ Nothing)]))
-
-(define-class-helper from-maybe
-  (function*
-    [(d Nothing) d]
-    [(_ (Just v)) v]))
-
-(define-class-helper from-maybe~
-  (function*
-    [(d Nothing) d]
-    [(_ (Just v)) (λ () v)]))
 
 ;;; ----------------------------------------------------------------------------
 

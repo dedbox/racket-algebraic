@@ -11,7 +11,6 @@
 @include-section{./algebraic-racket.scrbl}
 @include-section{./algebraic-prelude.scrbl}
 @include-section{./algebraic-class.scrbl}
-@; @include-section{./algebraic-syntax-list.scrbl}
 @include-section{./algebraic-linter.scrbl}
 @include-section{./algebraic-tutorial.scrbl}
 
