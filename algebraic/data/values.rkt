@@ -6,19 +6,19 @@
 
 (provide (all-defined-out))
 
-(define-syntax values-functor
-  (instance functor
+(define-syntax values-Functor
+  (instance Functor
     [fmap (flip call-with-values)]))
 
-(define-syntax values-applicative
-  (instance applicative
-    extends (values-functor)
+(define-syntax values-Applicative
+  (instance Applicative
+    extends (values-Functor)
     [pure id]
     [liftA2 (λ (f x~ y~) (fmap (fmap (>>* f) x~) y~))]))
 
-(define-syntax values-monad
-  (instance monad
-    extends (values-applicative)
+(define-syntax values-Monad
+  (instance Monad
+    extends (values-Applicative)
     [return pure]
     [>>= call-with-values]
     [>>M (λ (x~ y~) (x~) (y~))]))
@@ -29,18 +29,18 @@
   (require rackunit
            algebraic/data/list)
 
-  (instantiate || values-monad)
+  (instantiate || values-Monad)
 
-  (test-case "values-functor"
+  (test-case "values-Functor"
     (check equal? (fmap list (λ () (id 1 2 3 4))) '(1 2 3 4))
     (check equal? (fmap (.. (>> map add1) list) (λ () (id 1 2 3 4)))
            '(2 3 4 5))
-    (with-instances ([list- list-functor]
-                     [values- values-functor])
+    (with-instances ([list- list-Functor]
+                     [values- values-Functor])
       (check equal? (list-fmap add1 (values-fmap list (λ () (id 1 2 3 4))))
              '(2 3 4 5))))
 
-  (test-case "values-applicative"
+  (test-case "values-Applicative"
     (check = (pure 1) 1)
     (check equal? (liftA2 list
                           (λ () (pure 1 2))
@@ -51,7 +51,7 @@
            3)
     (check = (<*> (λ () add1) (λ () 2)) 3))
 
-  (test-case "values-monad"
+  (test-case "values-Monad"
     (check equal? (>>= (λ () (return 1 2)) list) '(1 2))
     (check equal? (do xs <- (λ () (return 1 2))
                       (return xs))

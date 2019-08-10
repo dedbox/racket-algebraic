@@ -11,32 +11,47 @@
 
 ;;; ----------------------------------------------------------------------------
 
+;; (define (maybe n f m)
+;;   (case m
+;;     [Nothing n]
+;;     [(Just x) (f x)]))
+
+;; (define (from-Maybe d m)
+;;   (case m
+;;     [Nothing d]
+;;     [(Just v) v]))
+
+;; (define (from-Maybe~ d m)
+;;   (case m
+;;     [Nothing d]
+;;     [(Just v) (λ () v)]))
+
 (define maybe
   (function*
     [(n _ Nothing) n]
     [(_ f (Just x)) (f x)]))
 
-(define from-maybe
+(define from-Maybe
   (function*
     [(d Nothing) d]
     [(_ (Just v)) v]))
 
-(define from-maybe~
+(define from-Maybe~
   (function*
     [(d Nothing) d]
     [(_ (Just v)) (λ () v)]))
 
 ;;; ----------------------------------------------------------------------------
 
-(define-syntax maybe-semigroup
-  (instance semigroup
+(define-syntax Maybe-Semigroup
+  (instance Semigroup
     [<> (function*
           [(Nothing b) b]
           [(a Nothing) a]
           [((Just a) (Just b)) (Just (<> a b))])]
-    [stimes stimes-maybe]))
+    [stimes stimes-Maybe]))
 
-(define-class-helper stimes-maybe
+(define-class-helper stimes-Maybe
   (function*
     [(_ Nothing) Nothing]
     [(n (Just a)) (algebraic-case (compare n 0)
@@ -46,22 +61,24 @@
 
 ;;; ----------------------------------------------------------------------------
 
-(define-syntax maybe-monoid
-  (instance monoid extends (maybe-semigroup) [mempty Nothing]))
+(define-syntax Maybe-Monoid
+  (instance Monoid
+    extends (Maybe-Semigroup)
+    [mempty Nothing]))
 
 ;;; ----------------------------------------------------------------------------
 
-(define-syntax maybe-functor
-  (instance functor
+(define-syntax Maybe-Functor
+  (instance Functor
     [fmap (function*
             [(_ Nothing) Nothing]
             [(f (Just a)) (Just (f a))])]))
 
 ;;; ----------------------------------------------------------------------------
 
-(define-syntax maybe-applicative
-  (instance applicative
-    extends (maybe-functor)
+(define-syntax Maybe-Applicative
+  (instance Applicative
+    extends (Maybe-Functor)
     [pure Just]
     [<*> (function*
            [((Just f) m) (fmap f m)]
@@ -75,9 +92,9 @@
 
 ;;; ----------------------------------------------------------------------------
 
-(define-syntax maybe-monad
-  (instance monad
-    extends (maybe-applicative)
+(define-syntax Maybe-Monad
+  (instance Monad
+    extends (Maybe-Applicative)
     [>>= (function*
            [((Just x) k) (k x)]
            [(Nothing _) Nothing])]
@@ -89,13 +106,13 @@
 (module+ test
   (require rackunit)
 
-  (test-case "maybe-functor"
-    (with-instance maybe-functor
+  (test-case "Maybe-Functor"
+    (with-instance Maybe-Functor
       (check equal? (fmap add1 Nothing) Nothing)
       (check equal? (fmap add1 (Just 2)) (Just 3))))
 
-  (test-case "maybe-applicative"
-    (with-instance maybe-applicative
+  (test-case "Maybe-Applicative"
+    (with-instance Maybe-Applicative
       (check equal? (pure 1) (Just 1))
       (check equal? (<*> (pure add1) (pure 2)) (Just 3))
       (check equal? (<*> Nothing (pure 2)) Nothing)
@@ -110,8 +127,8 @@
       (check equal? (*> (pure 1) Nothing) Nothing)
       (check equal? (*> Nothing Nothing) Nothing)))
 
-  (test-case "maybe-monad"
-    (with-instance maybe-monad
+  (test-case "Maybe-Monad"
+    (with-instance Maybe-Monad
       (check equal? (>>= (pure 2) (.. return add1)) (pure 3))
       (check equal? (>>= Nothing (.. return add1)) Nothing)
       (check equal? (>>M (pure 1) (pure 2)) (Just 2))

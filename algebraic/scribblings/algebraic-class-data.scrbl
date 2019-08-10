@@ -1,3 +1,4 @@
+
 #lang scribble/manual
 
 @title[#:tag "class:data"]{Instances}
@@ -68,9 +69,9 @@
 
 @; .............................................................................
 
-@definstance[box-applicative]{
+@definstance[box-Applicative]{
 
-  extends @racket[box-functor]
+  extends @racket[box-Functor]
 
   @defmembers[
     [pure procedure?]
@@ -80,39 +81,39 @@
 
   Examples:
   @example[
-    (with-instance box-applicative
+    (with-instance box-Applicative
       (<*> (pure add1) (pure 2)))
   ]
 
   @example[
-    (with-instance box-applicative
+    (with-instance box-Applicative
       (liftA2 + (pure 4) (pure 5)))
   ]
 }
 
 @; .............................................................................
 
-@definstance[box-functor]{
+@definstance[box-Functor]{
   @defmembers[[fmap procedure?]]
 
   Example:
   @example[
-    (with-instance box-functor
+    (with-instance box-Functor
       (fmap (>> :: '!)  #&?))
   ]
 }
 
 @; .............................................................................
 
-@definstance[box-monad]{
+@definstance[box-Monad]{
 
-  extends @racket[box-applicative]
+  extends @racket[box-Applicative]
 
   @defmembers[[>>= procedure?]]
 
   Example:
   @example[
-    (with-instance box-monad
+    (with-instance box-Monad
       (do (`(? ,x)) <- (box '(? 2))
           (return `(! ,(add1 x)))))
   ]
@@ -126,9 +127,9 @@
 
 @; .............................................................................
 
-@definstance[event-applicative]{
+@definstance[event-Applicative]{
 
-  extends @racket[event-monad]
+  extends @racket[event-Monad]
 
   @defmembers[
     [pure procedure?]
@@ -136,31 +137,31 @@
   ]
 
   Examples:
-  @example[(with-instance event-applicative (sync (pure 1 2 3)))]
+  @example[(with-instance event-Applicative (sync (pure 1 2 3)))]
 
   @example[
-    (with-instance event-applicative
+    (with-instance event-Applicative
       (sync (liftA2 list (pure 1 2) (pure 3 4))))
   ]
 }
 
 @; .............................................................................
 
-@definstance[event-functor]{
+@definstance[event-Functor]{
   @defmembers[[fmap procedure?]]
 
   Examples:
   @example[
-    (with-instance event-functor
+    (with-instance event-Functor
       (sync (fmap (λ _ (id 1 2 3)) always-evt)))
   ]
 }
 
 @; .............................................................................
 
-@definstance[event-monad]{
+@definstance[event-Monad]{
 
-  extends @racket[event-functor]
+  extends @racket[event-Functor]
 
   @defmembers[
     [>>= procedure?]
@@ -168,7 +169,7 @@
   ]
 
   Examples:
-  @example[(with-instance event-monad
+  @example[(with-instance event-Monad
              (sync (>>= (return 1 2 3) (.. return +))))]
 }
 
@@ -180,9 +181,9 @@
 
 @; .............................................................................
 
-@definstance[list-applicative]{
+@definstance[list-Applicative]{
 
-  extends @racket[list-functor]
+  extends @racket[list-Functor]
 
   @defmembers[
     [pure procedure?]
@@ -192,34 +193,34 @@
   ]
 
   Examples:
-  @example[(with-instance list-applicative (pure 1))]
+  @example[(with-instance list-Applicative (pure 1))]
 
   @example[
-    (with-instance list-applicative
+    (with-instance list-Applicative
       (<*> (<*> (pure (>>* ::)) '(1)) '(2)))
   ]
 
   @example[
-    (with-instance list-applicative (liftA2 :: '(?) '(!)))
+    (with-instance list-Applicative (liftA2 :: '(?) '(!)))
   ]
 
-  @example[(with-instance list-applicative (*> '(1) '(2)))]
+  @example[(with-instance list-Applicative (*> '(1) '(2)))]
 }
 
 @; .............................................................................
 
-@definstance[list-functor]{
+@definstance[list-Functor]{
   @defmembers[[fmap procedure?]]
 
   Example:
-  @example[(with-instance list-functor (fmap add1 '(1 2 3 4)))]
+  @example[(with-instance list-Functor (fmap add1 '(1 2 3 4)))]
 }
 
 @; .............................................................................
 
-@definstance[list-monad]{
+@definstance[list-Monad]{
 
-  extends @racket[list-applicative]
+  extends @racket[list-Applicative]
 
   @defmembers[
     [>>= procedure?]
@@ -229,20 +230,20 @@
   ]
 
   Examples:
-  @example[(with-instance list-monad (>>= (return 2) (.. return add1)))]
+  @example[(with-instance list-Monad (>>= (return 2) (.. return add1)))]
 
-  @example[(with-instance list-monad (>>M (return 1) (return 2)))]
+  @example[(with-instance list-Monad (>>M (return 1) (return 2)))]
 
-  @example[(with-instance list-monad (fail '!?))]
+  @example[(with-instance list-Monad (fail '!?))]
 
-  @example[(with-instance list-monad (join '((1) (2))))]
+  @example[(with-instance list-Monad (join '((1) (2))))]
 }
 
 @; .............................................................................
 
-@definstance[list-monoid]{
+@definstance[list-Monoid]{
 
-  extends @racket[list-semigroup]
+  extends @racket[list-Semigroup]
 
   @defmembers[
     [mempty null?]
@@ -250,21 +251,21 @@
   ]
 
   Example:
-  @example[(with-instance list-monoid (mconcat '(1 2) '(3 4) mempty))]
+  @example[(with-instance list-Monoid (mconcat '(1 2) '(3 4) mempty))]
 }
 
 @; .............................................................................
 
-@definstance[list-semigroup]{
+@definstance[list-Semigroup]{
   @defmembers[
     [<> procedure?]
     [stimes procedure?]
   ]
 
   Examples:
-  @example[(with-instance list-semigroup (<> '(1 2) '(3 4)))]
+  @example[(with-instance list-Semigroup (<> '(1 2) '(3 4)))]
 
-  @example[(with-instance list-semigroup (stimes 3 '(! ?)))]
+  @example[(with-instance list-Semigroup (stimes 3 '(! ?)))]
 }
 
 @; -----------------------------------------------------------------------------
@@ -283,9 +284,9 @@ a)]), or it is empty (represented as @racket[Nothing]). Using @sum[Maybe] is a
 good way to deal with errors or exceptional cases without resorting to drastic
 measures such as @racket[error].
 
-The @sum[Maybe] @tech{sum} is also a @racket[monad]. It is a simple kind of
+The @sum[Maybe] @tech{sum} is also a @racket[Monad]. It is a simple kind of
 error monad, where all errors are represented by @racket[Nothing]. A richer
-error @racket[monad] can be built using the @racket[Either] type.
+error @racket[Monad] can be built using the @racket[Either] type.
 
 @defproducts[Nothing Just]
 
@@ -293,9 +294,9 @@ error @racket[monad] can be built using the @racket[Either] type.
 
 @; .............................................................................
 
-@definstance[maybe-applicative]{
+@definstance[Maybe-Applicative]{
 
-  extends @racket[maybe-functor]
+  extends @racket[Maybe-Functor]
 
   @defmembers[
     [pure procedure?]
@@ -305,43 +306,43 @@ error @racket[monad] can be built using the @racket[Either] type.
   ]
 
   Examples:
-  @example[(with-instance maybe-applicative (pure 1))]
+  @example[(with-instance Maybe-Applicative (pure 1))]
 
-  @example[(with-instance maybe-applicative (<*> (pure add1) (pure 2)))]
+  @example[(with-instance Maybe-Applicative (<*> (pure add1) (pure 2)))]
 
-  @example[(with-instance maybe-applicative (<*> (pure add1) Nothing))]
+  @example[(with-instance Maybe-Applicative (<*> (pure add1) Nothing))]
 
-  @example[(with-instance maybe-applicative (<*> Nothing (pure 2)))]
+  @example[(with-instance Maybe-Applicative (<*> Nothing (pure 2)))]
 
-  @example[(with-instance maybe-applicative (liftA2 + (pure 1) (pure 2)))]
+  @example[(with-instance Maybe-Applicative (liftA2 + (pure 1) (pure 2)))]
 
-  @example[(with-instance maybe-applicative (liftA2 + Nothing (pure 2)))]
+  @example[(with-instance Maybe-Applicative (liftA2 + Nothing (pure 2)))]
 
-  @example[(with-instance maybe-applicative (liftA2 + (pure 1) Nothing))]
+  @example[(with-instance Maybe-Applicative (liftA2 + (pure 1) Nothing))]
 
-  @example[(with-instance maybe-applicative (*> (pure 1) (pure 2)))]
+  @example[(with-instance Maybe-Applicative (*> (pure 1) (pure 2)))]
 
-  @example[(with-instance maybe-applicative (*> Nothing (pure 2)))]
+  @example[(with-instance Maybe-Applicative (*> Nothing (pure 2)))]
 
-  @example[(with-instance maybe-applicative (*> (pure 1) Nothing))]
+  @example[(with-instance Maybe-Applicative (*> (pure 1) Nothing))]
 }
 
 @; .............................................................................
 
-@definstance[maybe-functor]{
+@definstance[Maybe-Functor]{
   @defmembers[[fmap procedure?]]
 
   Examples:
-  @example[(with-instance maybe-functor (fmap add1 (Just 2)))]
+  @example[(with-instance Maybe-Functor (fmap add1 (Just 2)))]
 
-  @example[(with-instance maybe-functor (fmap add1 Nothing))]
+  @example[(with-instance Maybe-Functor (fmap add1 Nothing))]
 }
 
 @; .............................................................................
 
-@definstance[maybe-monad]{
+@definstance[Maybe-Monad]{
 
-  extends @racket[MaybeApplicative]
+  extends @racket[Maybe-Applicative]
 
   @defmembers[
     [>>= procedure?]
@@ -351,17 +352,17 @@ error @racket[monad] can be built using the @racket[Either] type.
 
   Examples:
   @example[
-    (with-instance maybe-monad
+    (with-instance Maybe-Monad
       (>>= (Just 2) (.. return add1)))
   ]
 
-  @example[(with-instance maybe-monad (>>= Nothing (.. Just add1)))]
+  @example[(with-instance Maybe-Monad (>>= Nothing (.. Just add1)))]
 
-  @example[(with-instance maybe-monad (>>M (Just 1) (Just 2)))]
+  @example[(with-instance Maybe-Monad (>>M (Just 1) (Just 2)))]
 
-  @example[(with-instance maybe-monad (>>M Nothing (Just 2)))]
+  @example[(with-instance Maybe-Monad (>>M Nothing (Just 2)))]
 
-  @example[(with-instance maybe-monad (fail '!!))]
+  @example[(with-instance Maybe-Monad (fail '!!))]
 }
 
 @; -----------------------------------------------------------------------------
@@ -397,7 +398,7 @@ But @racket[#f] does not always indicate failure.
   Δ
 ]
 
-The @racket[Truthy] @racket[monad] uses the @racket[Fail] @tech{product} as a
+The @racket[Truthy] @racket[Monad] uses the @racket[Fail] @tech{product} as a
 failure indicator distinct from @racket[#f].
 
 @racket[Truthy] is like the @racket[Maybe] @tech{sum} if @racket[Just] were
@@ -408,13 +409,13 @@ implicitly applied to all non-@racket[#f] values.
       (hash-ref Δ 'C (const Fail)))
 ]
 
-@racket[Truthy] is a lazy @racket[monad]. With @racket[do~]-notation, several
+@racket[Truthy] is a lazy @racket[Monad]. With @racket[do~]-notation, several
 @racket[Truthy] expressions can be evaluated in sequence. If an expression
 evaluates to @racket[Fail], the sequence short circuits.
 
 @example[
   (hash-set! Δ 'C #f)
-  (with-instance truthy-monad
+  (with-instance truthy-Monad
     ((do~ (λ () ((function [Fail #t] [_ Fail])
                  ((do~ (λ () (hash-ref  Δ 'C (const Fail)))))))
           (do~ (λ () (hash-set! Δ 'C (random 100)))
@@ -423,7 +424,7 @@ evaluates to @racket[Fail], the sequence short circuits.
 ]
 
 @example[
-  (with-instance truthy-monad
+  (with-instance truthy-Monad
     ((do~ (λ () ((function [Fail #t] [_ Fail])
                  ((do~ (λ () (hash-ref  Δ 'D (const Fail)))))))
           (do~ (λ () (hash-set! Δ 'D (random 100)))
@@ -435,7 +436,7 @@ As a convenience, @racket[truthy-and], @racket[truthy-not], and
 @racket[truthy-or] reduce the boilerplate.
 
 @example[
-  (with-instance truthy-monad
+  (with-instance truthy-Monad
     (truthy-or (truthy-and (hash-ref  Δ 'C (const Fail)))
                (truthy-and (hash-set! Δ 'C (random 100))
                            (hash-ref  Δ 'C))))
@@ -443,7 +444,7 @@ As a convenience, @racket[truthy-and], @racket[truthy-not], and
 ]
 
 @example[
-  (with-instance truthy-monad
+  (with-instance truthy-Monad
     (truthy-or (truthy-and (hash-ref  Δ 'D (const Fail)))
                (truthy-and (hash-set! Δ 'D (random 100))
                            (hash-ref  Δ 'D))))
@@ -460,9 +461,9 @@ As a convenience, @racket[truthy-and], @racket[truthy-not], and
 
 @; .............................................................................
 
-@definstance[values-applicative]{
+@definstance[values-Applicative]{
 
-  extends @racket[ValuesFunctor]
+  extends @racket[values-Functor]
 
   @defmembers[
     [pure procedure?]
@@ -470,10 +471,10 @@ As a convenience, @racket[truthy-and], @racket[truthy-not], and
   ]
 
   Examples:
-  @example[(with-instance values-applicative (pure 1 2 3))]
+  @example[(with-instance values-Applicative (pure 1 2 3))]
 
   @example[
-    (with-instance values-applicative
+    (with-instance values-Applicative
       (liftA2 list
               (λ () (pure 1 2))
               (λ () (pure 3 4))))
@@ -482,18 +483,18 @@ As a convenience, @racket[truthy-and], @racket[truthy-not], and
 
 @; .............................................................................
 
-@definstance[values-functor]{
+@definstance[values-Functor]{
   @defmembers[[fmap procedure?]]
 
   Example:
-  @example[(with-instance values-functor (fmap list (λ () (id 1 2 3))))]
+  @example[(with-instance values-Functor (fmap list (λ () (id 1 2 3))))]
 }
 
 @; .............................................................................
 
-@definstance[values-monad]{
+@definstance[values-Monad]{
 
-  extends @racket[ValuesApplicative]
+  extends @racket[values-Applicative]
 
   @defmembers[
     [>>= procedure?]
@@ -502,7 +503,7 @@ As a convenience, @racket[truthy-and], @racket[truthy-not], and
   ]
 
   Examples:
-  @example[(with-instance values-monad (>>= (λ () (return 1 2 3)) +))]
+  @example[(with-instance values-Monad (>>= (λ () (return 1 2 3)) +))]
 
-  @example[(with-instance values-monad (>>M (λ () 1) (λ () 2)))]
+  @example[(with-instance values-Monad (>>M (λ () 1) (λ () 2)))]
 }

@@ -5,7 +5,7 @@
 
 (provide (all-defined-out))
 
-(class monad
+(class Monad
   [>>=]
   [>>M (λ (m k) (>>= m (λ _ k)))]
   [return pure]

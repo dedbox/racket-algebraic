@@ -12,24 +12,25 @@
 
 (data Truthy (Fail))
 
-(define truthy (φ x (or x Fail)))
+(define (truthy x)
+  (or x Fail))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Instances
 
-(define-syntax truthy-monad
-  (instance monad
+(define-syntax truthy-Monad
+  (instance Monad
     [>>= (λ (x~ f) (λ () (let ([x (x~)]) (if (Fail? x) x ((f x))))))]
     [return thunk<-]))
 
-(define-syntax truthy-functor
-  (instance functor
-    extends (truthy-monad)
+(define-syntax truthy-Functor
+  (instance Functor
+    extends (truthy-Monad)
     [fmap (λ (f x~) (>>= x~ (φ x (return (f x)))))]))
 
-(define-syntax truthy-applicative
-  (instance applicative
-    extends (truthy-functor)
+(define-syntax truthy-Applicative
+  (instance Applicative
+    extends (truthy-Functor)
     [pure return]
     [<*> (λ (f~ x~)
            (do~ (f) <- f~
@@ -39,7 +40,7 @@
 ;;; ----------------------------------------------------------------------------
 ;;; Derived Forms
 
-(splicing-with-instance truthy-monad
+(splicing-with-instance truthy-Monad
   (define-syntax truthy-do
     (macro*
       #:datum-literals (let let-values <-)
@@ -76,8 +77,8 @@
 (module+ test
   (require rackunit)
 
-  (test-case "truthy-monad"
-    (with-instance truthy-monad
+  (test-case "truthy-Monad"
+    (with-instance truthy-Monad
       (check = ((return 0)) 0)
       (check = ((>>= (return 1) return)) 1)
       (check = ((>>M (return 2) (return 3))) 3)
@@ -90,13 +91,13 @@
                      (return (f x))))
              3)))
 
-  (test-case "truthy-functor"
-    (with-instance truthy-functor
+  (test-case "truthy-Functor"
+    (with-instance truthy-Functor
       (check = ((fmap add1 (λ () 2))) 3)
       (check equal? ((fmap add1 (λ () Fail))) Fail)))
 
-  (test-case "truthy-applicative"
-    (with-instance truthy-applicative
+  (test-case "truthy-Applicative"
+    (with-instance truthy-Applicative
       (check = ((pure 0)) 0)
       (check = ((<*> (pure add1) (pure 1))) 2)
       (check = ((liftA2 + (pure 3) (pure 4))) 7)
@@ -108,7 +109,7 @@
       (check equal? ((liftA2 + (λ () Fail) (λ () Fail))) Fail)))
 
   (test-case "agents example - do~"
-    (splicing-with-instance truthy-applicative
+    (splicing-with-instance truthy-Applicative
       (define agents (make-hash))
       (define next-id 1)
       (define (start-agent address)
@@ -124,7 +125,7 @@
       (check = next-id 4)))
 
   (test-case "agents example - lazy-do"
-    (splicing-with-instance truthy-applicative
+    (splicing-with-instance truthy-Applicative
       (define agents (make-hash))
       (define next-id 1)
       (define (start-agent address)
@@ -140,7 +141,7 @@
       (check = next-id 4)))
 
   (test-case "agents example - truthy-do"
-    (splicing-with-instance truthy-applicative
+    (splicing-with-instance truthy-Applicative
       (define agents (make-hash))
       (define next-id 1)
       (define (start-agent address)
@@ -156,7 +157,7 @@
       (check = next-id 4)))
 
   (test-case "agents example - truthy-*"
-    (splicing-with-instance truthy-applicative
+    (splicing-with-instance truthy-Applicative
       (define agents (make-hash))
       (define next-id 1)
       (define (start-agent address)

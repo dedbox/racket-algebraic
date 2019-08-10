@@ -4,7 +4,7 @@
 
 (provide (all-defined-out))
 
-(class monoid
+(class Monoid
   [mempty]
   [mappend <>]
   [mconcat (>> foldr mappend mempty)]

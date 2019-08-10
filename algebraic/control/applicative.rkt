@@ -4,7 +4,7 @@
 
 (provide (all-defined-out))
 
-(class applicative
+(class Applicative
   [pure]
   [<*> (>> liftA2 (λ (f a) (f a)))]
   [liftA2 (λ (f a b) (<*> (fmap (.. (>> $ >> f) list) a) b))]

@@ -2,7 +2,7 @@
 
 (provide (all-defined-out))
 
-(class semigroup
+(class Semigroup
   [<>]
   [sconcat (φ (a . as)
              (define go (function*

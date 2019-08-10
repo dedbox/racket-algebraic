@@ -2,7 +2,7 @@
 
 (provide (all-defined-out))
 
-(class functor
+(class Functor
   [fmap]
   [<$ (λ (x y) (fmap (const x) y))]
   minimal ([fmap]))
