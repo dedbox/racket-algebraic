@@ -8,6 +8,7 @@
 
 ;;; Basic Data Types
 
+(data Unit (Unit))
 (data Maybe (Nothing Just))
 (data Either (Left Right))
 (data Ordering (LT EQ GT))
