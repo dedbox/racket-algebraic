@@ -226,6 +226,9 @@
               (with-syntax ([patt (argument (unbox arg*))])
                 #'(~describe "box" #&patt))]
 
+           ;; keywords
+           [_ (keyword? arg*) arg]
+
            ;; bindings
            [_ (wildcard? arg) #'_]
            [_ (variable? arg) arg]
