@@ -15,3 +15,10 @@
         lambda lambda lambda lambda case-lambda case-lambda
         lambda lambda lambda lambda case-lambda case-lambda
         case case case)))
+
+(define (algebraic-print val port)
+  (if (pretty-printing)
+      (parameterize ([pretty-print-current-style-table
+                      algebraic-pretty-print-style-table])
+        (pretty-print val port 1))
+      (print val port 1)))

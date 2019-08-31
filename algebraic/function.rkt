@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require algebraic/data
+         algebraic/newtype
          algebraic/pretty
          algebraic/private
          racket/contract/base
@@ -114,6 +115,9 @@
                  [(patt1 . patt2) #`(cons #,(quasi #'patt1) #,(quasi #'patt2))]
                  [() #'(list)]
                  [_ stx])))]
+
+        ;; newtypes
+        [_ (newtype-id? arg) #`(? #,(newtype-predicate-id arg))]
 
         ;; bindings
         [_ (wildcard? arg) #'_]
@@ -241,6 +245,7 @@
 
 (module+ test
   (require algebraic/data
+           racket/function
            rackunit)
 
   (define OK (string->unreadable-symbol "OK"))
@@ -495,6 +500,14 @@
     (check-exn exn:algebraic:match? (λ () ((φ #hash([B . 2]) OK) #hash([C . 3]))))
     (check-exn exn:algebraic:match? (λ () ((φ #hash([C . 3]) OK) #hash([A . 1]))))
     (check-OK ((φ #hash([A . 1]) OK) #hash([A . 1] [B . 2]))))
+
+  (newtype List list? list)
+
+  (test-case "newtype"
+    (check-OK ((φ List OK) (List 1 2 3)))
+    (check-OK ((φ List OK) (list 4 5 6)))
+    (check-exn exn:algebraic:match? (λ () ((φ List OK) 1)))
+    (check-exn exn:algebraic:match? (λ () ((φ List OK) (cons 1 2)))))
 
   (struct S (x y z))
 
