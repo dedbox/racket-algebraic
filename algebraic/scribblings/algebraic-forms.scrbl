@@ -7,7 +7,7 @@
 @require[
   @for-label[
     (except-in algebraic/racket/base
-               λ lambda case-lambda let let* letrec let-values let*-values
+               λ lambda case-λ case-lambda let let* letrec let-values let*-values
                letrec-values case define define-values
                #%module-begin)
     algebraic/racket/base/forms
